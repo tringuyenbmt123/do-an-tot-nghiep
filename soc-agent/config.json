@@ -1,0 +1,31 @@
+{
+  "server_url": "192.168.1.28:50051",
+  "protocol": "grpc",
+  "agent_id": "endpoint-win11-01",
+  "agent_secret_key": "soc-agent-secret-token-2026",
+  "heartbeat_interval_seconds": 5,
+  "metric_interval_seconds": 1,
+  "max_backoff_seconds": 30,
+  "buffer_size": 1000,
+  "log_paths": [
+    "test_logs/app.log"
+  ],
+  "fim_enabled": true,
+  "fim_paths": [
+    "C:\\Users\\Public\\SOC-Test"
+  ],
+  "metrics_enabled": true,
+  "log_tailer_enabled": true,
+  "process_monitor_enabled": false,
+  "process_poll_interval_seconds": 5,
+  "process_exclude_names": [
+    "System Idle Process",
+    "svchost.exe"
+  ],
+  "network_monitor_enabled": false,
+  "network_poll_interval_seconds": 10,
+  "mtls_enabled": false,
+  "ca_cert_path": "",
+  "client_cert_path": "",
+  "client_key_path": ""
+}

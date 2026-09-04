@@ -1,0 +1,148 @@
+// ==============================================================================
+// SOC/EDR All-in-One - Protocol Buffers Definition
+// File: proto/agent.proto
+// Mô tả: Định nghĩa gRPC Service cho giao tiếp Agent ↔ Server
+//
+// Service AgentService cung cấp 2 RPC:
+//   1. StreamEvents - Bidirectional streaming: Agent gửi Sysmon/Event Log,
+//      Server đẩy Active Response commands ngược lại.
+//   2. Heartbeat - Unary RPC: Agent báo cáo trạng thái sống định kỳ.
+// ==============================================================================
+
+syntax = "proto3";
+
+package agent;
+
+// Chỉ định đường dẫn output cho Go generated code
+option go_package = "soc-server/internal/generated/proto";
+
+// ==============================================================================
+// AgentService - Service chính cho giao tiếp Agent ↔ Server
+// ==============================================================================
+service AgentService {
+  // StreamEvents: Kênh truyền 2 chiều (Bidirectional Streaming)
+  // - Agent liên tục gửi Sysmon/Event Log lên Server (stream EventRequest)
+  // - Server có thể đẩy lệnh Active Response xuống Agent bất kỳ lúc nào
+  //   (stream CommandResponse) - ví dụ: KILL_PROCESS, BLOCK_IP
+  rpc StreamEvents(stream EventRequest) returns (stream CommandResponse);
+
+  // Heartbeat: Agent gửi tín hiệu "còn sống" định kỳ (mỗi 30 giây)
+  // Server cập nhật trạng thái online/offline trong Redis + PostgreSQL
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+// ==============================================================================
+// Messages cho StreamEvents RPC
+// ==============================================================================
+
+// EventRequest: Agent gửi lên Server mỗi khi có Sysmon/Event Log mới
+message EventRequest {
+  // ID duy nhất của Agent (UUID), dùng để tra cứu thông tin Agent trong DB
+  string agent_id = 1;
+
+  // Loại sự kiện: sysmon_process_create, sysmon_network_connect,
+  // sysmon_file_create, windows_security, windows_system...
+  string event_type = 2;
+
+  // Hostname của máy Endpoint mà Agent đang chạy
+  string hostname = 3;
+
+  // Địa chỉ IP của Endpoint
+  string ip_address = 4;
+
+  // Dữ liệu log thô dưới dạng JSON string (Sysmon XML đã convert sang JSON)
+  // Ví dụ: {"ProcessId": 1234, "Image": "powershell.exe", "CommandLine": "..."}
+  string raw_payload = 5;
+
+  // Timestamp của sự kiện (Unix epoch milliseconds)
+  int64 timestamp = 6;
+
+  // Thông tin bổ sung (key-value) - mở rộng linh hoạt
+  map<string, string> metadata = 7;
+}
+
+// CommandResponse: Server đẩy lệnh Active Response xuống Agent
+message CommandResponse {
+  // ID duy nhất của lệnh (UUID) - dùng để tracking & audit
+  string command_id = 1;
+
+  // Loại lệnh cần thực thi trên Endpoint
+  CommandType command_type = 2;
+
+  // Đối tượng mục tiêu của lệnh (ví dụ: PID, IP address, file path, URL)
+  string target = 3;
+
+  // Tham số bổ sung cho lệnh (key-value)
+  // Ví dụ: {"reason": "Malware detected", "alert_id": "xxx-yyy"}
+  map<string, string> parameters = 4;
+
+  // Timestamp khi Server tạo lệnh
+  int64 timestamp = 5;
+}
+
+// CommandType: Enum định nghĩa các loại Active Response command
+enum CommandType {
+  // Không có lệnh (giá trị mặc định)
+  COMMAND_NONE = 0;
+
+  // Kết thúc tiến trình theo PID hoặc tên process
+  KILL_PROCESS = 1;
+
+  // Chặn IP address bằng Windows Firewall rule
+  BLOCK_IP = 2;
+
+  // Chặn URL/Domain (thêm vào hosts file hoặc firewall)
+  BLOCK_URL = 3;
+
+  // Cách ly (quarantine) file nghi ngờ malware
+  QUARANTINE_FILE = 4;
+
+  // Thu thập thêm thông tin forensic từ Endpoint
+  COLLECT_FORENSIC = 5;
+
+  // Cô lập mạng Endpoint (chỉ giữ kết nối về SOC Server)
+  ISOLATE_NETWORK = 6;
+}
+
+// ==============================================================================
+// Messages cho Heartbeat RPC
+// ==============================================================================
+
+// HeartbeatRequest: Agent gửi định kỳ để báo cáo trạng thái
+message HeartbeatRequest {
+  // ID duy nhất của Agent (UUID)
+  string agent_id = 1;
+
+  // Hostname của Endpoint
+  string hostname = 2;
+
+  // Địa chỉ IP hiện tại
+  string ip_address = 3;
+
+  // Hệ điều hành (windows, linux, macos)
+  string os_type = 4;
+
+  // Phiên bản Agent đang chạy
+  string agent_version = 5;
+
+  // Mức sử dụng CPU hiện tại (%)
+  double cpu_usage = 6;
+
+  // Mức sử dụng RAM hiện tại (%)
+  double memory_usage = 7;
+
+  // Timestamp gửi heartbeat
+  int64 timestamp = 8;
+}
+
+// HeartbeatResponse: Server phản hồi heartbeat cho Agent
+message HeartbeatResponse {
+  // Trạng thái xác nhận: true = Server đã nhận, false = có lỗi
+  bool acknowledged = 1;
+
+  // Khoảng thời gian (giây) Agent nên gửi heartbeat tiếp theo
+  int32 heartbeat_interval_seconds = 2;
+
+  // Thông báo từ Server (nếu có) - ví dụ: "Update available"
+  string message = 3;
+}

@@ -1,0 +1,75 @@
+# ==============================================================================
+# Cấu hình Server SOC/EDR All-in-One
+# ==============================================================================
+
+server:
+  # Cổng cho REST API & WebSocket (Frontend kết nối vào đây)
+  rest_port: 8080
+  # Cổng cho gRPC Server (Agent kết nối vào đây qua mTLS)
+  grpc_port: 50051
+
+# ==============================================================================
+# Cấu hình MySQL - Lưu trữ dữ liệu chính (Alerts, Cases, IOCs, Rules...)
+# ==============================================================================
+database:
+  host: "localhost"
+  port: 3306
+  user: "root"
+  password: "1"
+  dbname: "soc_edr_db"
+  sslmode: "disable"
+  # Connection pool settings
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime_minutes: 30
+
+# ==============================================================================
+# Cấu hình Redis - Cache trạng thái Agent & Message Queue
+# ==============================================================================
+redis:
+  address: "localhost:6379"
+  password: ""
+  db: 0
+  # TTL mặc định cho trạng thái agent (giây)
+  agent_status_ttl_seconds: 60
+
+# ==============================================================================
+# Cấu hình mTLS - Chứng chỉ số cho gRPC Server
+# Agents phải có Client Certificate ký bởi cùng CA mới kết nối được
+# ==============================================================================
+mtls:
+  enabled: false
+  ca_cert_path: "configs/certs/ca.crt"
+  server_cert_path: "configs/certs/server.crt"
+  server_key_path: "configs/certs/server.key"
+
+# ==============================================================================
+# Cấu hình Detection Rules - Đường dẫn tới thư mục chứa file YAML rules
+# ==============================================================================
+rules:
+  # Đường dẫn thư mục chứa các file .yaml định nghĩa Detection Rules
+  yaml_dir: "configs/rules"
+  # Có tải rules từ database hay không (ngoài YAML files)
+  load_from_db: true
+
+# ==============================================================================
+# Cấu hình n8n SOAR Integration - Webhook 2 chiều
+# ==============================================================================
+soar:
+  # URL webhook của n8n để nhận Alert mới
+  n8n_webhook_url: "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook-test/soc-alert"
+  # Timeout khi gọi webhook (giây)
+  webhook_timeout_seconds: 10
+  # Số lần retry khi gọi webhook thất bại
+  max_retries: 3
+  # Bật/tắt tích hợp SOAR
+  enabled: true
+
+# ==============================================================================
+# Cấu hình Agent Heartbeat Monitor
+# ==============================================================================
+heartbeat:
+  # Khoảng thời gian kiểm tra Agent offline (giây)
+  check_interval_seconds: 30
+  # Thời gian không nhận heartbeat thì đánh dấu Agent offline (giây)
+  offline_threshold_seconds: 90

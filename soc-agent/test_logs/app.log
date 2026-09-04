@@ -1,0 +1,2 @@
+{"timestamp": "2026-08-28T23:30:00Z", "event": "agent_started", "status": "ok"}
+{"timestamp":"2026-08-28T23:31:15Z","event_type":"sysmon_process_create","Image":"powershell.exe","CommandLine":"powershell.exe -enc JABzACAAPQAgAE4AZQB3AC0ATwBiAGoAZQBjAHQA","severity":"critical"}

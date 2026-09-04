@@ -1,0 +1,2808 @@
+{
+  "name": "SOC SOAR Unified Platform v9 (DDoS + Phishing + Wazuh + TheHive + MISP + AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 🛡️ SOC SOAR UNIFIED PLATFORM v9\n**Hợp nhất:** Dashboard DDoS + Phishing + Wazuh SIEM (v8) ⨯ TheHive (Case Mgmt) ⨯ MISP (Threat Intel)\n\n**4 nguồn cảnh báo vào:**\n1. `ddos-alert` — Dashboard/ML DDoS detector\n2. `phishing-alert` — Dashboard/Engine Phishing detector\n3. `wazuh-critical-alert` — Wazuh alert dạng rút gọn (custom integration)\n4. `wazuh-alerts-v2` — Wazuh alert RAW đầy đủ (Sysmon/Windows EventData, Syscheck, VirusTotal...)\n\n**Pipeline:** Normalize → TheHive Create Alert → MISP Enrich → Quyết định (Rule-based hoặc AI Ollama Zero-Trust) → Wazuh Active Response (block/kill) → Telegram + TheHive Update Alert + SSH Audit Log",
+        "height": 460,
+        "width": 480,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        -784
+      ],
+      "id": "e2470a11-59e1-4f21-b74c-a6d90340c6b5",
+      "name": "Sticky - Overview1"
+    },
+    {
+      "parameters": {
+        "content": "## ⚙️ CẦN CẤU HÌNH TRƯỚC KHI CHẠY\n\n1. **Credential `TheHive account`** (theHiveApi) → URL + API key TheHive\n2. **Credential `MISP account`** (mispApi) → URL + API key MISP\n3. **Credential `wazuh`** (httpBasicAuth) → user/pass Wazuh API\n4. **Credential `Wazuh SSH`** (sshPassword) → SSH vào Wazuh Manager (ghi log audit)\n5. **Credential `Telegram account`** (telegramApi) → Bot token, đổi `chatId` cho đúng nhóm SOC\n6. Sửa URL trong `Wazuh_Get_Token`, `Wazuh_Get_Token1`, `Wazuh_Execute_Block`, `Wazuh_Execute_Kill` (đang để placeholder ngrok/IP)\n7. Sửa URL Ollama trong node `Ollama` (đang để `192.168.1.12:11434`)\n8. Active Response script trên Wazuh Manager cần khai báo: `firewall-drop600` và `kill-process600` trong `ossec.conf`\n9. ⚠️ Kiểm tra giá trị `status` hợp lệ cho Alert theo phiên bản TheHive bạn dùng (v4: New/Updated/Ignored/Imported — v5 có thể khác)",
+        "height": 460,
+        "width": 480,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        256,
+        -768
+      ],
+      "id": "1aebda6d-7f80-4597-b688-8e5b71a77ca4",
+      "name": "Sticky - Setup Checklist1"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ddos-alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -192,
+        720
+      ],
+      "id": "4d8eabdb-c63f-4452-b1e5-53395b646c5c",
+      "name": "DDoS Alert Webhook1",
+      "webhookId": "529d9d3c-4cb7-4804-9ba1-0230ae8ad25c"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "phishing-alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -192,
+        512
+      ],
+      "id": "5f39e738-e845-41de-98e1-6d6d5798e030",
+      "name": "Phishing Alert Webhook1",
+      "webhookId": "8232d585-87bf-4c13-aa62-2bd019605ac6"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazuh-critical-alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -192,
+        912
+      ],
+      "id": "665b99bc-52f1-4ed8-b1f2-0ed4a9726a51",
+      "name": "Wazuh Critical Alert Webhook1",
+      "webhookId": "64af756a-3fc2-48fe-b250-6afc590d9ddd"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazuh-alerts-v2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -192,
+        1104
+      ],
+      "id": "bd1f56ad-785e-48f8-b8df-4cb45e2ff4dd",
+      "name": "Wazuh Raw EDR Webhook1",
+      "webhookId": "17b9b7e5-9456-4933-b147-01787fd0e7da",
+      "notes": "Nhận payload Wazuh RAW đầy đủ (Sysmon/Windows EventData, Syscheck, VirusTotal, MITRE) — dùng cho phân tích AI sâu (EDR-style)."
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 4,
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        96,
+        784
+      ],
+      "id": "fc30b3e2-0182-4ccb-a427-8937f14f23fa",
+      "name": "Merge Webhooks1"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst body = $json.body || $json;\n\nfunction pick(...vals){\n  for (const v of vals){ if (v !== undefined && v !== null && v !== '') return v; }\n  return null;\n}\n\n// Một số nguồn Wazuh bọc dữ liệu gốc trong \"all_fields\"\nconst af = body.all_fields || body;\n\nconst rule  = af.rule  || {};\nconst agent = af.agent || {};\nconst data  = af.data  || {};\nconst syscheck = af.syscheck || data.syscheck || {};\nconst vt = data.virustotal || af.virustotal || {};\nconst win = data.win?.eventdata || {};\nconst sysmon = data.sysmon?.eventdata || {};\n\n// ---- event_type ----\nlet event_type = body.event_type\n  ?? (rule.id !== undefined || rule.level !== undefined ? 'wazuh_alert' : null)\n  ?? 'unknown';\n\n// ---- severity (text + numeric cho TheHive 1-4) ----\nconst ruleLevel = rule.level;\nlet severity = body.severity ?? body.risk_level\n  ?? (ruleLevel >= 12 ? 'critical' : ruleLevel >= 10 ? 'high' : ruleLevel >= 7 ? 'medium' : ruleLevel !== undefined ? 'low' : 'medium');\n\nlet severity_num = ruleLevel !== undefined\n  ? (ruleLevel >= 14 ? 4 : ruleLevel >= 10 ? 3 : ruleLevel >= 6 ? 2 : 1)\n  : (severity === 'critical' ? 4 : severity === 'high' ? 3 : severity === 'low' ? 1 : 2);\n\n// ---- src_ip: thử mọi nguồn khả dĩ (dashboard, wazuh rút gọn, wazuh raw EDR) ----\nconst src_ip = pick(\n  body.src_ip, body.target,\n  data.srcip, win.ipAddress, win.sourceIp, sysmon.sourceIp,\n  agent.ip, 'N/A'\n);\n\n// ---- process / endpoint info (chỉ có ở Wazuh raw EDR) ----\nconst process_id = pick(win.processId, sysmon.processId, data.process?.pid, body.process_id, null);\nconst command_line = pick(win.commandLine, sysmon.commandLine, data.object?.process?.cmdline, null);\nconst file_hash = pick(syscheck.sha256_after, syscheck.sha256, vt.source?.sha256, vt.sha256, null);\n\n// ---- MITRE ATT&CK ----\nconst mitre = rule.mitre || {};\nconst mitre_tactic = Array.isArray(mitre.tactic) ? mitre.tactic.join(', ') : (mitre.tactic || 'N/A');\nconst mitre_id = Array.isArray(mitre.id) ? mitre.id.join(', ') : (mitre.id || 'N/A');\n\nconst description = pick(body.attack_type, body.detection_type, body.verdict, rule.description, body.title, 'N/A');\nconst timestamp = body.timestamp ?? $now.toISO();\nconst reported_by = body.reported_by ?? 'system';\nconst wazuh_host = body.infrastructure?.wazuh_host ?? 'wazuh-server';\nconst agent_id = pick(agent.id, body.agent_id, '001');\nconst agent_name = agent.name ?? 'N/A';\nconst rule_groups = Array.isArray(rule.groups) ? rule.groups : [];\nconst confidence = body.confidence ?? 'N/A';\n\n// ---- Markdown: PARSED EVENT FIELDS (flatten đệ quy, lọc field rác) ----\nfunction flattenToMd(obj) {\n  const blacklist = ['providerName','providerGuid','version','task','opcode','keywords',\n    'eventRecordID','threadID','channel','severityValue','message','level','eventID','systemTime','computer'];\n  let result = ''; let count = 0; const MAX = 40;\n  function sanitize(v){ return String(v).replace(/`/g, \"'\").replace(/\\n/g, ' ').replace(/\\r/g, ' '); }\n  function walk(o){\n    for (const k in o){\n      if (count >= MAX) return;\n      if (blacklist.includes(k)) continue;\n      const v = o[k];\n      if (typeof v === 'object' && v !== null && !Array.isArray(v)) { walk(v); }\n      else if (v !== '' && v !== null && v !== undefined) {\n        result += '* **' + k + ':** `' + sanitize(v) + '`\\n';\n        count++;\n      }\n    }\n  }\n  walk(obj || {});\n  return result || '*(Không có dữ liệu chi tiết)*';\n}\n\nconst eventDataForFlatten = (data && Object.keys(data).length) ? data\n  : (syscheck && Object.keys(syscheck).length) ? syscheck\n  : (af.parameters || {});\nconst parsed_fields_md = flattenToMd(eventDataForFlatten);\nconst raw_json_md = JSON.stringify((af && Object.keys(af).length) ? af : body, null, 2);\n\nreturn [{ json: {\n  event_type, severity, severity_num, src_ip, confidence, description, timestamp,\n  reported_by, wazuh_host, agent_id, agent_name, process_id, command_line, file_hash,\n  rule_id: rule.id ?? 'N/A', rule_level: ruleLevel ?? 'N/A', rule_groups, mitre_tactic, mitre_id,\n  parsed_fields_md, raw_json_md, _raw_body: JSON.stringify(body)\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        816
+      ],
+      "id": "1b7be8c3-9d51-4208-bd6e-7bd2dd08705e",
+      "name": "Normalize Payload1",
+      "notes": "Chuẩn hóa payload từ 4 nguồn khác nhau (DDoS/Phishing dashboard, Wazuh rút gọn, Wazuh RAW EDR) về 1 schema chung. Trích sâu Sysmon/Windows EventData, hash, command line, MITRE ATT&CK khi có."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "ddos_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ddos-rule-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DDoS Detected"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "phishing_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "phish-rule-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Phishing Detected"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "ip_unblocked",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "unblock-rule-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "IP Unblocked"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        928,
+        784
+      ],
+      "id": "7ab4b7bd-778a-4276-a2d3-6d449c43a78a",
+      "name": "Route by Event Type1"
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=✅ IP UNBLOCKED\n🟢 IP: {{ $json.src_ip }}\n🕐 Time: {{ $json.timestamp }}\nℹ️ Firewall rule đã được gỡ bỏ tự động sau thời gian timeout",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1936,
+        1168
+      ],
+      "id": "b92626aa-fca5-4ca5-b7bf-36db99a619bf",
+      "name": "Send Unblock Notification1",
+      "webhookId": "4409ac52-ead2-4494-9311-90597f3327f3",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo '{{ $json.timestamp }} event_type=ip_unblocked src_ip={{ $json.src_ip }} action=unblocked' >> /var/log/n8n-security-events.log"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        1168
+      ],
+      "id": "37196c3a-a3b6-45f1-b4b5-c65e82327072",
+      "name": "Log Unblock Event to Wazuh1",
+      "credentials": {
+        "sshPassword": {
+          "id": "wyYaeLHQIlc8FiGy",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.8:9000/api/v1/alert",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'external',\n  source: $json.reported_by,\n  sourceRef: $json.event_type + '-' + Date.now(),\n\n  title:\n    '[' + $json.event_type.toUpperCase() + '] ' +\n    $json.description +\n    ($json.rule_level !== 'N/A'\n      ? ' (Wazuh L' + $json.rule_level + ')'\n      : ''),\n\n  description:\n    '# SOC ALERT — ' + $json.event_type +\n\n    '\\n\\n## 1. THÔNG TIN CHUNG' +\n    '\\n* **Nguồn báo cáo:** ' + $json.reported_by + ' (' + $json.wazuh_host + ')' +\n    '\\n* **Mức độ:** ' + $json.severity + ' (Wazuh Rule Level: ' + $json.rule_level + ')' +\n    '\\n* **Mô tả:** ' + $json.description +\n    '\\n* **Thời gian:** ' + $json.timestamp +\n\n    '\\n\\n## 2. ENDPOINT / NETWORK' +\n    '\\n* **Source IP:** ' + $json.src_ip +\n    '\\n* **Agent:** ' + $json.agent_name + ' (' + $json.agent_id + ')' +\n    '\\n* **MITRE ATT&CK:** ' + $json.mitre_tactic + ' — ' + $json.mitre_id +\n    '\\n* **Rule ID:** ' + $json.rule_id +\n\n    '\\n\\n## 3. VIRUSTOTAL' +\n\n    (\n      $json.vt_summary_md\n      ? '\\n' + $json.vt_summary_md\n      : '\\n* Không có dữ liệu VirusTotal.'\n    ) +\n\n    '\\n\\n* **Detection:** ' +\n     ($json.vt_detection || 'N/A') +\n\n    '\\n* **Malicious:** ' + ($json.vt_malicious_count ?? 0) +\n    '\\n* **Suspicious:** ' + ($json.vt_suspicious_count ?? 0) +\n    '\\n* **Harmless:** ' + ($json.vt_harmless_count ?? 0) +\n    '\\n* **Undetected:** ' + ($json.vt_undetected_count ?? 0) +\n    '\\n* **Tags:** ' + ($json.vt_tags || 'None') +\n\n    '\\n\\n## 4. PARSED EVENT FIELDS\\n' +\n    $json.parsed_fields_md,\n\n  severity: $json.severity_num,\n\n  tags: [$json.event_type].concat($json.rule_groups || []),\n\n  tlp: 2,\n\n  status: 'New',\n\n  date: Date.parse($json.timestamp) || Date.now()\n\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1216,
+        784
+      ],
+      "id": "4eb8ae17-43d4-4507-8776-318973e7dc1a",
+      "name": "Create Alert1",
+      "notes": "Tạo Alert trong TheHive 5 qua HTTP API v1 trực tiếp (thay theHive node không tương thích)"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "value": "={{ $('Normalize Payload1').item.json.src_ip }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.misp",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        784
+      ],
+      "id": "d6f41f9b-9f25-4733-a1e5-11eeb3ce2120",
+      "name": "Get a filtered list of attributes1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      },
+      "notes": "Tra cứu IOC (IP nguồn) trong MISP để bổ sung threat intelligence trước khi ra quyết định."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Normalize Payload1').item.json.event_type }}",
+                    "rightValue": "ddos_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "strat-ddos-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rule-based Block"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Normalize Payload1').item.json.event_type }}",
+                    "rightValue": "phishing_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "strat-phish-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rule-based Log Only"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1776,
+        768
+      ],
+      "id": "8dfabf6a-ed5a-421b-b3ea-fc3499f76a50",
+      "name": "Route to Action Strategy1"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? $('Create Alert1').item.json.id ?? null;\nreturn [{ json: {\n  action: 'block_ip',\n  reason: 'DDoS được mô hình ML/Wazuh rule xác nhận với độ tin cậy cao - phản ứng tức thời, không cần AI tái phân tích.',\n  ai_used: false, ai_verdict: null, ai_confidence: norm.confidence,\n  src_ip: norm.src_ip, agent_id: norm.agent_id, process_id: norm.process_id,\n  alert_id: alertId, timestamp: norm.timestamp, description: norm.description, severity: norm.severity\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        592
+      ],
+      "id": "0b26c9d4-d4bc-46bb-9d02-0f179f448542",
+      "name": "Set Action - Block (Rule-based)1"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? $('Create Alert1').item.json.id ?? null;\nreturn [{ json: {\n  action: 'log_only',\n  reason: 'Phishing được ghi nhận theo chính sách hiện tại (không tự động chặn, chờ chuyên gia SOC xác minh).',\n  ai_used: false, ai_verdict: null, ai_confidence: norm.confidence,\n  src_ip: norm.src_ip, agent_id: norm.agent_id, process_id: norm.process_id,\n  alert_id: alertId, timestamp: norm.timestamp, description: norm.description, severity: norm.severity\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        768
+      ],
+      "id": "d81fbeb5-6741-4ac8-b57f-0aaffcbb29f2",
+      "name": "Set Action - Log Only (Rule-based)1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? $('Create Alert1').item.json.id ?? null;\n// Thu thập toàn bộ kết quả MISP - tương thích nhiều dạng output khác nhau của node MISP\nconst items = $input.all().map(i => i.json);\nlet mispAttrs = [];\nif (items.length === 1 && (items[0].Attribute || items[0].response?.Attribute)) {\n  mispAttrs = items[0].Attribute ?? items[0].response?.Attribute ?? [];\n} else {\n  mispAttrs = items.filter(it => it && Object.keys(it).length > 0);\n}\nconst prompt =\n  \"Bạn là chuyên gia phân tích an toàn thông tin Tier 1/2 (SOC Analyst).\\n\" +\n  \"Dựa trên cảnh báo đã chuẩn hóa và threat intelligence từ MISP dưới đây, hãy:\\n\" +\n  \"1) Phân loại True Positive hay False Positive.\\n\" +\n  \"2) Nếu True Positive, đề xuất đúng MỘT hành động theo nguyên tắc Zero-Trust:\\n\" +\n  \"   - \\\"block_ip\\\": tấn công mạng rõ ràng được xác nhận qua network/threat intel (DDoS, Brute-force, Botnet, Scanner).\\n\" +\n  \"   - \\\"kill_process\\\": phát hiện mã độc/tiến trình độc hại đang thực thi trên endpoint (Malware, LOLBins, Ransomware).\\n\" +\n  \"   - \\\"none\\\": lưu lượng/tiến trình hợp lệ hoặc nghi ngờ dương tính giả.\\n\" +\n  \"Chỉ trả lời bằng JSON thuần (không markdown, không giải thích thêm).\\n\" +\n  \"QUAN TRỌNG: giữ nguyên các key (verdict, action, reason, confidence) và các giá trị enum (true_positive/false_positive, block_ip/kill_process/none) bằng tiếng Anh như mẫu bên dưới, NHƯNG riêng nội dung field \\\"reason\\\" BẮT BUỘC phải viết bằng tiếng Việt, không được viết bằng tiếng Anh:\\n\" +\n  \"{\\\"verdict\\\": \\\"true_positive|false_positive\\\", \\\"action\\\": \\\"block_ip|kill_process|none\\\", \\\"reason\\\": \\\"(viết lý do bằng tiếng Việt tại đây)\\\", \\\"confidence\\\": 0.0}\\n\\n\" +\n  \"SỰ KIỆN (đã chuẩn hóa): \" + JSON.stringify(norm) + \"\\n\" +\n  \"MISP ATTRIBUTES: \" + JSON.stringify(mispAttrs);\nreturn [{ json: {\n  prompt, alert_id: alertId, src_ip: norm.src_ip, agent_id: norm.agent_id, agent_name: norm.agent_name,\n  process_id: norm.process_id, command_line: norm.command_line, file_hash: norm.file_hash,\n  description: norm.description, severity: norm.severity, timestamp: norm.timestamp,\n  parsed_fields_md: norm.parsed_fields_md, raw_json_md: norm.raw_json_md\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        960
+      ],
+      "id": "8d61a2c2-0684-4581-a491-50b67ff14aa2",
+      "name": "Data_Parser_&_AI_Prep1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"model\": \"gemma3:4b\", \"prompt\": $json.prompt, \"stream\": false, \"format\": \"json\", \"options\": { \"temperature\": 0.0, \"num_ctx\": 4096 } } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2608,
+        864
+      ],
+      "id": "4b437cb1-a49e-4c54-a081-48d6e588e06c",
+      "name": "Ollama1",
+      "notes": "Gọi LLM Qwen cục bộ qua Ollama (AI Server 192.168.1.12) để phân tích cảnh báo Wazuh + MISP và đề xuất hành động Zero-Trust."
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst prep = $('Data_Parser_&_AI_Prep1').item.json;\n\n// --- Bắt lỗi kết nối Ollama ---\nconst errorData = $json.error;\nif (errorData) {\n  let reason = errorData.message || 'Không xác định';\n  if (errorData.code === 'ECONNREFUSED') reason = 'Ollama chưa bật hoặc sai port.';\n  if (errorData.code === 'ETIMEDOUT') reason = 'Ollama quá tải, không trả lời kịp.';\n  if (errorData.code === 'ENOTFOUND') reason = 'Không tìm thấy địa chỉ IP của Ollama.';\n  return [{ json: {\n    action: 'log_only', reason: '⚠️ Lỗi kết nối AI: ' + reason,\n    ai_used: true, ai_verdict: 'unknown', ai_confidence: 0,\n    src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n    alert_id: prep.alert_id, timestamp: prep.timestamp, description: prep.description, severity: prep.severity\n  } }];\n}\n\nlet rawOutput = ($json.response ?? '').toString();\nrawOutput = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();\n\nlet parsed;\nif (!rawOutput) {\n  parsed = { verdict: 'false_positive', action: 'none', reason: 'Ollama không trả về dữ liệu.', confidence: 0 };\n} else {\n  try { parsed = JSON.parse(rawOutput); }\n  catch (e) { parsed = { verdict: 'false_positive', action: 'none', reason: 'AI trả lời sai định dạng JSON: ' + e.message, confidence: 0 }; }\n}\n\nconst action = (parsed.action ?? 'none') === 'none' ? 'log_only' : parsed.action;\n\nreturn [{ json: {\n  action, reason: parsed.reason ?? 'N/A',\n  ai_used: true, ai_verdict: parsed.verdict ?? 'false_positive', ai_confidence: parsed.confidence ?? 0,\n  src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n  alert_id: prep.alert_id, timestamp: prep.timestamp, description: prep.description, severity: prep.severity\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        864
+      ],
+      "id": "170cbbe4-a4b0-4913-a42f-cc496b9ce2e1",
+      "name": "Parse_AI_Result1"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        2624,
+        608
+      ],
+      "id": "655a1a24-b882-43db-b145-d5d8ab4df990",
+      "name": "Merge Decision Paths1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "block_ip",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "act-block-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Block IP"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "kill_process",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "act-kill-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Kill Process"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "fce360e9-c8ae-4b6e-bffb-eab3eb0bbaa6",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "block_url",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Block URL"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2896,
+        608
+      ],
+      "id": "3b214303-2c61-4b0a-b918-d3e04202e784",
+      "name": "Action Switch1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://192.168.221.220:55000/security/user/authenticate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3232,
+        352
+      ],
+      "id": "fba15f25-7557-47e3-b6ab-6bde625c7983",
+      "name": "Wazuh_Get_Token2",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "an4MPuCUQpZJdyB6",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://192.168.221.220:55000/active-response?agents_list={{ $('Action Switch1').item.json.agent_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Wazuh_Get_Token2').item.json.data.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"command\": \"firewall-drop600\",\n  \"arguments\": [\"-\", $('Action Switch1').item.json.src_ip, \"-\"],\n  \"alert\": { \"data\": { \"srcip\": $('Action Switch1').item.json.src_ip } }\n} }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3472,
+        352
+      ],
+      "id": "5d592b04-0ae6-49d2-a0ec-437aaaa9732c",
+      "name": "Wazuh_Execute_Block1"
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=🔴 IP BLOCKED: {{ $('Action Switch1').item.json.src_ip }}\n🧭 Nguồn quyết định: {{ $('Action Switch1').item.json.ai_used ? '🤖 AI (Ollama)' : '📐 Rule-based (ML/Wazuh)' }}\n📋 Lý do: {{ $('Action Switch1').item.json.reason }}\n📊 Độ tin cậy: {{ $('Action Switch1').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch1').item.json.timestamp }}\n\n🛡 VirusTotal:\n- Risk Level: {{ $('Extract VT Summary').item.json.vt_risk_level || 'N/A' }}\n- Detection: {{ $('Extract VT Summary').item.json.vt_detection || 'N/A' }}\n- Malicious: {{ $('Extract VT Summary').item.json.vt_malicious_count ?? 0 }} | Suspicious: {{ $('Extract VT Summary').item.json.vt_suspicious_count ?? 0 }}\n- Reputation: {{ $('Extract VT Summary').item.json.vt_reputation ?? 'N/A' }} | Country: {{ $('Extract VT Summary').item.json.vt_country || 'N/A' }}\n- ASN Owner: {{ $('Extract VT Summary').item.json.vt_as_owner || 'N/A' }}\n- Tags: {{ $('Extract VT Summary').item.json.vt_tags || 'None' }}\n\n✅ Wazuh Active Response: firewall-drop600",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3760,
+        352
+      ],
+      "id": "16e5aa96-816f-4cb3-9562-481be7fc8ab9",
+      "name": "Telegram_Send_Block_Alert1",
+      "webhookId": "c8f0c01f-2149-42c2-b69f-0178aa7f57bd",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://192.168.1.9:9000/api/v1/alert/{{ $('Create Alert1').item.json._id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 7NDMX2xxpQqSNy0p23HK+flnN402fZ0x"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \n  status: 'InProgress', \n  tags: [($('Route by Event Type1').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'auto-blocked', 'soar'], \n  description: '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ CHẶN IP\\n\\n* **Hành động hệ thống:** Đã thực thi firewall-drop600 chặn IP ' + $('Route by Event Type1').item.json.src_ip + ' qua Wazuh Active Response.\\n* **Nguồn quyết định:** ' + ($('Route by Event Type1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based (ML/Wazuh)') + '\\n* **Lý do:** ' + $('Route by Event Type1').item.json.description + '\\n* **Thời gian xử lý:** ' + $('Route by Event Type1').item.json.timestamp \n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4032,
+        352
+      ],
+      "id": "ac25a712-1b25-4544-b52e-76b25b5deed6",
+      "name": "Update Alert - Block1",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Cập nhật Alert TheHive 5 sau khi block IP"
+    },
+    {
+      "parameters": {
+        "command": "=echo 'event_type=block src_ip={{ $('Route by Event Type1').item.json.src_ip }} source={{ $('Route by Event Type1').item.json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $('Route by Event Type1').item.json.confidence }} action=blocked reason=\"{{ $('Route by Event Type1').item.json.description }}\"' | tee -a /home/tri/n8n-security-events.log"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        4320,
+        352
+      ],
+      "id": "d3ebc541-d64d-4870-882f-aa1109e61bd4",
+      "name": "Log Block Event to Wazuh1",
+      "credentials": {
+        "sshPassword": {
+          "id": "wyYaeLHQIlc8FiGy",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://192.168.221.220:55000/security/user/authenticate?raw=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3232,
+        656
+      ],
+      "id": "9904804e-2979-4132-bbc2-41a14ba654f2",
+      "name": "Wazuh_Get_Token3",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "an4MPuCUQpZJdyB6",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://192.168.221.220:55000/active-response?agents_list={{ $('Action Switch1').item.json.agent_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Wazuh_Get_Token3').item.json.data }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"command\": \"kill-process600\",\n  \"arguments\": [\"-\", ($json.process_id ?? 'unknown').toString(), \"-\"],\n  \"alert\": { \"data\": { \"process\": { \"pid\": $json.process_id } } }\n} }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3472,
+        656
+      ],
+      "id": "ffa2851c-470a-40e5-acc0-287be3275b34",
+      "name": "Wazuh_Execute_Kill1",
+      "notes": "Yêu cầu script Active Response tùy biến 'kill-process600' đã khai báo trong ossec.conf trên Wazuh Manager."
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=💀 PROCESS KILLED: PID {{ $('Action Switch1').item.json.process_id }} (Agent {{ $('Action Switch1').item.json.agent_id }})\n🧭 Nguồn quyết định: {{ $('Action Switch1').item.json.ai_used ? '🤖 AI (Ollama)' : '📐 Rule-based' }}\n📋 Lý do: {{ $('Action Switch1').item.json.reason }}\n📊 Độ tin cậy: {{ $('Action Switch1').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch1').item.json.timestamp }}\n\n\n🛡 VirusTotal:\n- Risk Level: {{ $('Extract VT Summary').item.json.vt_risk_level || 'N/A' }}\n- Detection: {{ $('Extract VT Summary').item.json.vt_detection || 'N/A' }}\n- Malicious: {{ $('Extract VT Summary').item.json.vt_malicious_count ?? 0 }} | Suspicious: {{ $('Extract VT Summary').item.json.vt_suspicious_count ?? 0 }}\n- SHA256: {{ $('Extract VT Summary').item.json.vt_sha256 || 'N/A' }}\n✅ Wazuh Active Response: kill-process600",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3760,
+        656
+      ],
+      "id": "1229ae4d-a8e7-4fb8-a550-a7bfe3cfe4f8",
+      "name": "Telegram_Send_Execute_Kill1",
+      "webhookId": "5c2aa31d-193f-4ba6-bcb3-9ad978216cd7",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{\n'http://192.168.1.3:9000/api/v1/alert/' +\n$('Create Alert1').item.json._id\n}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  status: 'InProgress',\n  tags: [($('Action Switch1').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'auto-killed-process', 'soar'],\n  description: '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ KILL PROCESS\\n\\n* **Hành động hệ thống:** Đã thực thi kill-process600 chấm dứt tiến trình PID ' + $('Action Switch1').item.json.process_id + ' trên Agent ' + $('Action Switch1').item.json.agent_id + '.\\n* **Nguồn quyết định:** ' + ($('Action Switch1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based') + '\\n* **Lý do:** ' + $('Action Switch1').item.json.reason + '\\n* **Độ tin cậy:** ' + $('Action Switch1').item.json.ai_confidence + '\\n* **Thời gian xử lý:** ' + $('Action Switch1').item.json.timestamp\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4032,
+        656
+      ],
+      "id": "34b4a1cf-c865-4237-8641-328b6cd6d31b",
+      "name": "Update Alert - Kill1",
+      "disabled": true,
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Cập nhật Alert TheHive 5 sau khi kill process"
+    },
+    {
+      "parameters": {
+        "command": "=echo 'event_type=kill_process agent_id={{ $('Action Switch1').item.json.agent_id }} process_id={{ $('Action Switch1').item.json.process_id }} source={{ $('Action Switch1').item.json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $('Action Switch1').item.json.ai_confidence }} action=killed reason=\"{{ $('Action Switch1').item.json.reason }}\"' | tee -a /home/tri/n8n-security-events.log"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        4256,
+        656
+      ],
+      "id": "911c5857-c217-4bc9-bfb7-af5c20b04e3e",
+      "name": "Log Kill Event to Wazuh1",
+      "credentials": {
+        "sshPassword": {
+          "id": "wyYaeLHQIlc8FiGy",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=📋 LOGGED — KHÔNG TỰ ĐỘNG HÀNH ĐỘNG\n🔗 IP/Target: {{ $json.src_ip }}\n📝 Mô tả: {{ $json.description }}\n📋 Lý do: {{ $json.reason }}\n📊 Độ tin cậy: {{ $json.ai_confidence }}\n🕐 Time: {{ $json.timestamp }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3232,
+        832
+      ],
+      "id": "4dbaf6db-85bd-496d-8518-06d128bd491d",
+      "name": "Send Log-Only Alert1",
+      "webhookId": "86ca562d-4ff6-4d18-9a75-19c0c097143b",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://192.168.1.8:9000/api/v1/alert",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $('Restore Alert Data - Rejected').item.json.domain + '-' + Date.now(),\n  title: 'URL phishing bị từ chối chặn (Log Only): ' + $('Restore Alert Data - Rejected').item.json.domain,\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — CHỈ GHI NHẬN (LOG ONLY)\\n\\n' +\n    '* **Domain:** ' + $('Restore Alert Data - Rejected').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Alert Data - Rejected').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Alert Data - Rejected').item.json.employee_ip + '\\n' +\n    '* **Độ tin cậy:** ' + $('Restore Alert Data - Rejected').item.json.ai_confidence + '\\n' +\n    '* **Lý do:** ' + $('Restore Alert Data - Rejected').item.json.reason + '\\n' +\n    '* **Thời gian:** ' + $('Restore Alert Data - Rejected').item.json.timestamp + '\\n\\n' +\n    '⚠️ Cảnh báo này đã bị từ chối chặn (Decline) — cần chuyên gia SOC xác minh thủ công.',\n  severity: 2,\n  tlp: 2,\n  tags: [($('Restore Alert Data - Rejected').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'log-only', 'pending-soc-review'],\n  status: 'New'\n}) }}",
+        "options": {
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3472,
+        832
+      ],
+      "id": "a40c9bdf-d60a-4181-b2f7-229395be6db4",
+      "name": "Update Alert - Log Only1",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Cập nhật Alert TheHive 5 khi chỉ ghi log, chờ SOC xác minh"
+    },
+    {
+      "parameters": {
+        "command": "=echo '{{ $json.timestamp }} event_type=log_only src_ip={{ $json.src_ip }} source={{ $json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $json.ai_confidence }} action=logged_only reason=\"{{ $json.reason }}\"' >> /var/log/n8n-security-events.log"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        3760,
+        832
+      ],
+      "id": "1897dff4-5288-4a6a-98af-8dc39d6d4053",
+      "name": "Log LogOnly Event to Wazuh1",
+      "credentials": {
+        "sshPassword": {
+          "id": "wyYaeLHQIlc8FiGy",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://host.docker.internal/events/add",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mispApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4768,
+        352
+      ],
+      "id": "4a5be49e-2fd9-423b-92c0-0edf61256c47",
+      "name": "Push IOC to MISP - Block IP",
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      },
+      "notes": "Tạo Event mới trong MISP (Attribute ip-src) khi SOAR xác nhận chặn IP — giúp Event/Attribute xuất hiện trên Dashboard MISP và có dữ liệu thật cho lần search IOC kế tiếp."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://host.docker.internal/events/add",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mispApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4688,
+        624
+      ],
+      "id": "30d17c22-59a0-4cf2-b0ed-b4bea3581851",
+      "name": "Push IOC to MISP - Kill Process",
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      },
+      "notes": "Tạo Event mới trong MISP (Attribute sha256 nếu có + mô tả process) khi SOAR xác nhận kill process — giúp Event xuất hiện trên Dashboard MISP."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "ddos_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DDoS Alert"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        656,
+        784
+      ],
+      "id": "9774c219-f7ee-42b0-9e72-1eff2199d45f",
+      "name": "Check if DDoS Alert"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://host.docker.internal/events/restSearch",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mispApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ returnFormat: 'json', limit: 1, type: 'ip-src', value: $json.src_ip, tag: $json.event_type, timestamp: '24h' }) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        928,
+        464
+      ],
+      "id": "cd5e5c36-84e4-4e12-90d4-e2ede5691e57",
+      "name": "Search MISP Event",
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const searchResult = $json;\n// const norm = $('Normalize Payload1').item.json;\nconst norm = $('Extract VT Summary').item.json;\nlet events = [];\nif (Array.isArray(searchResult)) {\n  events = searchResult;\n} else if (searchResult && Array.isArray(searchResult.response)) {\n  events = searchResult.response;\n} else if (searchResult && searchResult.Event) {\n  events = [searchResult];\n}\n\nlet exists = false;\nlet eventId = null;\nlet eventUuid = null;\n\nif (events.length > 0) {\n  const firstEvent = events[0].Event || events[0];\n  if (firstEvent && firstEvent.id) {\n    exists = true;\n    eventId = String(firstEvent.id);\n    eventUuid = firstEvent.uuid || null;\n  }\n}\n\nreturn [{ json: {\n  ...norm,\n  misp_exists: exists,\n  misp_event_id: eventId,\n  misp_event_uuid: eventUuid\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        464
+      ],
+      "id": "a3b165f4-aefa-4a0f-813a-c72d949982a9",
+      "name": "Check MISP Search Result"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.misp_exists ? ('https://host.docker.internal/events/edit/' + $json.misp_event_id) : 'https://host.docker.internal/events/add' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mispApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.misp_exists ? { Event: { timestamp: Math.floor(Date.now() / 1000), Attribute: [{   type: 'comment',   category: 'Other',   value: '[Re-detected] ' + new Date().toISOString().slice(0,19).replace('T',' ') + ' UTC | ' + ($json.description || 'N/A') + ' | src_ip: ' + $json.src_ip,   to_ids: false,   comment: 'Auto-added by SOC SOAR n8n on repeated DDoS detection' }]} } : { Event: { info: '[SOAR] Auto-block IP - ' + $json.src_ip + ' (' + ($json.description || 'N/A') + ')', threat_level_id: 1, analysis: 0, distribution: 0, Attribute: [{ type: 'ip-src', category: 'Network activity', value: $json.src_ip, to_ids: true, comment: 'Auto-pushed by SOC SOAR n8n' }], Tag: [{ name: 'ddos_detected' }, { name: 'misp-synced' }, { name: 'threat-intelligence' }]} }) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1488,
+        464
+      ],
+      "id": "95cfc571-e936-424e-a5df-3e4381281cfc",
+      "name": "Sync MISP Event",
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const syncResponse = $json;\nconst checkResult = $('Check MISP Search Result').item.json;\n// const norm = $('Normalize Payload1').item.json;\nconst norm = $('Extract VT Summary').item.json;\n\n// When event exists, misp_event_id comes from checkResult (search)\n// When event created, it comes from the sync response\nlet misp_event_id = checkResult.misp_event_id || '';\nlet misp_event_uuid = checkResult.misp_event_uuid || '';\n\nif (!misp_event_id) {\n  const ev = syncResponse.Event || syncResponse;\n  misp_event_id = ev.id ? String(ev.id) : '';\n  misp_event_uuid = ev.uuid || '';\n}\n\nconst action = checkResult.misp_exists ? 'updated' : 'created';\n\nreturn [{ json: {\n  ...norm,\n  misp_sync: true,\n  misp_event_id,\n  misp_event_uuid,\n  src_ip: norm.src_ip,\n  event_type: norm.event_type,\n  action\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        464
+      ],
+      "id": "8b5a4598-6fdb-485f-9d10-7834fd399d75",
+      "name": "Unify MISP Output"
+    },
+    {
+      "parameters": {
+        "analyzer": "53e30ac764515b9cb57afdf61683fecd::VirusTotal_GetReport_3_1",
+        "observableType": "={{ $json.file_hash ? 'hash' : 'ip' }}",
+        "observableValue": "={{ $json.file_hash ? $json.file_hash : $json.src_ip }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.cortex",
+      "typeVersion": 1,
+      "position": [
+        352,
+        1008
+      ],
+      "id": "3e80c543-ba4d-43e2-a94b-41845ed61e72",
+      "name": "Execute an analyzer",
+      "credentials": {
+        "cortexApi": {
+          "id": "iYvpouee9iIlUKSg",
+          "name": "Cortex account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "job",
+        "operation": "report",
+        "jobId": "={{ $('Execute an analyzer').item.json.id }}"
+      },
+      "type": "n8n-nodes-base.cortex",
+      "typeVersion": 1,
+      "position": [
+        352,
+        1216
+      ],
+      "id": "9377e8bc-8cda-4b87-bfbe-60c515e2d711",
+      "name": "Get a job report",
+      "credentials": {
+        "cortexApi": {
+          "id": "iYvpouee9iIlUKSg",
+          "name": "Cortex account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const report = $json.report || {};\n\nconst attributes = report.full?.attributes || {};\nconst taxonomies = report.summary?.taxonomies || [];\nconst stats = attributes.last_analysis_stats || {};\nconst tags = attributes.tags || [];\n\n// =======================\n// VirusTotal Statistics\n// =======================\n\nconst malicious = Number(stats.malicious || 0);\nconst suspicious = Number(stats.suspicious || 0);\nconst harmless = Number(stats.harmless || 0);\nconst undetected = Number(stats.undetected || 0);\nconst timeout = Number(stats.timeout || 0);\n\nconst total =\n    malicious +\n    suspicious +\n    harmless +\n    undetected +\n    timeout;\n\nconst detectionRatio =\n    total > 0\n        ? `${malicious + suspicious}/${total}`\n        : \"N/A\";\n\n// =======================\n// VirusTotal Resolution\n// =======================\n\nconst resolutions =\n    taxonomies.find(t =>\n        (t.value || \"\").toLowerCase().includes(\"resolution\")\n    )?.value || \"N/A\";\n\n// =======================\n// Hashes\n// =======================\n\nconst sha256 =\n    attributes.sha256 || \"\";\n\nconst sha1 =\n    attributes.sha1 ||\n    \"N/A\";\n\nconst md5 =\n    attributes.md5 ||\n    \"N/A\";\n\n// =======================\n// File Information\n// =======================\n\nconst fileNames =\n    (attributes.names || []).join(\", \");\n\nconst fileType =\n    attributes.type_description ||\n    attributes.type_tag ||\n    \"Unknown\";\n\nconst fileSize =\n    attributes.size || 0;\n\n// =======================\n// Threat Classification\n// =======================\n\nconst threat =\n    attributes.popular_threat_classification\n        ?.suggested_threat_label ||\n    \"Unknown\";\n\n// =======================\n// Last Analysis\n// =======================\n\nconst lastAnalysis =\n    attributes.last_analysis_date\n        ? new Date(attributes.last_analysis_date * 1000).toISOString()\n        : \"Unknown\";\n\n// =======================\n// Reputation\n// =======================\n\nconst reputation =\n    attributes.reputation ??\n    \"Unknown\";\n\n// =======================\n// VirusTotal Link\n// =======================\n\nconst vtLink =\n    attributes.permalink ||\n    report.full?.links?.self ||\n    \"N/A\";\n\n// =======================\n// IP Information\n// =======================\n\nconst country =\n    attributes.country || \"Unknown\";\n\nconst asOwner =\n    attributes.as_owner || \"Unknown\";\n\nconst network =\n    attributes.network || \"Unknown\";\n\n// =======================\n// Risk Level\n// =======================\n\nlet riskLevel = \"CLEAN\";\n\nif (malicious >= 20)\n    riskLevel = \"CRITICAL\";\nelse if (malicious >= 10)\n    riskLevel = \"HIGH\";\nelse if (malicious >= 5)\n    riskLevel = \"MEDIUM\";\nelse if (malicious > 0)\n    riskLevel = \"LOW\";\n\n// =======================\n// Return\n// =======================\n\nreturn [{\n    json: {\n\n        ...$('Normalize Payload1').item.json,\n\n        vt_score: detectionRatio,\n\n        vt_detection: detectionRatio,\n\n        vt_total_engines: total,\n\n        vt_malicious_count: malicious,\n\n        vt_suspicious_count: suspicious,\n\n        vt_harmless_count: harmless,\n\n        vt_undetected_count: undetected,\n\n        vt_tags: tags.join(\", \"),\n\n        vt_sha256: sha256,\n\n        vt_sha1: sha1,\n\n        vt_md5: md5,\n\n        vt_names: fileNames,\n\n        vt_file_type: fileType,\n\n        vt_file_size: fileSize,\n\n        vt_threat: threat,\n\n        vt_last_analysis: lastAnalysis,\n\n        vt_permalink: vtLink,\n\n        vt_reputation: reputation,\n\n        vt_country: country,\n\n        vt_as_owner: asOwner,\n\n        vt_network: network,\n\n        vt_risk_level: riskLevel,\n\n        vt_resolutions: resolutions,\n\n        vt_summary_md:\n`🛡 **VirusTotal Analysis**\n\n### Risk Level\n• ${riskLevel}\n\n### Detection\n• Ratio: ${detectionRatio}\n\n### Reputation\n• Malicious : ${malicious}\n• Suspicious: ${suspicious}\n• Harmless : ${harmless}\n• Undetected: ${undetected}\n\n### Threat Classification\n• ${threat}\n\n### Tags\n• ${tags.length ? tags.join(\", \") : \"None\"}\n\n### Hashes\n• SHA256: ${sha256}\n• SHA1: ${sha1}\n• MD5: ${md5}\n\n### File Information\n• Name: ${fileNames || \"Unknown\"}\n• Type: ${fileType}\n• Size: ${fileSize} bytes\n\n### Last Analysis\n• ${lastAnalysis}\n\n### VirusTotal Report\n${vtLink}\n\n### IP Reputation\n• Reputation Score: ${reputation}\n• Country: ${country}\n• ASN Owner: ${asOwner}\n• Network: ${network}`\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        1216
+      ],
+      "id": "d75dff3c-f0fa-4e85-b901-c829e22f7c8e",
+      "name": "Extract VT Summary"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $('Route by Event Type1').first().json;\nconst norm = $('Normalize Payload1').first().json;\nfunction pick(...vals){ for (const v of vals){ if (v!==undefined && v!==null && v!=='') return v; } return null; }\n\nconst description = pick(src.description, norm.description, 'N/A');\nconst searchText = (description + ' ' + (norm.event_type || '')).toLowerCase();\n\nlet galaxyTag = null;\nif (searchText.includes('syn') || searchText.includes('udp') || searchText.includes('flood') || searchText.includes('ddos')) {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"Network Denial of Service - T1498\"';\n} else if (searchText.includes('phish')) {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"Phishing - T1566\"';\n} else if (norm.mitre_id && norm.mitre_id !== 'N/A') {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"' + norm.mitre_id + '\"';\n}\n\nconst severity = pick(src.severity, norm.severity, 'medium');\nconst threatLevel = (severity === 'critical' || severity === 'high') ? 1 : (severity === 'medium' ? 2 : 3);\n\nconst tags = [\n  { name: 'tlp:amber' },\n  { name: 'workflow:state=\"incomplete\"' },\n  { name: 'soc-soar:action=\"block-ip\"' }\n];\nif (galaxyTag) tags.push({ name: galaxyTag });\n\nconst srcIp = pick(src.src_ip, norm.src_ip, 'unknown');\nconst aiUsed = src.ai_used ? 'AI(Ollama)' : 'Rule-based';\n\nconst eventObj = {\n  Event: {\n    info: '[SOAR] Auto-block IP - ' + srcIp + ' (' + description + ')',\n    threat_level_id: threatLevel,\n    analysis: 2,\n    distribution: 0,\n    Tag: tags,\n    Attribute: [{\n      type: 'ip-src',\n      category: 'Network activity',\n      value: srcIp,\n      to_ids: true,\n      comment: 'Auto-pushed by SOC SOAR n8n | action=block_ip | decision=' + aiUsed + ' | reason=' + description\n    }]\n  }\n};\n\nreturn [{ json: eventObj }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4560,
+        352
+      ],
+      "id": "61217384-ed4c-4ff9-8efa-48be6cbc5e72",
+      "name": "Build MISP Event - Block IP"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://host.docker.internal/eventReports/add/{{ $json.Event.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mispApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  name: 'SOC SOAR Auto Report - ' + $('Normalize Payload1').first().json.event_type,\n  content: '## Chi tiet canh bao (auto-generated)\\n\\n'\n    + '**Nguon:** ' + $('Normalize Payload1').item.json.reported_by + '\\n'\n    + '**Thoi gian:** ' + $('Normalize Payload1').item.json.timestamp + '\\n'\n    + '**Muc do:** ' + $('Normalize Payload1').item.json.severity + '\\n'\n    + '**MITRE Tactic:** ' + $('Normalize Payload1').item.json.mitre_tactic + '\\n'\n    + '**MITRE ID:** ' + $('Normalize Payload1').item.json.mitre_id + '\\n\\n'\n    + '### Parsed fields\\n' + $('Normalize Payload1').item.json.parsed_fields_md,\n  distribution: 0\n}) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4944,
+        144
+      ],
+      "id": "6116932b-138f-4161-8405-851d39847fd4",
+      "name": "Create Event Report - Block IP",
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://host.docker.internal/analystData/add/Note/{{ $json.Event.uuid }}/Event",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mispApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  note: 'SOC SOAR tu dong BLOCK IP ' + $('Normalize Payload1').first().json.src_ip\n    + ' | Severity: ' + $('Normalize Payload1').item.json.severity\n    + ' | Reason: ' + $('Normalize Payload1').item.json.description,\n  authors: 'soc-soar-n8n',\n  distribution: 0\n}) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4944,
+        304
+      ],
+      "id": "dbd244b4-f1d0-474f-a101-e678f28e5fc0",
+      "name": "Create Note - Block IP",
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = $('Normalize Payload1').item.json;\nconst j = $json;\n\nfunction pick(...vals){ for (const v of vals){ if (v!==undefined && v!==null && v!=='') return v; } return null; }\n\nconst description = pick(j.description, norm.description, 'N/A');\nconst severity = pick(j.severity, norm.severity, 'medium');\nconst threatLevel = (severity === 'critical' || severity === 'high') ? 1 : (severity === 'medium' ? 2 : 3);\n\nconst searchText = (description + ' ' + (norm.mitre_tactic || '')).toLowerCase();\nlet galaxyTag = null;\nif (searchText.includes('malware') || searchText.includes('trojan') || searchText.includes('ransomware')) {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"Command and Scripting Interpreter - T1059\"';\n} else if (norm.mitre_id && norm.mitre_id !== 'N/A') {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"' + norm.mitre_id + '\"';\n}\n\nconst tags = [\n  { name: 'tlp:amber' },\n  { name: 'workflow:state=\"incomplete\"' },\n  { name: 'soc-soar:action=\"kill-process\"' }\n];\nif (galaxyTag) tags.push({ name: galaxyTag });\n\nconst attributes = [];\nif (norm.file_hash) {\n  attributes.push({ type: 'sha256', category: 'Payload delivery', value: norm.file_hash, to_ids: true, comment: 'Hash cua tien trinh bi kill boi SOAR' });\n}\nattributes.push({ type: 'text', category: 'Other', value: 'PID ' + (j.process_id ?? 'unknown') + ' tren Agent ' + j.agent_id + ' (' + (norm.agent_name ?? 'N/A') + ')', to_ids: false });\n\ntry {\n  const raw = JSON.parse(norm._raw_body || '{}');\n  const af = raw.all_fields || raw;\n  const cve = pick(af?.data?.vulnerability?.cve, af?.data?.cve, raw?.data?.vulnerability?.cve, raw?.data?.cve);\n  if (cve) {\n    attributes.push({ type: 'vulnerability', category: 'External analysis', value: cve, to_ids: false, comment: 'CVE phat hien kem process bi kill' });\n  }\n} catch (e) {}\n\nconst eventObj = {\n  Event: {\n    info: '[SOAR] Auto-kill process - Agent ' + j.agent_id + ' (' + description + ')',\n    threat_level_id: threatLevel,\n    analysis: 0,\n    distribution: 0,\n    Tag: tags,\n    Attribute: attributes\n  }\n};\n\nreturn [{ json: eventObj }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4496,
+        624
+      ],
+      "id": "2c43df62-b876-444f-b308-7c130bc157af",
+      "name": "Build MISP Event - Kill Process"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://host.docker.internal/eventReports/add/{{ $json.Event.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mispApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  name: 'SOC SOAR Auto Report - ' + $('Normalize Payload1').item.json.event_type,\n  content: '## Chi tiet canh bao (auto-generated)\\n\\n'\n    + '**Agent:** ' + $('Normalize Payload1').item.json.agent_id + ' (' + $('Normalize Payload1').item.json.agent_name + ')\\n'\n    + '**Thoi gian:** ' + $('Normalize Payload1').item.json.timestamp + '\\n'\n    + '**Muc do:** ' + $('Normalize Payload1').item.json.severity + '\\n'\n    + '**MITRE Tactic:** ' + $('Normalize Payload1').item.json.mitre_tactic + '\\n'\n    + '**MITRE ID:** ' + $('Normalize Payload1').item.json.mitre_id + '\\n\\n'\n    + '### Parsed fields\\n' + $('Normalize Payload1').item.json.parsed_fields_md,\n  distribution: 0\n}) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4960,
+        512
+      ],
+      "id": "b00f81a3-f5b4-4870-a85c-0c00c68cf42e",
+      "name": "Create Event Report - Kill Process",
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://host.docker.internal/analystData/add/Note/{{ $json.Event.uuid }}/Event",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mispApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  note: 'SOC SOAR tu dong KILL PROCESS tren Agent ' + $('Normalize Payload1').item.json.agent_id\n    + ' (' + $('Normalize Payload1').item.json.agent_name + ')'\n    + ' | Reason: ' + $('Normalize Payload1').item.json.description,\n  authors: 'soc-soar-n8n',\n  distribution: 0\n}) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4976,
+        736
+      ],
+      "id": "da9589a4-46bb-42b5-9299-5ac094747655",
+      "name": "Create Note - Kill Process",
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:9001/api/job/{{ $('Execute an analyzer').item.json.id }}/waitreport?atMost=120second",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "cortexApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        1008
+      ],
+      "id": "d706f8c2-67a8-44d7-80ac-dfd01b8dfb7c",
+      "name": "Wait For Job Report",
+      "credentials": {
+        "cortexApi": {
+          "id": "iYvpouee9iIlUKSg",
+          "name": "Cortex account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c27cbc6d-addb-4999-a854-bc0684fe61d0",
+              "leftValue": "={{ $json.ai_confidence }}",
+              "rightValue": 0.9,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2512,
+        208
+      ],
+      "id": "9e370717-d567-4e87-923b-36dc3e1eca6e",
+      "name": "Check Approval Level"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "5407528909",
+        "message": "=🚨 YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\n⚡ Hành động: {{ $json.action }}\n\n📌 Thông tin cảnh báo:\n- Event: {{ $json.description }}\n- Severity: {{ $json.severity }}\n- Agent: {{ $json.agent_id }}\n- Time: {{ $json.timestamp }}\n\n{{ $json.src_ip ? '• Source IP: ' + $json.src_ip : '' }}\n{{ $json.process_id ? '• Process ID: ' + $json.process_id : '' }}\n{{ $json.file_hash ? '• SHA256: ' + $json.file_hash : '' }}\n{{ $json.action !== 'block_url' ? '🤖 Nguồn quyết định:\\n' + ($json.ai_used ? 'AI (Ollama)' : 'Rule-based') : '' }}\n🎯 Confidence: {{ $json.ai_confidence }}\n\n📝 Lý do: {{ $json.reason }}\n\n⚠️ Hành động sẽ được thực hiện sau khi phê duyệt.\n",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 10,
+              "resumeUnit": "minutes"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3008,
+        160
+      ],
+      "id": "2173647f-8198-4d31-88c5-630ef0da8eae",
+      "name": "Request Approval",
+      "webhookId": "616aa29a-c08d-48ec-889f-e5db4ef1d224",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "74bcd487-53ce-4336-b43f-d4a299909a14",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3408,
+        160
+      ],
+      "id": "c2d2d01e-83f5-470a-8f02-6474e0e7e98d",
+      "name": "Check Approval Result]"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $('Check Approval Level').item.json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2896,
+        368
+      ],
+      "id": "c287b594-b4fb-477c-8601-771a2d7c4521",
+      "name": "Restore Alert Data"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $('Check Approval Level').item.json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3744,
+        160
+      ],
+      "id": "9f711ae6-78a7-4dd2-a0fe-4ace2038d926",
+      "name": "Restore Alert Data - Rejected"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nreturn [{\n  json: {\n    url: body.url,\n    employee_ip: body.src_ip,\n    user: body.user,\n    timestamp: body.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        336
+      ],
+      "id": "443fae66-e811-49f3-bf98-60f927e0df1c",
+      "name": "Extract Phishing Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5001/api/url/predict",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"url\": $json.url } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        304,
+        336
+      ],
+      "id": "c2901ca0-f872-472a-8879-e66e35bea668",
+      "name": "Call Phishing Detection Model"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8b951d11-97af-4146-b015-46ea87fe3ce5",
+              "leftValue": "={{ $json.prediction }}",
+              "rightValue": "phishing",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        512,
+        336
+      ],
+      "id": "c1c7dbd9-f48c-4c6e-839a-311211478c4e",
+      "name": "Check Phishing Verdict"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\n     \"action\": \"none\",\n     \"ai_used\": true,\n     \"ai_confidence\": ($json.legitimate_probability || 0) / 100,\n     \"reason\": \"Model AI đánh giá URL hợp lệ, không phải phishing.\",\n     \"url\": $('Extract Phishing Payload').item.json.url,\n     \"employee_ip\": $('Extract Phishing Payload').item.json.employee_ip,\n     \"timestamp\": $('Extract Phishing Payload').item.json.timestamp\n   } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        736,
+        400
+      ],
+      "id": "91befb8b-19f8-4e4c-82ab-601e90a1e53b",
+      "name": "Log Clean URL (No Action)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Extract Phishing Payload').all();\nconst payload = (items && items.length > 0) ? items[0].json : {};\nconst url = payload.url || '';\n\nconst match = url.match(/^https?:\\/\\/([^\\/\\s:]+)/i);\nconst domain = match ? match[1] : null;\n\nif (!domain) {\n  throw new Error('Không lấy được domain từ URL. Payload nhận được: ' + JSON.stringify(payload));\n}\n\nreturn [{ json: { \n  ...$json, \n  url: payload.url, \n  employee_ip: payload.employee_ip, \n  timestamp: payload.timestamp, \n  domain \n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        256
+      ],
+      "id": "2eec7336-e6c3-4498-ab68-6265b7bace0a",
+      "name": "Extract Domain from URL"
+    },
+    {
+      "parameters": {
+        "url": "=https://dns.google/resolve?name={{ $json.domain }}&type=A",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        944,
+        256
+      ],
+      "id": "5550a294-4b92-4737-96d6-30ed210b38f6",
+      "name": "Resolve Domain to IP"
+    },
+    {
+      "parameters": {
+        "jsCode": "const dns = $json;\nconst prev = $('Extract Domain from URL').item.json;\nlet ip = null;\nif (dns.Answer && dns.Answer.length) {\n  const a = dns.Answer.find(r => r.type === 1);\n  ip = a ? a.data : null;\n}\nreturn [{ json: { ...prev, resolved_ip: ip } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        256
+      ],
+      "id": "48f60ea8-1b75-48f4-a7ff-5437e930ad57",
+      "name": "Parse DNS Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nconst vt = d.third_party_eval?.VirusTotal?.status || 'N/A';\nconst confidence = (d.phishing_probability || 0) / 100;\nconst reason = `Model AI nội bộ phát hiện URL phishing (xác suất ${d.phishing_probability}%). Domain: ${d.domain}.`;\nreturn [{ json: {\n  action: 'block_url',\n  ai_used: true,\n  ai_verdict: 'phishing',\n  ai_confidence: confidence,\n  reason,\n  src_ip: d.resolved_ip || 'N/A',\n  employee_ip: d.employee_ip,\n  url: d.url,\n  domain: d.domain,\n  agent_id: null,\n  process_id: null,\n  file_hash: null,\n  description: `Phishing URL detected: ${d.url}`,\n  severity: 'high',\n  timestamp: d.timestamp\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        256
+      ],
+      "id": "7c06c1fe-037a-46f5-8ec7-c05a87abde59",
+      "name": "Build Phishing Action Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Action Switch1').item.json;\nconst domain = (d.domain || '').toLowerCase().trim();\n\nif (!domain || !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain)) {\n  throw new Error('Domain không hợp lệ, từ chối gửi SSH: ' + domain);\n}\n\n// const FILE = '/var/db/pfblockerng/dnsbl/SOAR_AutoBlock_custom.txt';\nconst FILE = '/var/unbound/pfb_dnsbl_SOAR.conf';\nconst SINKHOLE_IP = '192.168.10.1'; // đổi theo IP sinkhole thực tế \n\n// Escape để tránh domain chứa ký tự lạ làm gãy lệnh shell (dù regex trên đã chặn hầu hết)\nconst safeDomain = domain.replace(/\"/g, '');\n\nconst lineA = `local-data: \\\\\"${safeDomain} 60 IN A ${SINKHOLE_IP}\\\\\"`;\n\nconst command =\n  `grep -q \"${safeDomain}\" ${FILE} 2>/dev/null || echo \"${lineA}\" >> ${FILE}; ` +\n  `/usr/local/sbin/pfSsh.php playback svc restart unbound`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3216,
+        1024
+      ],
+      "id": "0905791c-ce40-48be-b299-4ace2ea56a1c",
+      "name": "Build pfSense DNSBL Command1"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ssh_command }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        3472,
+        1024
+      ],
+      "id": "0f751286-2d98-4c0f-8844-9dab6761ec99",
+      "name": "pfSense SSH - Add DNSBL Domain1",
+      "credentials": {
+        "sshPassword": {
+          "id": "VzOEbxiTSqMlBuMa",
+          "name": "SSH Password account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=🌐 DOMAIN BLOCKED (DNS Sinkhole): {{ $json.domain }}\n🎯 URL gốc: {{ $json.url }}\n👤 IP nhân viên: {{ $json.employee_ip }}\n📋 Lý do: {{ $json.reason }}\n📊 Độ tin cậy AI: {{ $json.ai_confidence }}\n🕐 Time: {{ $json.timestamp }}\n\n✅ Đã áp dụng DNS Sinkhole qua pfBlockerNG (Unbound) — chặn toàn công ty",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4032,
+        1024
+      ],
+      "id": "5144251b-fcea-4016-9c08-6578bd2bb660",
+      "name": "Telegram_Send_Block_URL_Alert1",
+      "webhookId": "86ca562d-4ff6-4d18-9a75-19c0c097143b",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://192.168.1.8:9000/api/v1/alert/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization ",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $('Restore Payload After SSH').item.json.domain + '-' + Date.now(),\n\n  title: 'Đã chặn domain phishing (DNS Sinkhole): ' +\n    $('Restore Payload After SSH').item.json.domain,\n\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ CHẶN DOMAIN (DNS SINKHOLE)\\n\\n' +\n    '* **Domain:** ' + $('Restore Payload After SSH').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Payload After SSH').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Payload After SSH').item.json.employee_ip + '\\n' +\n    '* **Lý do:** ' + $('Restore Payload After SSH').item.json.reason + '\\n' +\n    '* **Thời gian xử lý:** ' + $('Restore Payload After SSH').item.json.timestamp,\n\n  severity: 3,\n  status: 'InProgress',\n  tags: ['ai-decision', 'auto-blocked-domain', 'soar']\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4320,
+        1024
+      ],
+      "id": "e36e69a1-23aa-47d6-bb6b-077b08710ac5",
+      "name": "Update Alert - Block URL1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Build pfSense DNSBL Command1').all();\nconst payload = (items && items.length > 0) ? items[0].json : {};\n\nreturn [{ json: { ...payload, ssh_result: $json } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3744,
+        1024
+      ],
+      "id": "0fb8ade8-f67f-4ca8-bff8-949b25584d5d",
+      "name": "Restore Payload After SSH"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Action Switch1').item.json;\nconst ip = (d.src_ip || '').trim();\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\nif (!ipv4Regex.test(ip)) {\n  throw new Error('src_ip không hợp lệ, từ chối block: ' + ip);\n}\n\nconst TABLE = 'SOAR_BlockList';\nconst command = `pfctl -t ${TABLE} -T add ${ip}`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3344,
+        512
+      ],
+      "id": "438360b5-e298-4dfb-81f4-328b7b4e39c2",
+      "name": "Build pfSense Block IP Command1"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ssh_command }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        3584,
+        512
+      ],
+      "id": "efe9dd46-65a2-4940-a087-3c880b6d9089",
+      "name": "pfSense SSH - Block IP1",
+      "credentials": {
+        "sshPassword": {
+          "id": "VzOEbxiTSqMlBuMa",
+          "name": "SSH Password account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ip = ($json.src_ip || '').trim();\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\nif (!ipv4Regex.test(ip)) {\n  throw new Error('src_ip không hợp lệ, từ chối unblock: ' + ip);\n}\n\nconst TABLE = 'SOAR_BlockList';\nconst command = `pfctl -t ${TABLE} -T delete ${ip}`;\n\nreturn [{ json: { ...$json, ssh_command: command } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        1168
+      ],
+      "id": "ad15c8d1-b473-46f3-9dac-c6e8007b05d6",
+      "name": "Build pfSense Unblock IP Command1"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ssh_command }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        1168
+      ],
+      "id": "fdf08b02-2efb-4685-b839-2c027335c025",
+      "name": "pfSense SSH - Unblock IP1",
+      "credentials": {
+        "sshPassword": {
+          "id": "VzOEbxiTSqMlBuMa",
+          "name": "SSH Password account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Build pfSense Unblock IP Command1').all();\nconst payload = (items && items.length > 0) ? items[0].json : {};\n\nreturn [{ json: { ...payload, ssh_result: $json } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        1168
+      ],
+      "id": "5c4942a9-d7a3-4645-bc7e-db1a5df337bc",
+      "name": "Restore Payload After Unblock SSH"
+    },
+    {
+      "parameters": {
+        "command": "=echo 'event_type=block_url domain={{ $('Restore Payload After SSH').item.json.domain }} employee_ip={{ $('Restore Payload After SSH').item.json.employee_ip }} source={{ $('Restore Payload After SSH').item.json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $('Restore Payload After SSH').item.json.ai_confidence }} action=blocked reason=\"{{ $('Restore Payload After SSH').item.json.reason }}\"' | tee -a /home/tri/n8n-security-events.log"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        4608,
+        1024
+      ],
+      "id": "6cf08624-4e1c-4547-906f-b1418e4866f8",
+      "name": "Log Block URL Event to Wazuh1",
+      "credentials": {
+        "sshPassword": {
+          "id": "wyYaeLHQIlc8FiGy",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Action Switch1').item.json;\nconst ip = (d.src_ip || '').trim();\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\nif (!ipv4Regex.test(ip) || ip === 'N/A') {\n  return [];\n}\n\nconst TABLE = 'SOAR_Phishing_BlockList';\nconst command = `pfctl -t ${TABLE} -T add ${ip}`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3216,
+        1200
+      ],
+      "id": "a6d53306-10c8-4b65-a6ac-5a8b6d0479f0",
+      "name": "Build pfSense Phishing Block IP Command"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ssh_command }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        3472,
+        1200
+      ],
+      "id": "d8687f57-dbf1-40b4-afcc-ad820dcee37c",
+      "name": "pfSense SSH - Block Phishing IP",
+      "credentials": {
+        "sshPassword": {
+          "id": "VzOEbxiTSqMlBuMa",
+          "name": "SSH Password account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lấy payload gốc của nhánh phishing (không dùng $json vì node trước là SSH, không có field domain/url)\nconst d = $('Restore Payload After SSH').first().json;\n\nfunction pick(...vals){ for (const v of vals){ if (v!==undefined && v!==null && v!=='') return v; } return null; }\n\nconst domain      = pick(d.domain, 'unknown');\nconst url         = pick(d.url, 'N/A');\nconst employeeIp  = pick(d.employee_ip, 'unknown');\nconst description = pick(d.description, 'Phishing URL detected: ' + url);\nconst severity     = pick(d.severity, 'high');\nconst threatLevel  = (severity === 'critical' || severity === 'high') ? 1 : (severity === 'medium' ? 2 : 3);\n\n// Nhánh này luôn là phishing nên gắn cứng galaxy tag, không cần searchText như bản block-ip\nconst galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"Phishing - T1566\"';\n\nconst aiUsed = d.ai_used ? 'AI(Model nội bộ)' : 'Rule-based';\nconst confidence = d.ai_confidence != null ? d.ai_confidence : 'N/A';\n\nconst tags = [\n  { name: 'tlp:amber' },\n  { name: 'workflow:state=\"incomplete\"' },\n  { name: 'soc-soar:action=\"block-url\"' },\n  { name: galaxyTag }\n];\n\nconst eventObj = {\n  Event: {\n    info: '[SOAR] Auto-block Phishing URL - ' + domain + ' (' + description + ')',\n    threat_level_id: threatLevel,\n    analysis: 2,\n    distribution: 0,\n    Tag: tags,\n    Attribute: [\n      {\n        type: 'domain',\n        category: 'Network activity',\n        value: domain,\n        to_ids: true,\n        comment: 'Auto-pushed by SOC SOAR n8n | action=block_url | decision=' + aiUsed + ' (confidence=' + confidence + ') | employee_ip=' + employeeIp + ' | reason=' + description\n      },\n      {\n        type: 'url',\n        category: 'Network activity',\n        value: url,\n        to_ids: true,\n        comment: 'Original phishing URL | employee_ip=' + employeeIp\n      }\n    ]\n  }\n};\n\nreturn [{ json: eventObj }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4896,
+        1024
+      ],
+      "id": "b5f5ef3c-4b74-4cac-802c-8d4b5bdb2dae",
+      "name": "Build MISP Event - Block URL"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://host.docker.internal/events/add",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mispApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5120,
+        1024
+      ],
+      "id": "9454d978-cd86-4a2c-a29f-1d6aca4a75c1",
+      "name": "Push IOC to MISP - Block url",
+      "credentials": {
+        "mispApi": {
+          "id": "RnSPYwkb7pogQLDj",
+          "name": "MISP account"
+        }
+      },
+      "notes": "Tạo Event mới trong MISP (Attribute ip-src) khi SOAR xác nhận chặn IP — giúp Event/Attribute xuất hiện trên Dashboard MISP và có dữ liệu thật cho lần search IOC kế tiếp."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "DDoS Alert Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Merge Webhooks1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phishing Alert Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Extract Phishing Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Webhooks1": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payload1": {
+      "main": [
+        [
+          {
+            "node": "Execute an analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Event Type1": {
+      "main": [
+        [
+          {
+            "node": "Create Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build pfSense Unblock IP Command1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Unblock Notification1": {
+      "main": [
+        [
+          {
+            "node": "Log Unblock Event to Wazuh1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Alert1": {
+      "main": [
+        [
+          {
+            "node": "Get a filtered list of attributes1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a filtered list of attributes1": {
+      "main": [
+        [
+          {
+            "node": "Route to Action Strategy1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to Action Strategy1": {
+      "main": [
+        [
+          {
+            "node": "Set Action - Block (Rule-based)1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Action - Log Only (Rule-based)1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Data_Parser_&_AI_Prep1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Action - Block (Rule-based)1": {
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Action - Log Only (Rule-based)1": {
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Data_Parser_&_AI_Prep1": {
+      "main": [
+        [
+          {
+            "node": "Ollama1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama1": {
+      "main": [
+        [
+          {
+            "node": "Parse_AI_Result1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Decision Paths1": {
+      "main": [
+        [
+          {
+            "node": "Check Approval Level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Switch1": {
+      "main": [
+        [
+          {
+            "node": "Wazuh_Get_Token2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build pfSense Block IP Command1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wazuh_Get_Token3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build pfSense DNSBL Command1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build pfSense Phishing Block IP Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Log-Only Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wazuh_Get_Token2": {
+      "main": [
+        [
+          {
+            "node": "Wazuh_Execute_Block1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wazuh_Execute_Block1": {
+      "main": [
+        [
+          {
+            "node": "Telegram_Send_Block_Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram_Send_Block_Alert1": {
+      "main": [
+        [
+          {
+            "node": "Update Alert - Block1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Alert - Block1": {
+      "main": [
+        [
+          {
+            "node": "Log Block Event to Wazuh1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wazuh_Get_Token3": {
+      "main": [
+        [
+          {
+            "node": "Wazuh_Execute_Kill1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wazuh_Execute_Kill1": {
+      "main": [
+        [
+          {
+            "node": "Telegram_Send_Execute_Kill1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram_Send_Execute_Kill1": {
+      "main": [
+        [
+          {
+            "node": "Update Alert - Kill1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Alert - Kill1": {
+      "main": [
+        [
+          {
+            "node": "Log Kill Event to Wazuh1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Log-Only Alert1": {
+      "main": [
+        [
+          {
+            "node": "Update Alert - Log Only1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Alert - Log Only1": {
+      "main": [
+        [
+          {
+            "node": "Log LogOnly Event to Wazuh1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if DDoS Alert": {
+      "main": [
+        [
+          {
+            "node": "Search MISP Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route by Event Type1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search MISP Event": {
+      "main": [
+        [
+          {
+            "node": "Check MISP Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check MISP Search Result": {
+      "main": [
+        [
+          {
+            "node": "Sync MISP Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync MISP Event": {
+      "main": [
+        [
+          {
+            "node": "Unify MISP Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unify MISP Output": {
+      "main": [
+        [
+          {
+            "node": "Route by Event Type1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wazuh Critical Alert Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Merge Webhooks1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Wazuh Raw EDR Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Merge Webhooks1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Log Block Event to Wazuh1": {
+      "main": [
+        [
+          {
+            "node": "Build MISP Event - Block IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Kill Event to Wazuh1": {
+      "main": [
+        [
+          {
+            "node": "Build MISP Event - Kill Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute an analyzer": {
+      "main": [
+        [
+          {
+            "node": "Wait For Job Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a job report": {
+      "main": [
+        [
+          {
+            "node": "Extract VT Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract VT Summary": {
+      "main": [
+        [
+          {
+            "node": "Check if DDoS Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build MISP Event - Block IP": {
+      "main": [
+        [
+          {
+            "node": "Push IOC to MISP - Block IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push IOC to MISP - Block IP": {
+      "main": [
+        [
+          {
+            "node": "Create Event Report - Block IP",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Note - Block IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build MISP Event - Kill Process": {
+      "main": [
+        [
+          {
+            "node": "Push IOC to MISP - Kill Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push IOC to MISP - Kill Process": {
+      "main": [
+        [
+          {
+            "node": "Create Event Report - Kill Process",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Note - Kill Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse_AI_Result1": {
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Wait For Job Report": {
+      "main": [
+        [
+          {
+            "node": "Get a job report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approval Level": {
+      "main": [
+        [
+          {
+            "node": "Action Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Request Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Approval": {
+      "main": [
+        [
+          {
+            "node": "Check Approval Result]",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approval Result]": {
+      "main": [
+        [
+          {
+            "node": "Restore Alert Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Restore Alert Data - Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Alert Data": {
+      "main": [
+        [
+          {
+            "node": "Action Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Alert Data - Rejected": {
+      "main": [
+        [
+          {
+            "node": "Send Log-Only Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Phishing Payload": {
+      "main": [
+        [
+          {
+            "node": "Call Phishing Detection Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Phishing Detection Model": {
+      "main": [
+        [
+          {
+            "node": "Check Phishing Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Phishing Verdict": {
+      "main": [
+        [
+          {
+            "node": "Extract Domain from URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Clean URL (No Action)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Domain from URL": {
+      "main": [
+        [
+          {
+            "node": "Resolve Domain to IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Domain to IP": {
+      "main": [
+        [
+          {
+            "node": "Parse DNS Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse DNS Result": {
+      "main": [
+        [
+          {
+            "node": "Build Phishing Action Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Phishing Action Payload": {
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Build pfSense DNSBL Command1": {
+      "main": [
+        [
+          {
+            "node": "pfSense SSH - Add DNSBL Domain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pfSense SSH - Add DNSBL Domain1": {
+      "main": [
+        [
+          {
+            "node": "Restore Payload After SSH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram_Send_Block_URL_Alert1": {
+      "main": [
+        [
+          {
+            "node": "Update Alert - Block URL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Payload After SSH": {
+      "main": [
+        [
+          {
+            "node": "Telegram_Send_Block_URL_Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build pfSense Block IP Command1": {
+      "main": [
+        [
+          {
+            "node": "pfSense SSH - Block IP1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build pfSense Unblock IP Command1": {
+      "main": [
+        [
+          {
+            "node": "pfSense SSH - Unblock IP1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pfSense SSH - Unblock IP1": {
+      "main": [
+        [
+          {
+            "node": "Restore Payload After Unblock SSH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Payload After Unblock SSH": {
+      "main": [
+        [
+          {
+            "node": "Send Unblock Notification1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Alert - Block URL1": {
+      "main": [
+        [
+          {
+            "node": "Log Block URL Event to Wazuh1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build pfSense Phishing Block IP Command": {
+      "main": [
+        [
+          {
+            "node": "pfSense SSH - Block Phishing IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Block URL Event to Wazuh1": {
+      "main": [
+        [
+          {
+            "node": "Build MISP Event - Block URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build MISP Event - Block URL": {
+      "main": [
+        [
+          {
+            "node": "Push IOC to MISP - Block url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "bf2d8d47-4e50-43a3-83d3-7a1357de4f8c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "88b3b600d62a38b9608292b540d8c9071a2a33ce6c9e93fd11131e23c9f0be82"
+  },
+  "nodeGroups": [],
+  "id": "PiXHOoQvi19Ze351",
+  "tags": []
+}

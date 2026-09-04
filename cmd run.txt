@@ -1,0 +1,12 @@
+PS D:\DO AN TOT NGHIEP\soc-frontend> npm run dev
+
+PS D:\DO AN TOT NGHIEP\soc-server> go run ./cmd/server/main.go
+
+PS D:\DO AN TOT NGHIEP\soc-agent> go run main.go -config config.json
+
+
+cách cài đặt trên agent : 
+cách 1 có sẵn : 
+ vô thư mục D:\DO AN TOT NGHIEP\soc-agent\bin : copy file exe và file config ra bên máy agent rồi run admin
+
+cách 2 : go build -ldflags="-s -w" -o bin\soc-agent.exe main.go để tạo file exe . Rồi tiếp tục làm như trên

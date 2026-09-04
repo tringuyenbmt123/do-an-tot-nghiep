@@ -1,0 +1,651 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@import "tailwindcss";
+
+/* ============================================================
+   SOC CONSOLE — Design System v2.0
+   Cyberpunk / Modern Enterprise Dark Mode
+   Inspired by: CrowdStrike Falcon, SentinelOne, IBM QRadar
+   ============================================================ */
+
+/* Google Fonts */
+
+@theme {
+  /* === Core Backgrounds === */
+  --color-soc-bg-deepest: #0a0e17;
+  --color-soc-bg-dark: #0d1117;
+  --color-soc-bg-card: #111827;
+  --color-soc-bg-surface: #151f2e;
+  --color-soc-bg-elevated: #1a2332;
+
+  /* === Neon Alert Palette === */
+  --color-neon-critical: #ff3366;
+  --color-neon-high: #ff9900;
+  --color-neon-medium: #eab308;
+  --color-neon-low: #10b981;
+  --color-neon-cyan: #06b6d4;
+  --color-neon-blue: #3b82f6;
+  --color-neon-purple: #a855f7;
+
+  /* === Borders === */
+  --color-soc-border: #1e293b;
+  --color-soc-border-bright: #334155;
+
+  /* === Typography === */
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-text-dim: #475569;
+
+  /* === Fonts === */
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+/* ============================================================
+   Global Reset & Base
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  background-color: #0a0e17;
+  color: #f8fafc;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   Custom Scrollbar
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0e17;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* ============================================================
+   Keyframe Animations
+   ============================================================ */
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 18px currentColor, 0 0 30px currentColor;
+  }
+}
+
+@keyframes pulse-dot {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.4);
+    opacity: 0.6;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes flash-row {
+  0% {
+    background-color: rgba(6, 182, 212, 0.18);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes glow-border {
+
+  0%,
+  100% {
+    border-color: #1e293b;
+  }
+
+  50% {
+    border-color: rgba(6, 182, 212, 0.4);
+  }
+}
+
+/* ============================================================
+   Animation Utilities
+   ============================================================ */
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.25s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out;
+}
+
+.animate-flash-row {
+  animation: flash-row 2s ease-out;
+}
+
+.animate-blink {
+  animation: blink 1.2s step-end infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+/* ============================================================
+   CARDS — Enterprise Glassmorphism v2
+   ============================================================ */
+.soc-card {
+  background: linear-gradient(145deg, #111827 0%, #0d1520 100%);
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.soc-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.soc-card:hover {
+  border-color: #334155;
+  box-shadow: 0 8px 32px rgba(6, 182, 212, 0.07), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.soc-card-glow:hover {
+  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.2), 0 8px 32px rgba(6, 182, 212, 0.12);
+}
+
+/* Glass Panel */
+.glass-panel {
+  background: rgba(10, 14, 23, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(30, 41, 59, 0.8);
+}
+
+/* ============================================================
+   GLOW EFFECTS
+   ============================================================ */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.25);
+}
+
+.glow-red {
+  box-shadow: 0 0 20px rgba(255, 51, 102, 0.25);
+}
+
+.glow-green {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
+}
+
+.glow-orange {
+  box-shadow: 0 0 20px rgba(255, 153, 0, 0.25);
+}
+
+/* ============================================================
+   NEON TEXT
+   ============================================================ */
+.text-neon-cyan {
+  color: #06b6d4;
+  text-shadow: 0 0 12px rgba(6, 182, 212, 0.6);
+}
+
+.text-neon-red {
+  color: #ff3366;
+  text-shadow: 0 0 12px rgba(255, 51, 102, 0.6);
+}
+
+.text-neon-green {
+  color: #10b981;
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+}
+
+.text-neon-orange {
+  color: #ff9900;
+  text-shadow: 0 0 12px rgba(255, 153, 0, 0.6);
+}
+
+/* ============================================================
+   STATUS DOTS
+   ============================================================ */
+.status-dot-online {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+  animation: pulse-dot 1.8s ease-in-out infinite;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.status-dot-offline {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #475569;
+  display: inline-block;
+}
+
+/* ============================================================
+   TABLE — Enterprise Style
+   ============================================================ */
+.soc-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.soc-table th {
+  background: rgba(10, 14, 23, 0.8);
+  color: #64748b;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 11px 20px;
+  border-bottom: 1px solid #1e293b;
+  white-space: nowrap;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.soc-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+  font-size: 13px;
+  color: #e2e8f0;
+  vertical-align: middle;
+  transition: background 0.15s ease;
+}
+
+.soc-table tbody tr:hover td {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.soc-table tr.flash td {
+  animation: flash-row 2s ease-out;
+}
+
+/* ============================================================
+   INPUTS — Modern Dark Style
+   ============================================================ */
+.soc-input {
+  background: #0a0e17;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  color: #f8fafc;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  width: 100%;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+
+.soc-input:focus {
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.12);
+}
+
+.soc-input::placeholder {
+  color: #475569;
+}
+
+select.soc-input {
+  cursor: pointer;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn-primary {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  color: #f8fafc;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
+}
+
+.btn-primary:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.35);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ff3366 0%, #dc2626 100%);
+  color: white;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  cursor: pointer;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-danger:hover {
+  opacity: 0.88;
+  box-shadow: 0 4px 20px rgba(255, 51, 102, 0.3);
+}
+
+.btn-danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid #1e293b;
+  color: #94a3b8;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost:hover {
+  border-color: #06b6d4;
+  color: #06b6d4;
+  background: rgba(6, 182, 212, 0.06);
+}
+
+/* Action Buttons (inline table actions) */
+.btn-action-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  background: rgba(255, 51, 102, 0.08);
+  color: #ff3366;
+  border: 1px solid rgba(255, 51, 102, 0.25);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.btn-action-red:hover:not(:disabled) {
+  background: #ff3366;
+  color: white;
+  box-shadow: 0 0 14px rgba(255, 51, 102, 0.35);
+}
+
+.btn-action-red:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-action-orange {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  background: rgba(255, 153, 0, 0.08);
+  color: #ff9900;
+  border: 1px solid rgba(255, 153, 0, 0.25);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.btn-action-orange:hover:not(:disabled) {
+  background: #ff9900;
+  color: #0a0e17;
+  box-shadow: 0 0 14px rgba(255, 153, 0, 0.35);
+}
+
+.btn-action-orange:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   BADGES & PILLS
+   ============================================================ */
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid #334155;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   SKELETON LOADER
+   ============================================================ */
+.skeleton {
+  background: linear-gradient(90deg, #111827 25%, #1a2332 50%, #111827 75%);
+  background-size: 200% auto;
+  animation: shimmer 1.6s linear infinite;
+  border-radius: 6px;
+}
+
+/* ============================================================
+   JSON / CODE BLOCK
+   ============================================================ */
+.json-block {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11.5px;
+  background: #050810;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 14px 18px;
+  overflow: auto;
+  max-height: 320px;
+  color: #67e8f9;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ============================================================
+   RECHARTS OVERRIDES
+   ============================================================ */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #1e293b;
+  stroke-dasharray: 3 4;
+}
+
+.recharts-text {
+  fill: #64748b;
+  font-size: 11px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.recharts-legend-item-text {
+  color: #94a3b8 !important;
+  font-size: 11.5px !important;
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  border-radius: 10px !important;
+}
+
+/* ============================================================
+   CAPSULE TOOLBAR
+   ============================================================ */
+.toolbar-capsule {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: #0a0e17;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 4px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.toolbar-capsule .soc-input {
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  padding: 7px 12px;
+}
+
+.toolbar-capsule .soc-input:focus {
+  background: #111827;
+  box-shadow: none;
+  border: 1px solid #334155;
+}
+
+/* ============================================================
+   RISK SCORE GRADIENT BAR
+   ============================================================ */
+.risk-bar-track {
+  width: 80px;
+  height: 5px;
+  border-radius: 999px;
+  background: #1e293b;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.risk-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}

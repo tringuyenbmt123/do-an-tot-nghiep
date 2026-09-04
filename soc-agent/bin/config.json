@@ -1,0 +1,12 @@
+{
+  "server_url": "192.168.1.28:50051",
+  "protocol": "grpc",
+  "agent_id": "endpoint-pc-01",
+  "agent_secret_key": "soc-agent-secret-token-2026",
+  "heartbeat_interval_seconds": 5,
+  "metric_interval_seconds": 1,
+  "max_backoff_seconds": 30,
+  "buffer_size": 1000,
+  "log_paths": [],
+  "mtls_enabled": false
+}

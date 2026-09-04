@@ -1,0 +1,722 @@
+{
+  "name": "SOC SOAR - SOC Server + Ollama + Telegram + pfSense",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## SOC SOAR - n8n orchestration\n\nSOC Server la noi luu alert, case, audit va quan ly Agent.\nn8n chi lam AI triage, human approval, pfSense response va notification.\n\nDa loai bo: Wazuh, TheHive, MISP.\nGiu lai: Ollama, Telegram, SSH pfSense.\n\nWebhook: POST /webhook/soc-alert\nCallback: POST /api/v1/soar/callback\n\nTODO threat-intel: SOC Server chua co GET /api/v1/ioc/lookup va route indicators yeu cau JWT, nen workflow khong gia lap enrichment.",
+        "height": 380,
+        "width": 470,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-520, -300],
+      "id": "note-overview",
+      "name": "Overview"
+    },
+    {
+      "parameters": {
+        "content": "## CAN CAU HINH\n\n1. Telegram credential va chatId\n2. SSH credential vao pfSense\n3. URL Ollama\n4. URL SOC Server trong node Callback\n5. Tao table SOAR_BlockList tren pfSense\n6. Tao DNSBL file tren pfSense neu dung block_url\n\nKhong de AI tao shell command. Command duoc sinh boi Code node sau khi da approve.",
+        "height": 380,
+        "width": 420,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -300],
+      "id": "note-setup",
+      "name": "Setup"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "soc-alert",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-520, 120],
+      "id": "webhook-soc-alert",
+      "name": "SOC Server Alert Webhook",
+      "webhookId": "soc-server-alert-webhook-2026"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const incoming = $json.body || $json;\nlet raw = incoming.raw_payload || {};\nif (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch { raw = {}; } }\n\nconst severity = String(incoming.severity || 'medium').toLowerCase();\nconst eventType = String(incoming.event_type || 'unknown').toLowerCase();\nconst sourceIp = incoming.src_ip || incoming.source_ip || raw.src_ip || raw.srcip || '';\nconst processId = String(incoming.process_id || raw.process_id || raw.pid || raw.process?.pid || '');\nconst url = incoming.url || raw.url || '';\nconst domain = incoming.domain || raw.domain || '';\n\nreturn { json: {\n  alert_id: incoming.alert_id || `n8n-${Date.now()}`,\n  agent_id: incoming.agent_id || incoming.agent?.id || '',\n  event_type: eventType,\n  severity,\n  title: incoming.title || 'SOC Security Alert',\n  description: incoming.description || incoming.message || '',\n  src_ip: sourceIp,\n  process_id: processId,\n  url,\n  domain,\n  timestamp: incoming.timestamp || new Date().toISOString(),\n  raw_payload: raw\n} };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-280, 120],
+      "id": "normalize-alert",
+      "name": "Normalize SOC Alert"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { model: 'gemma3:4b', stream: false, format: 'json', options: { temperature: 0, num_ctx: 4096 }, prompt: 'Ban la SOC analyst. Phan tich alert va chi tra ve JSON thuần. Action chi duoc la block_ip, kill_process, block_url, create_case, ignore. Khong tao shell command. Neu thieu du lieu thi chon create_case. Dữ liệu alert: ' + JSON.stringify($json) } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [0, 120],
+      "id": "ollama-analysis",
+      "name": "Ollama AI Triage"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const alert = $('Normalize SOC Alert').item.json;\nlet ai = {};\ntry { ai = typeof $json.response === 'string' ? JSON.parse($json.response) : ($json.response || $json); } catch { ai = {}; }\n\nconst allowed = ['block_ip', 'kill_process', 'block_url', 'create_case', 'ignore'];\nlet action = allowed.includes(ai.action) ? ai.action : 'create_case';\nconst confidence = Math.max(0, Math.min(1, Number(ai.confidence) || 0));\n\nif (action === 'block_ip' && !alert.src_ip) action = 'create_case';\nif (action === 'kill_process' && (!alert.process_id || !alert.agent_id)) action = 'create_case';\nif (action === 'block_url' && !alert.domain && !alert.url) action = 'create_case';\n\nreturn { json: {\n  ...alert,\n  action,\n  ai_used: true,\n  ai_verdict: ai.verdict || 'unknown',\n  ai_confidence: confidence,\n  reason: ai.reason || 'AI khong cung cap ly do hop le.',\n  requires_approval: ['block_ip', 'kill_process', 'block_url'].includes(action)\n} };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 120],
+      "id": "build-decision",
+      "name": "Build Safe Decision"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "5407528909",
+        "message": "=🚨 YEU CAU PHE DUYET SOC\n\nAlert: {{ $json.alert_id }}\nEvent: {{ $json.event_type }}\nSeverity: {{ $json.severity }}\nAgent: {{ $json.agent_id || 'N/A' }}\n\nAction: {{ $json.action }}\nTarget: {{ $json.src_ip || $json.process_id || $json.domain || $json.url || 'N/A' }}\nAI confidence: {{ $json.ai_confidence }}\nLy do: {{ $json.reason }}\n\nChap nhan hanh dong thay doi he thong?",
+        "approvalOptions": { "values": { "approvalType": "double" } },
+        "options": { "limitWaitTime": { "values": { "resumeAmount": 10, "resumeUnit": "minutes" } } }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [500, 20],
+      "id": "telegram-approval",
+      "name": "Telegram Human Approval",
+      "webhookId": "telegram-approval-2026",
+      "credentials": { "telegramApi": { "id": "xQ8yLdyLU7zVBaID", "name": "Telegram account" } }
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.requires_approval }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [500, 180],
+      "id": "approval-required",
+      "name": "Approval Required?"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.data.approved }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [740, 20],
+      "id": "approval-result",
+      "name": "Human Approved?"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { ...$('Approval Required?').item.json, human_approved_by: $json.data?.approvedBy || $json.data?.approved_by || 'telegram' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [980, 20],
+      "id": "restore-approved-data",
+      "name": "Restore Approved Decision"
+    },
+    {
+      "parameters": {
+        "rules": { "values": [
+          { "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "block_ip", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" }, "renameOutput": true, "outputKey": "Block IP" },
+          { "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "kill_process", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" }, "renameOutput": true, "outputKey": "Kill Process" },
+          { "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "block_url", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" }, "renameOutput": true, "outputKey": "Block URL" },
+          { "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "create_case", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" }, "renameOutput": true, "outputKey": "Create Case" },
+          { "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "isolate_host", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" }, "renameOutput": true, "outputKey": "Isolate Host" }
+        ] },
+        "options": { "fallbackOutput": "extra" }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [1220, 20],
+      "id": "action-switch",
+      "name": "Action Switch"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const ip = String($json.src_ip || '').trim();\nconst ipv4 = /^(25[0-5]|2[0-4]\\d|1?\\d?\\d)(\\.(25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}$/;\nif (!ipv4.test(ip)) throw new Error('Tu choi IP khong hop le: ' + ip);\nreturn { json: { ...$json, ssh_command: `pfctl -t SOAR_BlockList -T add ${ip}` } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1470, -100],
+      "id": "build-pfsense-ip-command",
+      "name": "Build pfSense Block IP Command"
+    },
+    {
+      "parameters": { "command": "={{ $json.ssh_command }}" },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [1710, -100],
+      "id": "pfsense-block-ip",
+      "name": "SSH pfSense - Block IP",
+      "credentials": { "sshPassword": { "id": "VzOEbxiTSqMlBuMa", "name": "SSH Password account 2" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { ...$('Build pfSense Block IP Command').item.json, ssh_result: $json } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1950, -100],
+      "id": "restore-block-ip-data",
+      "name": "Restore Block IP Data"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const domain = String($json.domain || new URL($json.url).hostname).toLowerCase().trim();\nif (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain)) throw new Error('Tu choi domain khong hop le: ' + domain);\nconst sinkhole = '192.168.10.1';\nconst file = '/var/unbound/pfb_dnsbl_SOAR.conf';\nconst command = `grep -q \"${domain}\" ${file} 2>/dev/null || echo \"local-data: \\\"${domain} 60 IN A ${sinkhole}\\\"\" >> ${file}; /usr/local/sbin/pfSsh.php playback svc restart unbound`;\nreturn { json: { ...$json, domain, ssh_command: command } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1470, 140],
+      "id": "build-pfsense-url-command",
+      "name": "Build pfSense DNSBL Command"
+    },
+    {
+      "parameters": { "command": "={{ $json.ssh_command }}" },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [1710, 140],
+      "id": "pfsense-block-url",
+      "name": "SSH pfSense - Block Domain",
+      "credentials": { "sshPassword": { "id": "VzOEbxiTSqMlBuMa", "name": "SSH Password account 2" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { ...$('Build pfSense DNSBL Command').item.json, ssh_result: $json } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1950, 140],
+      "id": "restore-block-url-data",
+      "name": "Restore Block URL Data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { alert_id: $json.alert_id, action: 'kill_process', target: String($json.process_id), ai_reason: $json.reason, confidence: Number($json.ai_confidence || 0), human_approved_by: $json.human_approved_by || 'auto-approved' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1470, 380],
+      "id": "soc-callback-kill",
+      "name": "SOC Server Callback - Kill Process"
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=✅ SOC ACTION COMPLETED\nAlert: {{ $json.alert_id }}\nAction: {{ $json.action || 'kill_process' }}\nTarget: {{ $json.src_ip || $json.process_id || $json.domain || 'N/A' }}\nSource: pfSense / SOC Agent\nAI confidence: {{ $json.ai_confidence }}\nReason: {{ $json.reason }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1960, 20],
+      "id": "telegram-complete",
+      "name": "Telegram Action Completed",
+      "webhookId": "telegram-complete-2026",
+      "credentials": { "telegramApi": { "id": "xQ8yLdyLU7zVBaID", "name": "Telegram account" } }
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=⚠️ SOC ACTION REJECTED\nAlert: {{ $('Build Safe Decision').item.json.alert_id }}\nProposed action: {{ $('Build Safe Decision').item.json.action }}\nReason: Human approval timeout or rejected.\nNo system change was executed.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [980, 220],
+      "id": "telegram-rejected",
+      "name": "Telegram Action Rejected",
+      "webhookId": "telegram-rejected-2026",
+      "credentials": { "telegramApi": { "id": "xQ8yLdyLU7zVBaID", "name": "Telegram account" } }
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=📁 SOC CASE REQUIRED\nAlert: {{ $json.alert_id }}\nEvent: {{ $json.event_type }}\nSeverity: {{ $json.severity }}\nReason: {{ $json.reason }}\n\nCase can be created/updated in SOC Server UI.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1470, 620],
+      "id": "telegram-case",
+      "name": "Telegram Case Notification",
+      "webhookId": "telegram-case-2026",
+      "credentials": { "telegramApi": { "id": "xQ8yLdyLU7zVBaID", "name": "Telegram account" } }
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=ℹ️ SOC ALERT LOGGED\nAlert: {{ $json.alert_id }}\nEvent: {{ $json.event_type }}\nReason: {{ $json.reason }}\nNo automatic action was executed.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1470, 780],
+      "id": "telegram-ignore",
+      "name": "Telegram Ignore Notification",
+      "webhookId": "telegram-ignore-2026",
+      "credentials": { "telegramApi": { "id": "xQ8yLdyLU7zVBaID", "name": "Telegram account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const source = $('Normalize SOC Alert').item.json;\nconst generated = !source.alert_id || source.alert_id.startsWith('n8n-');\nreturn { json: { ...source, alert_id_generated: generated, description: (source.description || '') + (generated ? ' [WARNING: alert_id was generated by n8n; SOC Server should provide a stable ID.]' : ''), threat_intel: 'unavailable: SOC Server has no GET /api/v1/ioc/lookup endpoint' } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-40, 120],
+      "id": "final-alert-context",
+      "name": "Finalize Alert Context",
+      "notes": "Muc 4 va 10: IOC lookup chua co trong SOC Server nen khong gia lap du lieu; danh dau alert_id sinh boi n8n."
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.pre_verified === true && $json.event_type === 'ddos_detected' && $json.src_ip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [200, 220],
+      "id": "preverified-ddos",
+      "name": "Pre-verified DDoS?",
+      "notes": "Muc 7: DDoS da xac nhan bo qua Ollama de giam do tre."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { ...$json, action: 'block_ip', ai_used: false, ai_verdict: 'true_positive', ai_confidence: Number($json.confidence || 1), reason: 'DDoS xac nhan rule-based, phan ung tuc thoi', requires_approval: false } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 220],
+      "id": "set-preverified-ddos",
+      "name": "Set Pre-verified DDoS Action"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const decision = $json;\nconst context = $('Finalize Alert Context').item.json;\nreturn { json: { ...context, ...decision, alert_id_generated: context.alert_id_generated, threat_intel: context.threat_intel } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 120],
+      "id": "restore-decision-context",
+      "name": "Restore Decision Context"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const source = $json;\nlet domain = String(source.domain || '').toLowerCase().trim();\nif (!domain && source.url) { try { domain = new URL(source.url).hostname.toLowerCase(); } catch (error) { return { json: { ...source, action: 'create_case', error_invalid_domain: true, domain_error: 'URL khong hop le: ' + error.message } }; } }\nif (!domain || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain)) return { json: { ...source, action: 'create_case', error_invalid_domain: true, domain_error: 'Domain khong hop le: ' + domain } };\nconst sinkhole = '192.168.10.1';\nconst file = '/var/unbound/pfb_dnsbl_SOAR.conf';\nconst command = `grep -q \"${domain}\" ${file} 2>/dev/null || echo \"local-data: \\\"${domain} 60 IN A ${sinkhole}\\\"\" >> ${file}; /usr/local/sbin/pfSsh.php playback svc restart unbound`;\nreturn { json: { ...source, domain, ssh_command: command, error_invalid_domain: false } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1470, 140],
+      "id": "safe-pfsense-url-command",
+      "name": "Build pfSense DNSBL Command Safe",
+      "notes": "Muc 3: bat loi URL/domain ro rang va chuyen create_case thay vi crash."
+    },
+    {
+      "parameters": { "command": "={{ $json.ssh_command }}" },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [1710, 260],
+      "id": "pfsense-block-url-safe",
+      "name": "SSH pfSense - Block Domain Safe",
+      "credentials": { "sshPassword": { "id": "VzOEbxiTSqMlBuMa", "name": "SSH Password account 2" } }
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.error_invalid_domain }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notEquals", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1470, 200],
+      "id": "domain-valid",
+      "name": "Domain Valid?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { alert_id: $json.alert_id, action: 'block_ip', target: $json.src_ip, ai_reason: $json.reason, confidence: Number($json.ai_confidence || 0), human_approved_by: $json.human_approved_by || 'auto-approved', execution_result: $json.ssh_result || $json } }}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2200, -100],
+      "id": "soc-callback-block-ip",
+      "name": "SOC Server Callback - Block IP",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { alert_id: $json.alert_id, action: 'block_url', target: $json.domain, ai_reason: $json.reason || $json.domain_error, confidence: Number($json.ai_confidence || 0), human_approved_by: $json.human_approved_by || 'auto-approved', execution_result: { domain_sinkhole: $json.domain_ssh_result || null, resolved_ip: $json.resolved_ip || null, phishing_ip_block: $json.ip_ssh_result || null } } }}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2200, 260],
+      "id": "soc-callback-block-url",
+      "name": "SOC Server Callback - Block URL",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { alert_id: $json.alert_id, action: 'create_case', target: '', ai_reason: $json.reason, confidence: Number($json.ai_confidence || 0), human_approved_by: '' } }}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1720, 620],
+      "id": "soc-callback-create-case",
+      "name": "SOC Server Callback - Create Case",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.statusCode >= 200 && $json.statusCode < 300 }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2440, 0],
+      "id": "callback-block-ip-result",
+      "name": "Callback Block IP Successful?"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.statusCode >= 200 && $json.statusCode < 300 }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2440, 260],
+      "id": "callback-block-url-result",
+      "name": "Callback Block URL Successful?"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.statusCode >= 200 && $json.statusCode < 300 }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1960, 380],
+      "id": "callback-kill-result",
+      "name": "Callback Kill Process Successful?"
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=❌ SOC ACTION FAILED\nAlert: {{ $json.alert_id || 'unknown' }}\nAction: {{ $json.action || 'unknown' }}\nReason: {{ $json.error || $json.domain_error || $json.body?.error || 'SOC Server callback failed or returned non-2xx' }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2700, 500],
+      "id": "telegram-action-failed",
+      "name": "Telegram Action Failed",
+      "webhookId": "telegram-action-failed-2026",
+      "credentials": { "telegramApi": { "id": "xQ8yLdyLU7zVBaID", "name": "Telegram account" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { alert_id: $json.alert_id, action: 'isolate_host', target: $json.agent_id, ai_reason: $json.reason, confidence: Number($json.ai_confidence || 0), human_approved_by: $json.human_approved_by || 'auto-approved' } }}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1470, 860],
+      "id": "soc-callback-isolate-host",
+      "name": "SOC Server Callback - Isolate Host",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.statusCode >= 200 && $json.statusCode < 300 }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1720, 860],
+      "id": "callback-isolate-result",
+      "name": "Callback Isolate Host Successful?"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.statusCode >= 200 && $json.statusCode < 300 }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1960, 620],
+      "id": "callback-create-case-result",
+      "name": "Callback Create Case Successful?"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.event_type === 'phishing_detected' && !!$json.url }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [200, 120],
+      "id": "is-phishing-candidate",
+      "name": "Is Phishing Candidate?",
+      "notes": "Muc 3: chi alert phishing_detected co URL moi duoc gui qua model phishing chuyen dung."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5001/api/url/predict",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { url: $json.url } }}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [450, 20],
+      "id": "phishing-detection-model",
+      "name": "Call Phishing Detection Model",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Muc 3: goi model ML phishing rieng truoc khi cho phep block URL/domain."
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ $json.statusCode >= 200 && $json.statusCode < 300 }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [700, 20],
+      "id": "phishing-model-available",
+      "name": "Phishing Model Available?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const alert = $('Finalize Alert Context').item.json;\nreturn { json: { ...alert, action: 'create_case', ai_used: false, ai_verdict: 'unknown', ai_confidence: 0, reason: 'Khong the goi Phishing Detection Model (loi/timeout) - chuyen sang tao case de con nguoi kiem tra thu cong.', requires_approval: false } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [950, 120],
+      "id": "fallback-phishing-case",
+      "name": "Set Fallback Case Action"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ ($json.body?.prediction || $json.prediction) === 'phishing' }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [950, 20],
+      "id": "phishing-verdict",
+      "name": "Check Phishing Verdict"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const alert = $('Finalize Alert Context').item.json;\nconst confidence = Number(($json.body?.confidence ?? $json.confidence) ?? 1);\nreturn { json: { ...alert, action: 'block_url', ai_used: false, ai_verdict: 'true_positive', ai_confidence: confidence, reason: 'Phishing model chuyen dung xac nhan URL la phishing.', requires_approval: true } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, -40],
+      "id": "verified-phishing-block",
+      "name": "Set Verified Phishing Block Action"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const alert = $('Finalize Alert Context').item.json;\nconst confidence = Number(($json.body?.confidence ?? $json.confidence) ?? 1);\nreturn { json: { ...alert, action: 'ignore', ai_used: false, ai_verdict: 'false_positive', ai_confidence: confidence, reason: 'Phishing model chuyen dung xac nhan URL sach, khong hanh dong.', requires_approval: false } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 80],
+      "id": "clean-url-action",
+      "name": "Set Clean URL Action"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { ...$('Build pfSense DNSBL Command Safe').item.json, domain_ssh_result: $json } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1950, 140],
+      "id": "restore-phishing-domain-data",
+      "name": "Restore Phishing Domain Data"
+    },
+    {
+      "parameters": {
+        "url": "=https://dns.google/resolve?name={{ $json.domain }}&type=A",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2200, 140],
+      "id": "resolve-phishing-domain-ip",
+      "name": "Resolve Domain to IP"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const dns = $json;\nconst previous = $('Restore Phishing Domain Data').item.json;\nconst answer = Array.isArray(dns.Answer) ? dns.Answer.find(record => record.type === 1 && /^((25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1?\\d?\\d)$/.test(record.data)) : null;\nreturn { json: { ...previous, resolved_ip: answer ? answer.data : '' } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 140],
+      "id": "parse-phishing-dns-result",
+      "name": "Parse Phishing DNS Result"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "typeValidation": "strict", "version": 3 }, "conditions": [{ "leftValue": "={{ !!$json.resolved_ip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2680, 140],
+      "id": "resolved-ip-available",
+      "name": "Resolved IP Available?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const ip = String($json.resolved_ip || '').trim();\nconst ipv4 = /^(25[0-5]|2[0-4]\\d|1?\\d?\\d)(\\.(25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}$/;\nif (!ipv4.test(ip)) throw new Error('Resolved IP khong hop le, tu choi block: ' + ip);\nreturn { json: { ...$json, ssh_command: `pfctl -t SOAR_Phishing_BlockList -T add ${ip}` } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2920, 100],
+      "id": "build-phishing-ip-command",
+      "name": "Build pfSense Phishing Block IP Command"
+    },
+    {
+      "parameters": { "command": "={{ $json.ssh_command }}" },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [3160, 100],
+      "id": "pfsense-phishing-block-ip",
+      "name": "SSH pfSense - Block Phishing IP",
+      "credentials": { "sshPassword": { "id": "VzOEbxiTSqMlBuMa", "name": "SSH Password account 2" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { ...$('Build pfSense Phishing Block IP Command').item.json, ip_ssh_result: $json } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3400, 100],
+      "id": "restore-phishing-ip-data",
+      "name": "Restore Phishing IP Data"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "SOC Server Alert Webhook": { "main": [[{ "node": "Normalize SOC Alert", "type": "main", "index": 0 }]] },
+    "Normalize SOC Alert": { "main": [[{ "node": "Finalize Alert Context", "type": "main", "index": 0 }]] },
+    "Finalize Alert Context": { "main": [[{ "node": "Is Phishing Candidate?", "type": "main", "index": 0 }]] },
+    "Is Phishing Candidate?": { "main": [[{ "node": "Call Phishing Detection Model", "type": "main", "index": 0 }], [{ "node": "Pre-verified DDoS?", "type": "main", "index": 0 }]] },
+    "Call Phishing Detection Model": { "main": [[{ "node": "Phishing Model Available?", "type": "main", "index": 0 }]] },
+    "Phishing Model Available?": { "main": [[{ "node": "Check Phishing Verdict", "type": "main", "index": 0 }], [{ "node": "Set Fallback Case Action", "type": "main", "index": 0 }]] },
+    "Check Phishing Verdict": { "main": [[{ "node": "Set Verified Phishing Block Action", "type": "main", "index": 0 }], [{ "node": "Set Clean URL Action", "type": "main", "index": 0 }]] },
+    "Set Verified Phishing Block Action": { "main": [[{ "node": "Approval Required?", "type": "main", "index": 0 }]] },
+    "Set Clean URL Action": { "main": [[{ "node": "Approval Required?", "type": "main", "index": 0 }]] },
+    "Set Fallback Case Action": { "main": [[{ "node": "Approval Required?", "type": "main", "index": 0 }]] },
+    "Pre-verified DDoS?": { "main": [[{ "node": "Set Pre-verified DDoS Action", "type": "main", "index": 0 }], [{ "node": "Ollama AI Triage", "type": "main", "index": 0 }]] },
+    "Set Pre-verified DDoS Action": { "main": [[{ "node": "Approval Required?", "type": "main", "index": 0 }]] },
+    "Ollama AI Triage": { "main": [[{ "node": "Build Safe Decision", "type": "main", "index": 0 }]] },
+    "Build Safe Decision": { "main": [[{ "node": "Restore Decision Context", "type": "main", "index": 0 }]] },
+    "Restore Decision Context": { "main": [[{ "node": "Approval Required?", "type": "main", "index": 0 }]] },
+    "Approval Required?": { "main": [[{ "node": "Telegram Human Approval", "type": "main", "index": 0 }], [{ "node": "Action Switch", "type": "main", "index": 0 }]] },
+    "Telegram Human Approval": { "main": [[{ "node": "Human Approved?", "type": "main", "index": 0 }]] },
+    "Human Approved?": { "main": [[{ "node": "Restore Approved Decision", "type": "main", "index": 0 }], [{ "node": "Telegram Action Rejected", "type": "main", "index": 0 }]] },
+    "Restore Approved Decision": { "main": [[{ "node": "Action Switch", "type": "main", "index": 0 }]] },
+    "Action Switch": { "main": [[{ "node": "Build pfSense Block IP Command", "type": "main", "index": 0 }], [{ "node": "SOC Server Callback - Kill Process", "type": "main", "index": 0 }], [{ "node": "Build pfSense DNSBL Command Safe", "type": "main", "index": 0 }], [{ "node": "SOC Server Callback - Create Case", "type": "main", "index": 0 }], [{ "node": "SOC Server Callback - Isolate Host", "type": "main", "index": 0 }], [{ "node": "Telegram Ignore Notification", "type": "main", "index": 0 }]] },
+    "Build pfSense Block IP Command": { "main": [[{ "node": "SSH pfSense - Block IP", "type": "main", "index": 0 }]] },
+    "SSH pfSense - Block IP": { "main": [[{ "node": "Restore Block IP Data", "type": "main", "index": 0 }]] },
+    "Restore Block IP Data": { "main": [[{ "node": "SOC Server Callback - Block IP", "type": "main", "index": 0 }]] },
+    "SOC Server Callback - Block IP": { "main": [[{ "node": "Callback Block IP Successful?", "type": "main", "index": 0 }]] },
+    "Callback Block IP Successful?": { "main": [[{ "node": "Telegram Action Completed", "type": "main", "index": 0 }], [{ "node": "Telegram Action Failed", "type": "main", "index": 0 }]] },
+    "Build pfSense DNSBL Command": { "main": [[{ "node": "SSH pfSense - Block Domain", "type": "main", "index": 0 }]] },
+    "Build pfSense DNSBL Command Safe": { "main": [[{ "node": "Domain Valid?", "type": "main", "index": 0 }]] },
+    "Domain Valid?": { "main": [[{ "node": "SSH pfSense - Block Domain Safe", "type": "main", "index": 0 }], [{ "node": "Telegram Action Failed", "type": "main", "index": 0 }]] },
+    "SSH pfSense - Block Domain Safe": { "main": [[{ "node": "Restore Phishing Domain Data", "type": "main", "index": 0 }]] },
+    "Restore Phishing Domain Data": { "main": [[{ "node": "Resolve Domain to IP", "type": "main", "index": 0 }]] },
+    "Resolve Domain to IP": { "main": [[{ "node": "Parse Phishing DNS Result", "type": "main", "index": 0 }]] },
+    "Parse Phishing DNS Result": { "main": [[{ "node": "Resolved IP Available?", "type": "main", "index": 0 }]] },
+    "Resolved IP Available?": { "main": [[{ "node": "Build pfSense Phishing Block IP Command", "type": "main", "index": 0 }], [{ "node": "SOC Server Callback - Block URL", "type": "main", "index": 0 }]] },
+    "Build pfSense Phishing Block IP Command": { "main": [[{ "node": "SSH pfSense - Block Phishing IP", "type": "main", "index": 0 }]] },
+    "SSH pfSense - Block Phishing IP": { "main": [[{ "node": "Restore Phishing IP Data", "type": "main", "index": 0 }]] },
+    "Restore Phishing IP Data": { "main": [[{ "node": "SOC Server Callback - Block URL", "type": "main", "index": 0 }]] },
+    "SOC Server Callback - Block URL": { "main": [[{ "node": "Callback Block URL Successful?", "type": "main", "index": 0 }]] },
+    "Callback Block URL Successful?": { "main": [[{ "node": "Telegram Action Completed", "type": "main", "index": 0 }], [{ "node": "Telegram Action Failed", "type": "main", "index": 0 }]] },
+    "SSH pfSense - Block Domain": { "main": [[{ "node": "Restore Block URL Data", "type": "main", "index": 0 }]] },
+    "Restore Block URL Data": { "main": [[{ "node": "Telegram Action Completed", "type": "main", "index": 0 }]] },
+    "SOC Server Callback - Kill Process": { "main": [[{ "node": "Callback Kill Process Successful?", "type": "main", "index": 0 }]] },
+    "Callback Kill Process Successful?": { "main": [[{ "node": "Telegram Action Completed", "type": "main", "index": 0 }], [{ "node": "Telegram Action Failed", "type": "main", "index": 0 }]] },
+    "SOC Server Callback - Create Case": { "main": [[{ "node": "Callback Create Case Successful?", "type": "main", "index": 0 }]] },
+    "Callback Create Case Successful?": { "main": [[{ "node": "Telegram Case Notification", "type": "main", "index": 0 }], [{ "node": "Telegram Action Failed", "type": "main", "index": 0 }]] },
+    "SOC Server Callback - Isolate Host": { "main": [[{ "node": "Callback Isolate Host Successful?", "type": "main", "index": 0 }]] },
+    "Callback Isolate Host Successful?": { "main": [[{ "node": "Telegram Action Completed", "type": "main", "index": 0 }], [{ "node": "Telegram Action Failed", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": false },
+  "versionId": "soc-server-ai-pfsense-2026",
+  "meta": { "templateCredsSetupCompleted": false },
+  "id": "soc-server-ai-pfsense-2026",
+  "tags": []
+}

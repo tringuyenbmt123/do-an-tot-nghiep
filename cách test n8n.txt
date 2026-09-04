@@ -1,0 +1,1 @@
+curl -X POST https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook-test/soc-alert -H "Content-Type: application/json" -d "{\"alert_id\":\"TEST-PHISH-003\",\"event_type\":\"phishing_detected\",\"severity\":\"high\",\"url\":\"http://malicious-phishing-domain.com/login\",\"title\":\"Phishing Link Clicked\"}"

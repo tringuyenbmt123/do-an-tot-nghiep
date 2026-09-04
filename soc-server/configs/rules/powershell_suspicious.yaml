@@ -1,0 +1,40 @@
+# ==============================================================================
+# Detection Rule: Phát hiện PowerShell thực thi lệnh đáng ngờ
+# File: configs/rules/powershell_suspicious.yaml
+#
+# Mô tả: Rule này phát hiện khi tiến trình PowerShell được thực thi với các
+#         tham số command-line thường gặp trong tấn công mạng:
+#         - Invoke-Expression (IEX): Thực thi code từ xa
+#         - -EncodedCommand: Chạy lệnh đã mã hóa Base64 (obfuscation)
+#         - DownloadString/DownloadFile: Tải malware từ Internet
+#         - -ExecutionPolicy Bypass: Bỏ qua chính sách bảo mật
+#
+# MITRE ATT&CK: T1059.001 - Command and Scripting Interpreter: PowerShell
+# Tactic: Execution
+# ==============================================================================
+
+id: "PS-SUSPICIOUS-001"
+name: "Phát hiện PowerShell thực thi lệnh mã hóa/tải file đáng ngờ"
+severity: "high"
+event_type: "sysmon_process_create"
+description: |
+  Phát hiện khi PowerShell được khởi chạy với các tham số command-line
+  thường được sử dụng trong các cuộc tấn công mạng. Các dấu hiệu bao gồm:
+  sử dụng EncodedCommand để ẩn giấu lệnh, Invoke-Expression (IEX) để thực
+  thi code từ xa, DownloadString để tải payload malware, hoặc Bypass
+  ExecutionPolicy để vượt qua chính sách bảo mật hệ thống.
+mitre_tactic: "Execution"
+mitre_technique_id: "T1059.001"
+is_active: true
+
+# Điều kiện match - TẤT CẢ điều kiện phải thỏa mãn (AND logic)
+conditions:
+  # Điều kiện 1: Tiến trình phải là PowerShell
+  - field: "process_name"
+    operator: "in"
+    value: "powershell.exe,pwsh.exe,powershell_ise.exe"
+
+  # Điều kiện 2: Command line chứa ít nhất 1 trong các pattern đáng ngờ
+  - field: "command_line"
+    operator: "contains_any"
+    value: "-EncodedCommand,-enc ,Invoke-Expression,IEX,DownloadString,DownloadFile,Net.WebClient,Invoke-WebRequest,Start-BitsTransfer,-ExecutionPolicy Bypass,-ep bypass,-nop -w hidden"

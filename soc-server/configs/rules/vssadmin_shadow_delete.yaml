@@ -1,0 +1,42 @@
+# ==============================================================================
+# Detection Rule: Phát hiện xóa Volume Shadow Copy (Dấu hiệu Ransomware)
+# File: configs/rules/vssadmin_shadow_delete.yaml
+#
+# Mô tả: Rule này phát hiện khi vssadmin.exe hoặc wmic.exe được sử dụng để
+#         xóa Volume Shadow Copies (bản sao lưu tự động của Windows).
+#         Đây là hành vi đặc trưng của Ransomware: xóa backup trước khi
+#         mã hóa dữ liệu để nạn nhân không thể khôi phục file.
+#
+# MITRE ATT&CK: T1490 - Inhibit System Recovery
+# Tactic: Impact
+#
+# Ví dụ command line độc hại:
+#   vssadmin.exe delete shadows /all /quiet
+#   wmic shadowcopy delete
+#   bcdedit /set {default} recoveryenabled No
+# ==============================================================================
+
+id: "RANSOMWARE-VSS-001"
+name: "Phát hiện xóa Volume Shadow Copy - Dấu hiệu Ransomware"
+severity: "critical"
+event_type: "sysmon_process_create"
+description: |
+  Phát hiện hành vi xóa Volume Shadow Copy bằng vssadmin.exe hoặc wmic.exe.
+  Đây là kỹ thuật phổ biến của ransomware nhằm ngăn nạn nhân khôi phục
+  dữ liệu từ bản sao lưu hệ thống. Hành vi này yêu cầu điều tra ngay lập tức
+  vì có thể là dấu hiệu ransomware đang trong giai đoạn chuẩn bị mã hóa.
+mitre_tactic: "Impact"
+mitre_technique_id: "T1490"
+is_active: true
+
+# Điều kiện match
+conditions:
+  # Điều kiện 1: Tiến trình là vssadmin, wmic, hoặc bcdedit
+  - field: "process_name"
+    operator: "in"
+    value: "vssadmin.exe,wmic.exe,bcdedit.exe"
+
+  # Điều kiện 2: Command line chứa từ khóa liên quan đến xóa shadow/backup
+  - field: "command_line"
+    operator: "contains_any"
+    value: "delete shadows,shadowcopy delete,recoveryenabled No,resize shadowstorage"

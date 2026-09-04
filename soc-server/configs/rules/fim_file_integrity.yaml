@@ -1,0 +1,16 @@
+# Detection Rule: File Integrity Monitoring
+id: "FIM-001"
+name: "Phát hiện thay đổi file hoặc thư mục"
+severity: "high"
+event_type: "file_integrity"
+description: |
+  Phát hiện file hoặc thư mục được tạo, sửa, xóa hoặc đổi tên trên endpoint.
+  Alert được gửi sang SOAR để phân tích và thông báo.
+mitre_tactic: "Defense Evasion"
+mitre_technique_id: "T1564"
+is_active: true
+
+conditions:
+  - field: "action"
+    operator: "in"
+    value: "created,modified,deleted,renamed"

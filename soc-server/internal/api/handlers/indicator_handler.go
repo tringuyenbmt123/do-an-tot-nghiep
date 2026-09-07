@@ -39,6 +39,70 @@ func (h *IndicatorHandler) GetIndicators(c *gin.Context) {
 	})
 }
 
+// SearchMISPCompat - POST /api/v1/indicators/restSearch
+// Giữ contract request/response cũ của MISP nhưng chỉ đọc dữ liệu SOC App.
+func (h *IndicatorHandler) SearchMISPCompat(c *gin.Context) {
+	var request struct {
+		ReturnFormat string `json:"returnFormat"`
+		Limit        int    `json:"limit"`
+		Type         string `json:"type"`
+		Value        string `json:"value"`
+		Tag          string `json:"tag"`
+		Timestamp    string `json:"timestamp"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dữ liệu tìm Indicator không hợp lệ: " + err.Error()})
+		return
+	}
+
+	indicators, err := h.indicatorService.SearchIndicatorsCompat(request.Type, request.Value, request.Limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	attributes := make([]gin.H, 0, len(indicators))
+	for _, indicator := range indicators {
+		attributes = append(attributes, gin.H{
+			"id":         indicator.ID,
+			"type":       indicator.Type,
+			"category":   indicator.Category,
+			"value":      indicator.Value,
+			"comment":    indicator.Description,
+			"to_ids":     indicator.IsActive,
+			"risk_score": indicator.RiskScore,
+			"source":     indicator.Source,
+			"tag":        request.Tag,
+		})
+	}
+
+	response := make([]gin.H, 0, len(indicators))
+	if len(indicators) > 0 {
+		for _, indicator := range indicators {
+			response = append(response, gin.H{
+				"Event": gin.H{
+					"id":        indicator.ID,
+					"uuid":      indicator.ID,
+					"info":      indicator.Description,
+					"timestamp": indicator.CreatedAt.Unix(),
+					"Attribute": attributes,
+				},
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"response": response,
+		"meta": gin.H{
+			"source":    "soc-app-indicators",
+			"type":      request.Type,
+			"value":     request.Value,
+			"timestamp": request.Timestamp,
+		},
+	})
+}
+
 func (h *IndicatorHandler) CreateIndicator(c *gin.Context) {
 	var ioc models.Indicator
 	if err := c.ShouldBindJSON(&ioc); err != nil {

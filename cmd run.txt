@@ -10,3 +10,11 @@ cách 1 có sẵn :
  vô thư mục D:\DO AN TOT NGHIEP\soc-agent\bin : copy file exe và file config ra bên máy agent rồi run admin
 
 cách 2 : go build -ldflags="-s -w" -o bin\soc-agent.exe main.go để tạo file exe . Rồi tiếp tục làm như trên
+
+
+
+
+New-Item -ItemType Directory "C:\Users\Public\SOC-Test" -Force
+Set-Content "C:\Users\Public\SOC-Test\test.txt" "hello"
+Add-Content "C:\Users\Public\SOC-Test\test.txt" "changed"
+Remove-Item "C:\Users\Public\SOC-Test\test.txt"

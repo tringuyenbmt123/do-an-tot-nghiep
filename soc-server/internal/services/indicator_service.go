@@ -84,6 +84,29 @@ func (s *IndicatorService) GetAllIndicators(page, pageSize int, iocType string) 
 	return indicators, total, err
 }
 
+// SearchIndicatorsCompat performs the value/type lookup used by the legacy
+// MISP-shaped n8n node, but searches the SOC App indicators table.
+func (s *IndicatorService) SearchIndicatorsCompat(iocType, value string, limit int) ([]models.Indicator, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	query := s.db.Model(&models.Indicator{}).Where("is_active = ?", true)
+	if iocType != "" {
+		query = query.Where("type = ?", iocType)
+	}
+	if value != "" {
+		query = query.Where("value = ?", value)
+	}
+
+	var indicators []models.Indicator
+	err := query.Order("created_at DESC").Limit(limit).Find(&indicators).Error
+	return indicators, err
+}
+
 // CreateIndicator - Thêm IOC mới
 func (s *IndicatorService) CreateIndicator(indicator *models.Indicator) error {
 	indicator.ID = uuid.New().String()

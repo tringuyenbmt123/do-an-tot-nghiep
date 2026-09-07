@@ -265,7 +265,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.1.8:9000/api/v1/alert",
+        "url": "http://192.168.1.8:8080/api/v1/alerts",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -281,7 +281,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  type: 'external',\n  source: $json.reported_by,\n  sourceRef: $json.event_type + '-' + Date.now(),\n\n  title:\n    '[' + $json.event_type.toUpperCase() + '] ' +\n    $json.description +\n    ($json.rule_level !== 'N/A'\n      ? ' (Wazuh L' + $json.rule_level + ')'\n      : ''),\n\n  description:\n    '# SOC ALERT — ' + $json.event_type +\n\n    '\\n\\n## 1. THÔNG TIN CHUNG' +\n    '\\n* **Nguồn báo cáo:** ' + $json.reported_by + ' (' + $json.wazuh_host + ')' +\n    '\\n* **Mức độ:** ' + $json.severity + ' (Wazuh Rule Level: ' + $json.rule_level + ')' +\n    '\\n* **Mô tả:** ' + $json.description +\n    '\\n* **Thời gian:** ' + $json.timestamp +\n\n    '\\n\\n## 2. ENDPOINT / NETWORK' +\n    '\\n* **Source IP:** ' + $json.src_ip +\n    '\\n* **Agent:** ' + $json.agent_name + ' (' + $json.agent_id + ')' +\n    '\\n* **MITRE ATT&CK:** ' + $json.mitre_tactic + ' — ' + $json.mitre_id +\n    '\\n* **Rule ID:** ' + $json.rule_id +\n\n    '\\n\\n## 3. VIRUSTOTAL' +\n\n    (\n      $json.vt_summary_md\n      ? '\\n' + $json.vt_summary_md\n      : '\\n* Không có dữ liệu VirusTotal.'\n    ) +\n\n    '\\n\\n* **Detection:** ' +\n     ($json.vt_detection || 'N/A') +\n\n    '\\n* **Malicious:** ' + ($json.vt_malicious_count ?? 0) +\n    '\\n* **Suspicious:** ' + ($json.vt_suspicious_count ?? 0) +\n    '\\n* **Harmless:** ' + ($json.vt_harmless_count ?? 0) +\n    '\\n* **Undetected:** ' + ($json.vt_undetected_count ?? 0) +\n    '\\n* **Tags:** ' + ($json.vt_tags || 'None') +\n\n    '\\n\\n## 4. PARSED EVENT FIELDS\\n' +\n    $json.parsed_fields_md,\n\n  severity: $json.severity_num,\n\n  tags: [$json.event_type].concat($json.rule_groups || []),\n\n  tlp: 2,\n\n  status: 'New',\n\n  date: Date.parse($json.timestamp) || Date.now()\n\n}) }}",
+        "jsonBody": "={{\n  JSON.stringify({\n    agent_id: $json.agent_id,\n    rule_id: $json.rule_id !== 'N/A' ? $json.rule_id : '',\n    event_type: $json.event_type,\n    severity: $json.severity,\n    raw_payload: {\n      src_ip: $json.src_ip,\n      agent_name: $json.agent_name,\n      command_line: $json.command_line,\n      file_hash: $json.file_hash,\n      parsed_fields_md: $json.parsed_fields_md,\n      original: $json._raw_body\n    },\n    title: '[' + $json.event_type.toUpperCase() + '] ' + $json.description,\n    description: $json.description,\n    mitre_tactic: $json.mitre_tactic,\n    mitre_technique_id: $json.mitre_id\n  })\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -293,29 +293,6 @@
       "id": "4eb8ae17-43d4-4507-8776-318973e7dc1a",
       "name": "Create Alert1",
       "notes": "Tạo Alert trong TheHive 5 qua HTTP API v1 trực tiếp (thay theHive node không tương thích)"
-    },
-    {
-      "parameters": {
-        "operation": "search",
-        "value": "={{ $('Normalize Payload1').item.json.src_ip }}",
-        "additionalFields": {}
-      },
-      "type": "n8n-nodes-base.misp",
-      "typeVersion": 1,
-      "position": [
-        1488,
-        784
-      ],
-      "id": "d6f41f9b-9f25-4733-a1e5-11eeb3ce2120",
-      "name": "Get a filtered list of attributes1",
-      "alwaysOutputData": true,
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
-      },
-      "notes": "Tra cứu IOC (IP nguồn) trong MISP để bổ sung threat intelligence trước khi ra quyết định."
     },
     {
       "parameters": {
@@ -412,7 +389,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? $('Create Alert1').item.json.id ?? null;\n// Thu thập toàn bộ kết quả MISP - tương thích nhiều dạng output khác nhau của node MISP\nconst items = $input.all().map(i => i.json);\nlet mispAttrs = [];\nif (items.length === 1 && (items[0].Attribute || items[0].response?.Attribute)) {\n  mispAttrs = items[0].Attribute ?? items[0].response?.Attribute ?? [];\n} else {\n  mispAttrs = items.filter(it => it && Object.keys(it).length > 0);\n}\nconst prompt =\n  \"Bạn là chuyên gia phân tích an toàn thông tin Tier 1/2 (SOC Analyst).\\n\" +\n  \"Dựa trên cảnh báo đã chuẩn hóa và threat intelligence từ MISP dưới đây, hãy:\\n\" +\n  \"1) Phân loại True Positive hay False Positive.\\n\" +\n  \"2) Nếu True Positive, đề xuất đúng MỘT hành động theo nguyên tắc Zero-Trust:\\n\" +\n  \"   - \\\"block_ip\\\": tấn công mạng rõ ràng được xác nhận qua network/threat intel (DDoS, Brute-force, Botnet, Scanner).\\n\" +\n  \"   - \\\"kill_process\\\": phát hiện mã độc/tiến trình độc hại đang thực thi trên endpoint (Malware, LOLBins, Ransomware).\\n\" +\n  \"   - \\\"none\\\": lưu lượng/tiến trình hợp lệ hoặc nghi ngờ dương tính giả.\\n\" +\n  \"Chỉ trả lời bằng JSON thuần (không markdown, không giải thích thêm).\\n\" +\n  \"QUAN TRỌNG: giữ nguyên các key (verdict, action, reason, confidence) và các giá trị enum (true_positive/false_positive, block_ip/kill_process/none) bằng tiếng Anh như mẫu bên dưới, NHƯNG riêng nội dung field \\\"reason\\\" BẮT BUỘC phải viết bằng tiếng Việt, không được viết bằng tiếng Anh:\\n\" +\n  \"{\\\"verdict\\\": \\\"true_positive|false_positive\\\", \\\"action\\\": \\\"block_ip|kill_process|none\\\", \\\"reason\\\": \\\"(viết lý do bằng tiếng Việt tại đây)\\\", \\\"confidence\\\": 0.0}\\n\\n\" +\n  \"SỰ KIỆN (đã chuẩn hóa): \" + JSON.stringify(norm) + \"\\n\" +\n  \"MISP ATTRIBUTES: \" + JSON.stringify(mispAttrs);\nreturn [{ json: {\n  prompt, alert_id: alertId, src_ip: norm.src_ip, agent_id: norm.agent_id, agent_name: norm.agent_name,\n  process_id: norm.process_id, command_line: norm.command_line, file_hash: norm.file_hash,\n  description: norm.description, severity: norm.severity, timestamp: norm.timestamp,\n  parsed_fields_md: norm.parsed_fields_md, raw_json_md: norm.raw_json_md\n} }];"
+        "jsCode": "const norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? $('Create Alert1').item.json.id ?? null;\n// Thu thập toàn bộ kết quả MISP - tương thích nhiều dạng output khác nhau của node MISP\nconst items = $input.all().map(i => i.json);\n\nconst prompt =\n  \"Bạn là chuyên gia phân tích an toàn thông tin Tier 1/2 (SOC Analyst).\\n\" +\n  \"Dựa trên cảnh báo đã chuẩn hóa và threat intelligence từ MISP dưới đây, hãy:\\n\" +\n  \"1) Phân loại True Positive hay False Positive.\\n\" +\n  \"2) Nếu True Positive, đề xuất đúng MỘT hành động theo nguyên tắc Zero-Trust:\\n\" +\n  \"   - \\\"block_ip\\\": tấn công mạng rõ ràng được xác nhận qua network/threat intel (DDoS, Brute-force, Botnet, Scanner).\\n\" +\n  \"   - \\\"kill_process\\\": phát hiện mã độc/tiến trình độc hại đang thực thi trên endpoint (Malware, LOLBins, Ransomware).\\n\" +\n  \"   - \\\"none\\\": lưu lượng/tiến trình hợp lệ hoặc nghi ngờ dương tính giả.\\n\" +\n  \"Chỉ trả lời bằng JSON thuần (không markdown, không giải thích thêm).\\n\" +\n  \"QUAN TRỌNG: giữ nguyên các key (verdict, action, reason, confidence) và các giá trị enum (true_positive/false_positive, block_ip/kill_process/none) bằng tiếng Anh như mẫu bên dưới, NHƯNG riêng nội dung field \\\"reason\\\" BẮT BUỘC phải viết bằng tiếng Việt, không được viết bằng tiếng Anh:\\n\" +\n  \"{\\\"verdict\\\": \\\"true_positive|false_positive\\\", \\\"action\\\": \\\"block_ip|kill_process|none\\\", \\\"reason\\\": \\\"(viết lý do bằng tiếng Việt tại đây)\\\", \\\"confidence\\\": 0.0}\\n\\n\" +\n  \"SỰ KIỆN (đã chuẩn hóa): \" + JSON.stringify(norm) + \"\\n\";\nreturn [{ json: {\n  prompt, alert_id: alertId, src_ip: norm.src_ip, agent_id: norm.agent_id, agent_name: norm.agent_name,\n  process_id: norm.process_id, command_line: norm.command_line, file_hash: norm.file_hash,\n  description: norm.description, severity: norm.severity, timestamp: norm.timestamp,\n  parsed_fields_md: norm.parsed_fields_md, raw_json_md: norm.raw_json_md\n} }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -562,60 +539,6 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://192.168.221.220:55000/security/user/authenticate",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBasicAuth",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3232,
-        352
-      ],
-      "id": "fba15f25-7557-47e3-b6ab-6bde625c7983",
-      "name": "Wazuh_Get_Token2",
-      "credentials": {
-        "httpBasicAuth": {
-          "id": "an4MPuCUQpZJdyB6",
-          "name": "Unnamed credential"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "PUT",
-        "url": "=https://192.168.221.220:55000/active-response?agents_list={{ $('Action Switch1').item.json.agent_id }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $('Wazuh_Get_Token2').item.json.data.token }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"command\": \"firewall-drop600\",\n  \"arguments\": [\"-\", $('Action Switch1').item.json.src_ip, \"-\"],\n  \"alert\": { \"data\": { \"srcip\": $('Action Switch1').item.json.src_ip } }\n} }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3472,
-        352
-      ],
-      "id": "5d592b04-0ae6-49d2-a0ec-437aaaa9732c",
-      "name": "Wazuh_Execute_Block1"
-    },
-    {
-      "parameters": {
         "chatId": "5407528909",
         "text": "=🔴 IP BLOCKED: {{ $('Action Switch1').item.json.src_ip }}\n🧭 Nguồn quyết định: {{ $('Action Switch1').item.json.ai_used ? '🤖 AI (Ollama)' : '📐 Rule-based (ML/Wazuh)' }}\n📋 Lý do: {{ $('Action Switch1').item.json.reason }}\n📊 Độ tin cậy: {{ $('Action Switch1').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch1').item.json.timestamp }}\n\n🛡 VirusTotal:\n- Risk Level: {{ $('Extract VT Summary').item.json.vt_risk_level || 'N/A' }}\n- Detection: {{ $('Extract VT Summary').item.json.vt_detection || 'N/A' }}\n- Malicious: {{ $('Extract VT Summary').item.json.vt_malicious_count ?? 0 }} | Suspicious: {{ $('Extract VT Summary').item.json.vt_suspicious_count ?? 0 }}\n- Reputation: {{ $('Extract VT Summary').item.json.vt_reputation ?? 'N/A' }} | Country: {{ $('Extract VT Summary').item.json.vt_country || 'N/A' }}\n- ASN Owner: {{ $('Extract VT Summary').item.json.vt_as_owner || 'N/A' }}\n- Tags: {{ $('Extract VT Summary').item.json.vt_tags || 'None' }}\n\n✅ Wazuh Active Response: firewall-drop600",
         "additionalFields": {}
@@ -623,8 +546,8 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        3760,
-        352
+        3984,
+        400
       ],
       "id": "16e5aa96-816f-4cb3-9562-481be7fc8ab9",
       "name": "Telegram_Send_Block_Alert1",
@@ -639,7 +562,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=http://192.168.1.9:9000/api/v1/alert/{{ $('Create Alert1').item.json._id }}",
+        "url": "=={{ 'http://192.168.1.8:8080/api/v1/alerts/' +\n$('Create Alert1').item.json.id +\n'/status' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -656,94 +579,20 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ \n  status: 'InProgress', \n  tags: [($('Route by Event Type1').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'auto-blocked', 'soar'], \n  description: '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ CHẶN IP\\n\\n* **Hành động hệ thống:** Đã thực thi firewall-drop600 chặn IP ' + $('Route by Event Type1').item.json.src_ip + ' qua Wazuh Active Response.\\n* **Nguồn quyết định:** ' + ($('Route by Event Type1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based (ML/Wazuh)') + '\\n* **Lý do:** ' + $('Route by Event Type1').item.json.description + '\\n* **Thời gian xử lý:** ' + $('Route by Event Type1').item.json.timestamp \n}) }}",
+        "jsonBody": "={{ JSON.stringify({ \n  status: 'in_progress', \n  tags: [($('Route by Event Type1').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'auto-blocked', 'soar'], \n  description: '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ CHẶN IP\\n\\n* **Hành động hệ thống:** Đã thực thi firewall-drop600 chặn IP ' + $('Route by Event Type1').item.json.src_ip + ' qua Wazuh Active Response.\\n* **Nguồn quyết định:** ' + ($('Route by Event Type1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based (ML/Wazuh)') + '\\n* **Lý do:** ' + $('Route by Event Type1').item.json.description + '\\n* **Thời gian xử lý:** ' + $('Route by Event Type1').item.json.timestamp \n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        4032,
-        352
+        4240,
+        400
       ],
       "id": "ac25a712-1b25-4544-b52e-76b25b5deed6",
       "name": "Update Alert - Block1",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
       "notes": "Cập nhật Alert TheHive 5 sau khi block IP"
-    },
-    {
-      "parameters": {
-        "command": "=echo 'event_type=block src_ip={{ $('Route by Event Type1').item.json.src_ip }} source={{ $('Route by Event Type1').item.json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $('Route by Event Type1').item.json.confidence }} action=blocked reason=\"{{ $('Route by Event Type1').item.json.description }}\"' | tee -a /home/tri/n8n-security-events.log"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        4320,
-        352
-      ],
-      "id": "d3ebc541-d64d-4870-882f-aa1109e61bd4",
-      "name": "Log Block Event to Wazuh1",
-      "credentials": {
-        "sshPassword": {
-          "id": "wyYaeLHQIlc8FiGy",
-          "name": "SSH Password account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://192.168.221.220:55000/security/user/authenticate?raw=true",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBasicAuth",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3232,
-        656
-      ],
-      "id": "9904804e-2979-4132-bbc2-41a14ba654f2",
-      "name": "Wazuh_Get_Token3",
-      "credentials": {
-        "httpBasicAuth": {
-          "id": "an4MPuCUQpZJdyB6",
-          "name": "Unnamed credential"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "PUT",
-        "url": "=https://192.168.221.220:55000/active-response?agents_list={{ $('Action Switch1').item.json.agent_id }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $('Wazuh_Get_Token3').item.json.data }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"command\": \"kill-process600\",\n  \"arguments\": [\"-\", ($json.process_id ?? 'unknown').toString(), \"-\"],\n  \"alert\": { \"data\": { \"process\": { \"pid\": $json.process_id } } }\n} }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3472,
-        656
-      ],
-      "id": "ffa2851c-470a-40e5-acc0-287be3275b34",
-      "name": "Wazuh_Execute_Kill1",
-      "notes": "Yêu cầu script Active Response tùy biến 'kill-process600' đã khai báo trong ossec.conf trên Wazuh Manager."
     },
     {
       "parameters": {
@@ -754,8 +603,8 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        3760,
-        656
+        3824,
+        608
       ],
       "id": "1229ae4d-a8e7-4fb8-a550-a7bfe3cfe4f8",
       "name": "Telegram_Send_Execute_Kill1",
@@ -770,7 +619,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{\n'http://192.168.1.3:9000/api/v1/alert/' +\n$('Create Alert1').item.json._id\n}}",
+        "url": "=={{ 'http://192.168.1.8:8080/api/v1/alerts/' +\n$('Create Alert1').item.json.id +\n'/status' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -786,14 +635,14 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  status: 'InProgress',\n  tags: [($('Action Switch1').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'auto-killed-process', 'soar'],\n  description: '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ KILL PROCESS\\n\\n* **Hành động hệ thống:** Đã thực thi kill-process600 chấm dứt tiến trình PID ' + $('Action Switch1').item.json.process_id + ' trên Agent ' + $('Action Switch1').item.json.agent_id + '.\\n* **Nguồn quyết định:** ' + ($('Action Switch1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based') + '\\n* **Lý do:** ' + $('Action Switch1').item.json.reason + '\\n* **Độ tin cậy:** ' + $('Action Switch1').item.json.ai_confidence + '\\n* **Thời gian xử lý:** ' + $('Action Switch1').item.json.timestamp\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  status: 'in_progress',\n  tags: [($('Action Switch1').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'auto-killed-process', 'soar'],\n  description: '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ KILL PROCESS\\n\\n* **Hành động hệ thống:** Đã thực thi kill-process600 chấm dứt tiến trình PID ' + $('Action Switch1').item.json.process_id + ' trên Agent ' + $('Action Switch1').item.json.agent_id + '.\\n* **Nguồn quyết định:** ' + ($('Action Switch1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based') + '\\n* **Lý do:** ' + $('Action Switch1').item.json.reason + '\\n* **Độ tin cậy:** ' + $('Action Switch1').item.json.ai_confidence + '\\n* **Thời gian xử lý:** ' + $('Action Switch1').item.json.timestamp\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        4032,
-        656
+        4048,
+        608
       ],
       "id": "34b4a1cf-c865-4237-8641-328b6cd6d31b",
       "name": "Update Alert - Kill1",
@@ -804,25 +653,6 @@
     },
     {
       "parameters": {
-        "command": "=echo 'event_type=kill_process agent_id={{ $('Action Switch1').item.json.agent_id }} process_id={{ $('Action Switch1').item.json.process_id }} source={{ $('Action Switch1').item.json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $('Action Switch1').item.json.ai_confidence }} action=killed reason=\"{{ $('Action Switch1').item.json.reason }}\"' | tee -a /home/tri/n8n-security-events.log"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        4256,
-        656
-      ],
-      "id": "911c5857-c217-4bc9-bfb7-af5c20b04e3e",
-      "name": "Log Kill Event to Wazuh1",
-      "credentials": {
-        "sshPassword": {
-          "id": "wyYaeLHQIlc8FiGy",
-          "name": "SSH Password account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "chatId": "5407528909",
         "text": "=📋 LOGGED — KHÔNG TỰ ĐỘNG HÀNH ĐỘNG\n🔗 IP/Target: {{ $json.src_ip }}\n📝 Mô tả: {{ $json.description }}\n📋 Lý do: {{ $json.reason }}\n📊 Độ tin cậy: {{ $json.ai_confidence }}\n🕐 Time: {{ $json.timestamp }}",
         "additionalFields": {}
@@ -830,7 +660,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        3232,
+        3216,
         832
       ],
       "id": "4dbaf6db-85bd-496d-8518-06d128bd491d",
@@ -845,8 +675,8 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=http://192.168.1.8:9000/api/v1/alert",
+        "method": "PATCH",
+        "url": "=={{ 'http://192.168.1.8:8080/api/v1/alerts/' +\n$('Create Alert1').item.json.id +\n'/status' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -862,7 +692,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $('Restore Alert Data - Rejected').item.json.domain + '-' + Date.now(),\n  title: 'URL phishing bị từ chối chặn (Log Only): ' + $('Restore Alert Data - Rejected').item.json.domain,\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — CHỈ GHI NHẬN (LOG ONLY)\\n\\n' +\n    '* **Domain:** ' + $('Restore Alert Data - Rejected').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Alert Data - Rejected').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Alert Data - Rejected').item.json.employee_ip + '\\n' +\n    '* **Độ tin cậy:** ' + $('Restore Alert Data - Rejected').item.json.ai_confidence + '\\n' +\n    '* **Lý do:** ' + $('Restore Alert Data - Rejected').item.json.reason + '\\n' +\n    '* **Thời gian:** ' + $('Restore Alert Data - Rejected').item.json.timestamp + '\\n\\n' +\n    '⚠️ Cảnh báo này đã bị từ chối chặn (Decline) — cần chuyên gia SOC xác minh thủ công.',\n  severity: 2,\n  tlp: 2,\n  tags: [($('Restore Alert Data - Rejected').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'log-only', 'pending-soc-review'],\n  status: 'New'\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $json.domain + '-' + Date.now(),\n  title: 'URL phishing bị từ chối chặn (Log Only): ' + $('Restore Alert Data - Rejected').item.json.domain,\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — CHỈ GHI NHẬN (LOG ONLY)\\n\\n' +\n    '* **Domain:** ' + $('Restore Alert Data - Rejected').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Alert Data - Rejected').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Alert Data - Rejected').item.json.employee_ip + '\\n' +\n    '* **Độ tin cậy:** ' + $('Restore Alert Data - Rejected').item.json.ai_confidence + '\\n' +\n    '* **Lý do:** ' + $('Restore Alert Data - Rejected').item.json.reason + '\\n' +\n    '* **Thời gian:** ' + $('Restore Alert Data - Rejected').item.json.timestamp + '\\n\\n' +\n    '⚠️ Cảnh báo này đã bị từ chối chặn (Decline) — cần chuyên gia SOC xác minh thủ công.',\n  severity: 2,\n  tlp: 2,\n  tags: [($('Restore Alert Data - Rejected').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'log-only', 'pending-soc-review'],\n  status: 'new'\n}) }}",
         "options": {
           "allowUnauthorizedCerts": false
         }
@@ -878,109 +708,6 @@
       "continueOnFail": true,
       "onError": "continueRegularOutput",
       "notes": "Cập nhật Alert TheHive 5 khi chỉ ghi log, chờ SOC xác minh"
-    },
-    {
-      "parameters": {
-        "command": "=echo '{{ $json.timestamp }} event_type=log_only src_ip={{ $json.src_ip }} source={{ $json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $json.ai_confidence }} action=logged_only reason=\"{{ $json.reason }}\"' >> /var/log/n8n-security-events.log"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        3760,
-        832
-      ],
-      "id": "1897dff4-5288-4a6a-98af-8dc39d6d4053",
-      "name": "Log LogOnly Event to Wazuh1",
-      "credentials": {
-        "sshPassword": {
-          "id": "wyYaeLHQIlc8FiGy",
-          "name": "SSH Password account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://host.docker.internal/events/add",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mispApi",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Accept",
-              "value": "application/json"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        4768,
-        352
-      ],
-      "id": "4a5be49e-2fd9-423b-92c0-0edf61256c47",
-      "name": "Push IOC to MISP - Block IP",
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
-      },
-      "notes": "Tạo Event mới trong MISP (Attribute ip-src) khi SOAR xác nhận chặn IP — giúp Event/Attribute xuất hiện trên Dashboard MISP và có dữ liệu thật cho lần search IOC kế tiếp."
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://host.docker.internal/events/add",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mispApi",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Accept",
-              "value": "application/json"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        4688,
-        624
-      ],
-      "id": "30d17c22-59a0-4cf2-b0ed-b4bea3581851",
-      "name": "Push IOC to MISP - Kill Process",
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
-      },
-      "notes": "Tạo Event mới trong MISP (Attribute sha256 nếu có + mô tả process) khi SOAR xác nhận kill process — giúp Event xuất hiện trên Dashboard MISP."
     },
     {
       "parameters": {
@@ -1027,7 +754,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://host.docker.internal/events/restSearch",
+        "url": "http://192.168.1.8:8080/api/v1/indicators/restSearch",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "mispApi",
         "sendHeaders": true,
@@ -1067,7 +794,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const searchResult = $json;\n// const norm = $('Normalize Payload1').item.json;\nconst norm = $('Extract VT Summary').item.json;\nlet events = [];\nif (Array.isArray(searchResult)) {\n  events = searchResult;\n} else if (searchResult && Array.isArray(searchResult.response)) {\n  events = searchResult.response;\n} else if (searchResult && searchResult.Event) {\n  events = [searchResult];\n}\n\nlet exists = false;\nlet eventId = null;\nlet eventUuid = null;\n\nif (events.length > 0) {\n  const firstEvent = events[0].Event || events[0];\n  if (firstEvent && firstEvent.id) {\n    exists = true;\n    eventId = String(firstEvent.id);\n    eventUuid = firstEvent.uuid || null;\n  }\n}\n\nreturn [{ json: {\n  ...norm,\n  misp_exists: exists,\n  misp_event_id: eventId,\n  misp_event_uuid: eventUuid\n} }];"
+        "jsCode": "const searchResult = $json;\nconst norm = $('Extract VT Summary').item.json;\n\nlet indicators = [];\n\nif (Array.isArray(searchResult?.data)) {\n  indicators = searchResult.data;\n} else if (Array.isArray(searchResult?.response)) {\n  indicators = searchResult.response.flatMap(item =>\n    item.Event?.Attribute || item.Attribute || []\n  );\n} else if (searchResult?.id && searchResult?.value) {\n  indicators = [searchResult];\n}\n\nconst targetValue = norm.src_ip || norm.file_hash || norm.domain || norm.url;\n\nconst matches = indicators.filter(indicator =>\n  indicator.value === targetValue\n);\n\nconst firstIndicator = matches[0] || null;\n\nreturn [{\n  json: {\n    ...norm,\n    soc_app_indicator_found: Boolean(firstIndicator),\n    soc_app_indicator_id: firstIndicator?.id || null,\n    soc_app_indicator_type: firstIndicator?.type || null,\n    soc_app_indicator_value: firstIndicator?.value || null,\n\n    // Giữ field cũ để node sau không lỗi\n    misp_exists: Boolean(firstIndicator),\n    misp_event_id: firstIndicator?.id || null,\n    misp_event_uuid: firstIndicator?.id || null\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1081,7 +808,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.misp_exists ? ('https://host.docker.internal/events/edit/' + $json.misp_event_id) : 'https://host.docker.internal/events/add' }}",
+        "url": "=http://192.168.1.8:8080/api/v1/indicators",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "mispApi",
         "sendHeaders": true,
@@ -1099,7 +826,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.misp_exists ? { Event: { timestamp: Math.floor(Date.now() / 1000), Attribute: [{   type: 'comment',   category: 'Other',   value: '[Re-detected] ' + new Date().toISOString().slice(0,19).replace('T',' ') + ' UTC | ' + ($json.description || 'N/A') + ' | src_ip: ' + $json.src_ip,   to_ids: false,   comment: 'Auto-added by SOC SOAR n8n on repeated DDoS detection' }]} } : { Event: { info: '[SOAR] Auto-block IP - ' + $json.src_ip + ' (' + ($json.description || 'N/A') + ')', threat_level_id: 1, analysis: 0, distribution: 0, Attribute: [{ type: 'ip-src', category: 'Network activity', value: $json.src_ip, to_ids: true, comment: 'Auto-pushed by SOC SOAR n8n' }], Tag: [{ name: 'ddos_detected' }, { name: 'misp-synced' }, { name: 'threat-intelligence' }]} }) }}",
+        "jsonBody": "={{\n  JSON.stringify({\n    type: 'ip-src',\n    value: $json.src_ip,\n    category: $json.event_type || 'ddos_detected',\n    source: 'n8n-soar',\n    risk_score: 90,\n    description:\n      '[SOAR] Auto-block IP - ' +\n      $json.src_ip +\n      ' (' +\n      ($json.description || 'N/A') +\n      ')'\n  })\n}}",
         "options": {
           "allowUnauthorizedCerts": true
         }
@@ -1121,7 +848,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const syncResponse = $json;\nconst checkResult = $('Check MISP Search Result').item.json;\n// const norm = $('Normalize Payload1').item.json;\nconst norm = $('Extract VT Summary').item.json;\n\n// When event exists, misp_event_id comes from checkResult (search)\n// When event created, it comes from the sync response\nlet misp_event_id = checkResult.misp_event_id || '';\nlet misp_event_uuid = checkResult.misp_event_uuid || '';\n\nif (!misp_event_id) {\n  const ev = syncResponse.Event || syncResponse;\n  misp_event_id = ev.id ? String(ev.id) : '';\n  misp_event_uuid = ev.uuid || '';\n}\n\nconst action = checkResult.misp_exists ? 'updated' : 'created';\n\nreturn [{ json: {\n  ...norm,\n  misp_sync: true,\n  misp_event_id,\n  misp_event_uuid,\n  src_ip: norm.src_ip,\n  event_type: norm.event_type,\n  action\n} }];"
+        "jsCode": "const syncResponse = $json;\nconst norm = $('Extract VT Summary').item.json;\n\n// Response từ POST /api/v1/indicators\nconst indicator = syncResponse.data || syncResponse;\n\nconst indicatorId = indicator.id || '';\nconst indicatorType = indicator.type || '';\nconst indicatorValue = indicator.value || '';\n\nreturn [{\n  json: {\n    ...norm,\n\n    // Giữ tên field cũ để các node phía sau không bị lỗi\n    misp_sync: true,\n    misp_event_id: indicatorId,\n    misp_event_uuid: indicatorId,\n\n    // Field mới của SOC App\n    soc_app_indicator_id: indicatorId,\n    soc_app_indicator_type: indicatorType,\n    soc_app_indicator_value: indicatorValue,\n    soc_app_sync: true,\n\n    src_ip: norm.src_ip,\n    event_type: norm.event_type,\n    action: 'created'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1187,196 +914,6 @@
       ],
       "id": "d75dff3c-f0fa-4e85-b901-c829e22f7c8e",
       "name": "Extract VT Summary"
-    },
-    {
-      "parameters": {
-        "jsCode": "const src = $('Route by Event Type1').first().json;\nconst norm = $('Normalize Payload1').first().json;\nfunction pick(...vals){ for (const v of vals){ if (v!==undefined && v!==null && v!=='') return v; } return null; }\n\nconst description = pick(src.description, norm.description, 'N/A');\nconst searchText = (description + ' ' + (norm.event_type || '')).toLowerCase();\n\nlet galaxyTag = null;\nif (searchText.includes('syn') || searchText.includes('udp') || searchText.includes('flood') || searchText.includes('ddos')) {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"Network Denial of Service - T1498\"';\n} else if (searchText.includes('phish')) {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"Phishing - T1566\"';\n} else if (norm.mitre_id && norm.mitre_id !== 'N/A') {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"' + norm.mitre_id + '\"';\n}\n\nconst severity = pick(src.severity, norm.severity, 'medium');\nconst threatLevel = (severity === 'critical' || severity === 'high') ? 1 : (severity === 'medium' ? 2 : 3);\n\nconst tags = [\n  { name: 'tlp:amber' },\n  { name: 'workflow:state=\"incomplete\"' },\n  { name: 'soc-soar:action=\"block-ip\"' }\n];\nif (galaxyTag) tags.push({ name: galaxyTag });\n\nconst srcIp = pick(src.src_ip, norm.src_ip, 'unknown');\nconst aiUsed = src.ai_used ? 'AI(Ollama)' : 'Rule-based';\n\nconst eventObj = {\n  Event: {\n    info: '[SOAR] Auto-block IP - ' + srcIp + ' (' + description + ')',\n    threat_level_id: threatLevel,\n    analysis: 2,\n    distribution: 0,\n    Tag: tags,\n    Attribute: [{\n      type: 'ip-src',\n      category: 'Network activity',\n      value: srcIp,\n      to_ids: true,\n      comment: 'Auto-pushed by SOC SOAR n8n | action=block_ip | decision=' + aiUsed + ' | reason=' + description\n    }]\n  }\n};\n\nreturn [{ json: eventObj }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4560,
-        352
-      ],
-      "id": "61217384-ed4c-4ff9-8efa-48be6cbc5e72",
-      "name": "Build MISP Event - Block IP"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://host.docker.internal/eventReports/add/{{ $json.Event.id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mispApi",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Accept",
-              "value": "application/json"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  name: 'SOC SOAR Auto Report - ' + $('Normalize Payload1').first().json.event_type,\n  content: '## Chi tiet canh bao (auto-generated)\\n\\n'\n    + '**Nguon:** ' + $('Normalize Payload1').item.json.reported_by + '\\n'\n    + '**Thoi gian:** ' + $('Normalize Payload1').item.json.timestamp + '\\n'\n    + '**Muc do:** ' + $('Normalize Payload1').item.json.severity + '\\n'\n    + '**MITRE Tactic:** ' + $('Normalize Payload1').item.json.mitre_tactic + '\\n'\n    + '**MITRE ID:** ' + $('Normalize Payload1').item.json.mitre_id + '\\n\\n'\n    + '### Parsed fields\\n' + $('Normalize Payload1').item.json.parsed_fields_md,\n  distribution: 0\n}) }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        4944,
-        144
-      ],
-      "id": "6116932b-138f-4161-8405-851d39847fd4",
-      "name": "Create Event Report - Block IP",
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://host.docker.internal/analystData/add/Note/{{ $json.Event.uuid }}/Event",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mispApi",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Accept",
-              "value": "application/json"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  note: 'SOC SOAR tu dong BLOCK IP ' + $('Normalize Payload1').first().json.src_ip\n    + ' | Severity: ' + $('Normalize Payload1').item.json.severity\n    + ' | Reason: ' + $('Normalize Payload1').item.json.description,\n  authors: 'soc-soar-n8n',\n  distribution: 0\n}) }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        4944,
-        304
-      ],
-      "id": "dbd244b4-f1d0-474f-a101-e678f28e5fc0",
-      "name": "Create Note - Block IP",
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const norm = $('Normalize Payload1').item.json;\nconst j = $json;\n\nfunction pick(...vals){ for (const v of vals){ if (v!==undefined && v!==null && v!=='') return v; } return null; }\n\nconst description = pick(j.description, norm.description, 'N/A');\nconst severity = pick(j.severity, norm.severity, 'medium');\nconst threatLevel = (severity === 'critical' || severity === 'high') ? 1 : (severity === 'medium' ? 2 : 3);\n\nconst searchText = (description + ' ' + (norm.mitre_tactic || '')).toLowerCase();\nlet galaxyTag = null;\nif (searchText.includes('malware') || searchText.includes('trojan') || searchText.includes('ransomware')) {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"Command and Scripting Interpreter - T1059\"';\n} else if (norm.mitre_id && norm.mitre_id !== 'N/A') {\n  galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"' + norm.mitre_id + '\"';\n}\n\nconst tags = [\n  { name: 'tlp:amber' },\n  { name: 'workflow:state=\"incomplete\"' },\n  { name: 'soc-soar:action=\"kill-process\"' }\n];\nif (galaxyTag) tags.push({ name: galaxyTag });\n\nconst attributes = [];\nif (norm.file_hash) {\n  attributes.push({ type: 'sha256', category: 'Payload delivery', value: norm.file_hash, to_ids: true, comment: 'Hash cua tien trinh bi kill boi SOAR' });\n}\nattributes.push({ type: 'text', category: 'Other', value: 'PID ' + (j.process_id ?? 'unknown') + ' tren Agent ' + j.agent_id + ' (' + (norm.agent_name ?? 'N/A') + ')', to_ids: false });\n\ntry {\n  const raw = JSON.parse(norm._raw_body || '{}');\n  const af = raw.all_fields || raw;\n  const cve = pick(af?.data?.vulnerability?.cve, af?.data?.cve, raw?.data?.vulnerability?.cve, raw?.data?.cve);\n  if (cve) {\n    attributes.push({ type: 'vulnerability', category: 'External analysis', value: cve, to_ids: false, comment: 'CVE phat hien kem process bi kill' });\n  }\n} catch (e) {}\n\nconst eventObj = {\n  Event: {\n    info: '[SOAR] Auto-kill process - Agent ' + j.agent_id + ' (' + description + ')',\n    threat_level_id: threatLevel,\n    analysis: 0,\n    distribution: 0,\n    Tag: tags,\n    Attribute: attributes\n  }\n};\n\nreturn [{ json: eventObj }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4496,
-        624
-      ],
-      "id": "2c43df62-b876-444f-b308-7c130bc157af",
-      "name": "Build MISP Event - Kill Process"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://host.docker.internal/eventReports/add/{{ $json.Event.id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mispApi",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Accept",
-              "value": "application/json"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  name: 'SOC SOAR Auto Report - ' + $('Normalize Payload1').item.json.event_type,\n  content: '## Chi tiet canh bao (auto-generated)\\n\\n'\n    + '**Agent:** ' + $('Normalize Payload1').item.json.agent_id + ' (' + $('Normalize Payload1').item.json.agent_name + ')\\n'\n    + '**Thoi gian:** ' + $('Normalize Payload1').item.json.timestamp + '\\n'\n    + '**Muc do:** ' + $('Normalize Payload1').item.json.severity + '\\n'\n    + '**MITRE Tactic:** ' + $('Normalize Payload1').item.json.mitre_tactic + '\\n'\n    + '**MITRE ID:** ' + $('Normalize Payload1').item.json.mitre_id + '\\n\\n'\n    + '### Parsed fields\\n' + $('Normalize Payload1').item.json.parsed_fields_md,\n  distribution: 0\n}) }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        4960,
-        512
-      ],
-      "id": "b00f81a3-f5b4-4870-a85c-0c00c68cf42e",
-      "name": "Create Event Report - Kill Process",
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://host.docker.internal/analystData/add/Note/{{ $json.Event.uuid }}/Event",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mispApi",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Accept",
-              "value": "application/json"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  note: 'SOC SOAR tu dong KILL PROCESS tren Agent ' + $('Normalize Payload1').item.json.agent_id\n    + ' (' + $('Normalize Payload1').item.json.agent_name + ')'\n    + ' | Reason: ' + $('Normalize Payload1').item.json.description,\n  authors: 'soc-soar-n8n',\n  distribution: 0\n}) }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        4976,
-        736
-      ],
-      "id": "da9589a4-46bb-42b5-9299-5ac094747655",
-      "name": "Create Note - Kill Process",
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
-      }
     },
     {
       "parameters": {
@@ -1641,7 +1178,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const dns = $json;\nconst prev = $('Extract Domain from URL').item.json;\nlet ip = null;\nif (dns.Answer && dns.Answer.length) {\n  const a = dns.Answer.find(r => r.type === 1);\n  ip = a ? a.data : null;\n}\nreturn [{ json: { ...prev, resolved_ip: ip } }];"
+        "jsCode": "const dns = $json;\nconst prev = $('Extract Domain from URL').item.json;\nlet ips = [];\nif (dns.Answer && dns.Answer.length) {\n  // Lọc lấy toàn bộ bản ghi A (type === 1)\n  ips = dns.Answer.filter(r => r.type === 1).map(a => a.data);\n}\nreturn [{ json: { ...prev, resolved_ips: ips } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1654,7 +1191,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const d = $json;\nconst vt = d.third_party_eval?.VirusTotal?.status || 'N/A';\nconst confidence = (d.phishing_probability || 0) / 100;\nconst reason = `Model AI nội bộ phát hiện URL phishing (xác suất ${d.phishing_probability}%). Domain: ${d.domain}.`;\nreturn [{ json: {\n  action: 'block_url',\n  ai_used: true,\n  ai_verdict: 'phishing',\n  ai_confidence: confidence,\n  reason,\n  src_ip: d.resolved_ip || 'N/A',\n  employee_ip: d.employee_ip,\n  url: d.url,\n  domain: d.domain,\n  agent_id: null,\n  process_id: null,\n  file_hash: null,\n  description: `Phishing URL detected: ${d.url}`,\n  severity: 'high',\n  timestamp: d.timestamp\n} }];"
+        "jsCode": "const d = $json;\nconst vt = d.third_party_eval?.VirusTotal?.status || 'N/A';\nconst confidence = (d.phishing_probability || 0) / 100;\nconst reason = `Model AI nội bộ phát hiện URL phishing (xác suất ${d.phishing_probability}%). Domain: ${d.domain}.`;\nreturn [{ json: {\n  action: 'block_url',\n  ai_used: true,\n  ai_verdict: 'phishing',\n  ai_confidence: confidence,\n  reason,\n  src_ip: (d.resolved_ips && d.resolved_ips.length > 0) ? d.resolved_ips.join(', ') : 'N/A',\nresolved_ips: d.resolved_ips || [],\n  employee_ip: d.employee_ip,\n  url: d.url,\n  domain: d.domain,\n  agent_id: null,\n  process_id: null,\n  file_hash: null,\n  description: `Phishing URL detected: ${d.url}`,\n  severity: 'high',\n  timestamp: d.timestamp\n} }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1721,24 +1258,11 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=http://192.168.1.8:9000/api/v1/alert/",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization ",
-              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "method": "PATCH",
+        "url": "=={{ 'http://192.168.1.8:8080/api/v1/alerts/' +\n$('Create Alert1').item.json.id +\n'/status' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $('Restore Payload After SSH').item.json.domain + '-' + Date.now(),\n\n  title: 'Đã chặn domain phishing (DNS Sinkhole): ' +\n    $('Restore Payload After SSH').item.json.domain,\n\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ CHẶN DOMAIN (DNS SINKHOLE)\\n\\n' +\n    '* **Domain:** ' + $('Restore Payload After SSH').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Payload After SSH').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Payload After SSH').item.json.employee_ip + '\\n' +\n    '* **Lý do:** ' + $('Restore Payload After SSH').item.json.reason + '\\n' +\n    '* **Thời gian xử lý:** ' + $('Restore Payload After SSH').item.json.timestamp,\n\n  severity: 3,\n  status: 'InProgress',\n  tags: ['ai-decision', 'auto-blocked-domain', 'soar']\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $('Restore Payload After SSH').item.json.domain + '-' + Date.now(),\n\n  title: 'Đã chặn domain phishing (DNS Sinkhole): ' +\n    $('Restore Payload After SSH').item.json.domain,\n\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ CHẶN DOMAIN (DNS SINKHOLE)\\n\\n' +\n    '* **Domain:** ' + $('Restore Payload After SSH').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Payload After SSH').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Payload After SSH').item.json.employee_ip + '\\n' +\n    '* **Lý do:** ' + $('Restore Payload After SSH').item.json.reason + '\\n' +\n    '* **Thời gian xử lý:** ' + $('Restore Payload After SSH').item.json.timestamp,\n\n  severity: 3,\n  status: 'in_progress',\n  tags: ['ai-decision', 'auto-blocked-domain', 'soar']\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -1757,7 +1281,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3744,
+        3680,
         1024
       ],
       "id": "0fb8ade8-f67f-4ca8-bff8-949b25584d5d",
@@ -1770,8 +1294,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3344,
-        512
+        3280,
+        400
       ],
       "id": "438360b5-e298-4dfb-81f4-328b7b4e39c2",
       "name": "Build pfSense Block IP Command1"
@@ -1783,8 +1307,8 @@
       "type": "n8n-nodes-base.ssh",
       "typeVersion": 1,
       "position": [
-        3584,
-        512
+        3472,
+        400
       ],
       "id": "efe9dd46-65a2-4940-a087-3c880b6d9089",
       "name": "pfSense SSH - Block IP1",
@@ -1842,26 +1366,7 @@
     },
     {
       "parameters": {
-        "command": "=echo 'event_type=block_url domain={{ $('Restore Payload After SSH').item.json.domain }} employee_ip={{ $('Restore Payload After SSH').item.json.employee_ip }} source={{ $('Restore Payload After SSH').item.json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $('Restore Payload After SSH').item.json.ai_confidence }} action=blocked reason=\"{{ $('Restore Payload After SSH').item.json.reason }}\"' | tee -a /home/tri/n8n-security-events.log"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        4608,
-        1024
-      ],
-      "id": "6cf08624-4e1c-4547-906f-b1418e4866f8",
-      "name": "Log Block URL Event to Wazuh1",
-      "credentials": {
-        "sshPassword": {
-          "id": "wyYaeLHQIlc8FiGy",
-          "name": "SSH Password account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const d = $('Action Switch1').item.json;\nconst ip = (d.src_ip || '').trim();\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\nif (!ipv4Regex.test(ip) || ip === 'N/A') {\n  return [];\n}\n\nconst TABLE = 'SOAR_Phishing_BlockList';\nconst command = `pfctl -t ${TABLE} -T add ${ip}`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
+        "jsCode": "const d = $('Action Switch1').item.json;\nconst ips = d.resolved_ips || [];\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\n// Lọc ra các IP hợp lệ\nconst validIps = ips.filter(ip => ipv4Regex.test(ip.trim()));\n\nif (validIps.length === 0) {\n  return []; // Dừng nhánh này nếu không có IP hợp lệ\n}\n\nconst TABLE = 'SOAR_Phishing_BlockList';\n// Lệnh pfctl hỗ trợ add nhiều IP bằng cách cách nhau bởi khoảng trắng\nconst command = `pfctl -t ${TABLE} -T add ${validIps.join(' ')}`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1893,30 +1398,11 @@
     },
     {
       "parameters": {
-        "jsCode": "// Lấy payload gốc của nhánh phishing (không dùng $json vì node trước là SSH, không có field domain/url)\nconst d = $('Restore Payload After SSH').first().json;\n\nfunction pick(...vals){ for (const v of vals){ if (v!==undefined && v!==null && v!=='') return v; } return null; }\n\nconst domain      = pick(d.domain, 'unknown');\nconst url         = pick(d.url, 'N/A');\nconst employeeIp  = pick(d.employee_ip, 'unknown');\nconst description = pick(d.description, 'Phishing URL detected: ' + url);\nconst severity     = pick(d.severity, 'high');\nconst threatLevel  = (severity === 'critical' || severity === 'high') ? 1 : (severity === 'medium' ? 2 : 3);\n\n// Nhánh này luôn là phishing nên gắn cứng galaxy tag, không cần searchText như bản block-ip\nconst galaxyTag = 'misp-galaxy:mitre-attack-pattern=\"Phishing - T1566\"';\n\nconst aiUsed = d.ai_used ? 'AI(Model nội bộ)' : 'Rule-based';\nconst confidence = d.ai_confidence != null ? d.ai_confidence : 'N/A';\n\nconst tags = [\n  { name: 'tlp:amber' },\n  { name: 'workflow:state=\"incomplete\"' },\n  { name: 'soc-soar:action=\"block-url\"' },\n  { name: galaxyTag }\n];\n\nconst eventObj = {\n  Event: {\n    info: '[SOAR] Auto-block Phishing URL - ' + domain + ' (' + description + ')',\n    threat_level_id: threatLevel,\n    analysis: 2,\n    distribution: 0,\n    Tag: tags,\n    Attribute: [\n      {\n        type: 'domain',\n        category: 'Network activity',\n        value: domain,\n        to_ids: true,\n        comment: 'Auto-pushed by SOC SOAR n8n | action=block_url | decision=' + aiUsed + ' (confidence=' + confidence + ') | employee_ip=' + employeeIp + ' | reason=' + description\n      },\n      {\n        type: 'url',\n        category: 'Network activity',\n        value: url,\n        to_ids: true,\n        comment: 'Original phishing URL | employee_ip=' + employeeIp\n      }\n    ]\n  }\n};\n\nreturn [{ json: eventObj }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4896,
-        1024
-      ],
-      "id": "b5f5ef3c-4b74-4cac-802c-8d4b5bdb2dae",
-      "name": "Build MISP Event - Block URL"
-    },
-    {
-      "parameters": {
         "method": "POST",
-        "url": "https://host.docker.internal/events/add",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mispApi",
+        "url": "http://192.168.1.8:8080/api/v1/soar/callback",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Accept",
-              "value": "application/json"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -1925,26 +1411,165 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
+        "jsonBody": "={{\n  JSON.stringify({\n    alert_id: $('Action Switch1').item.json.alert_id,\n    action: 'block_ip',\n    target: $('Action Switch1').item.json.src_ip,\n    ai_reason: $('Action Switch1').item.json.reason,\n    confidence: Number(\n      $('Action Switch1').item.json.ai_confidence ||\n      $('Action Switch1').item.json.confidence || 0\n    ),\n    human_approved_by: ''\n  })\n}}",
+        "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        5120,
+        3712,
+        400
+      ],
+      "id": "bdaa09c0-5b75-4b60-b7bc-f9e490e2eb54",
+      "name": "SOC App - SOAR Callback - Block IP"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.8:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    alert_id: $('Action Switch1').item.json.alert_id,\n    action: 'kill_process',\n    target: $('Action Switch1').item.json.process_id,\n    ai_reason: $('Action Switch1').item.json.reason,\n    confidence: Number(\n      $('Action Switch1').item.json.ai_confidence ||\n      $('Action Switch1').item.json.confidence || 0\n    ),\n    human_approved_by: ''\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3584,
+        608
+      ],
+      "id": "24bb4c7d-654e-4be9-972f-c1e7162fa775",
+      "name": "SOC App - SOAR Callback - Kill Process"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.8:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    alert_id: $('Action Switch1').item.json.alert_id,\n    action: 'block_url',\n    target: $('Action Switch1').item.json.domain,\n    ai_reason: $('Action Switch1').item.json.reason,\n    confidence: Number(\n      $('Action Switch1').item.json.ai_confidence ||\n      $('Action Switch1').item.json.confidence || 0\n    ),\n    human_approved_by: ''\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3856,
         1024
       ],
-      "id": "9454d978-cd86-4a2c-a29f-1d6aca4a75c1",
-      "name": "Push IOC to MISP - Block url",
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
+      "id": "72c9ba39-e0ea-4fd6-bd39-4ca1c316af23",
+      "name": "SOC App - SOAR Callback - Block URL"
+    },
+    {
+      "parameters": {
+        "command": "=echo 'timestamp={{ $now.toISO() }} event_type=block src_ip={{ $('Route by Event Type1').item.json.src_ip }} source={{ $('Route by Event Type1').item.json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $('Route by Event Type1').item.json.confidence }} action=blocked reason=\"{{ $('Route by Event Type1').item.json.description }}\"' | tee -a /var/log/soar-security-events.log"
       },
-      "notes": "Tạo Event mới trong MISP (Attribute ip-src) khi SOAR xác nhận chặn IP — giúp Event/Attribute xuất hiện trên Dashboard MISP và có dữ liệu thật cho lần search IOC kế tiếp."
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        4496,
+        400
+      ],
+      "id": "d3ebc541-d64d-4870-882f-aa1109e61bd4",
+      "name": "Log Block Event to SOAR",
+      "credentials": {
+        "sshPassword": {
+          "id": "wyYaeLHQIlc8FiGy",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo 'timestamp={{ $now.toISO() }} event_type=kill_process agent_id={{ $('Action Switch1').item.json.agent_id }} process_id={{ $('Action Switch1').item.json.process_id }} source={{ $('Action Switch1').item.json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $('Action Switch1').item.json.ai_confidence }} action=killed reason=\"{{ $('Action Switch1').item.json.reason }}\"' | tee -a /var/log/soar-security-events.log"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        4256,
+        608
+      ],
+      "id": "911c5857-c217-4bc9-bfb7-af5c20b04e3e",
+      "name": "Log Kill Event to SOAR",
+      "credentials": {
+        "sshPassword": {
+          "id": "wyYaeLHQIlc8FiGy",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo 'timestamp={{ $now.toISO() }} event_type=log_only src_ip={{ $json.src_ip }} source={{ $json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $json.ai_confidence }} action=logged_only reason=\"{{ $json.reason }}\"' | tee -a /var/log/soar-security-events.log"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        3760,
+        832
+      ],
+      "id": "1897dff4-5288-4a6a-98af-8dc39d6d4053",
+      "name": "Log LogOnly Event to SOAR",
+      "credentials": {
+        "sshPassword": {
+          "id": "wyYaeLHQIlc8FiGy",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=echo 'timestamp={{ $now.toISO() }} event_type=block_url domain={{ $('Restore Payload After SSH').item.json.domain }} employee_ip={{ $('Restore Payload After SSH').item.json.employee_ip }} source={{ $('Restore Payload After SSH').item.json.ai_used ? \"ai\" : \"rule\" }} confidence={{ $('Restore Payload After SSH').item.json.ai_confidence }} action=blocked reason=\"{{ $('Restore Payload After SSH').item.json.reason }}\"' | tee -a /var/log/soar-security-events.log"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        4608,
+        1024
+      ],
+      "id": "6cf08624-4e1c-4547-906f-b1418e4866f8",
+      "name": "Log Block URL Event to SOAR",
+      "credentials": {
+        "sshPassword": {
+          "id": "wyYaeLHQIlc8FiGy",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.8:8080/api/v1/agents/kill-process",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    agent_id: $('Action Switch1').item.json.agent_id,\n    process_id: $('Action Switch1').item.json.process_id,\n    reason: $('Action Switch1').item.json.reason,\n    triggered_by: $('Action Switch1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based'\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3248,
+        608
+      ],
+      "id": "fac9d6f7-4ee4-4e23-865e-e8f4fd81321c",
+      "name": "SOC App - Kill Process API"
     }
   ],
   "pinData": {},
@@ -2040,17 +1665,6 @@
       "main": [
         [
           {
-            "node": "Get a filtered list of attributes1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get a filtered list of attributes1": {
-      "main": [
-        [
-          {
             "node": "Route to Action Strategy1",
             "type": "main",
             "index": 0
@@ -2142,11 +1756,6 @@
       "main": [
         [
           {
-            "node": "Wazuh_Get_Token2",
-            "type": "main",
-            "index": 0
-          },
-          {
             "node": "Build pfSense Block IP Command1",
             "type": "main",
             "index": 0
@@ -2154,7 +1763,7 @@
         ],
         [
           {
-            "node": "Wazuh_Get_Token3",
+            "node": "SOC App - Kill Process API",
             "type": "main",
             "index": 0
           }
@@ -2180,28 +1789,6 @@
         ]
       ]
     },
-    "Wazuh_Get_Token2": {
-      "main": [
-        [
-          {
-            "node": "Wazuh_Execute_Block1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wazuh_Execute_Block1": {
-      "main": [
-        [
-          {
-            "node": "Telegram_Send_Block_Alert1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Telegram_Send_Block_Alert1": {
       "main": [
         [
@@ -2217,29 +1804,7 @@
       "main": [
         [
           {
-            "node": "Log Block Event to Wazuh1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wazuh_Get_Token3": {
-      "main": [
-        [
-          {
-            "node": "Wazuh_Execute_Kill1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wazuh_Execute_Kill1": {
-      "main": [
-        [
-          {
-            "node": "Telegram_Send_Execute_Kill1",
+            "node": "Log Block Event to SOAR",
             "type": "main",
             "index": 0
           }
@@ -2261,7 +1826,7 @@
       "main": [
         [
           {
-            "node": "Log Kill Event to Wazuh1",
+            "node": "Log Kill Event to SOAR",
             "type": "main",
             "index": 0
           }
@@ -2283,7 +1848,7 @@
       "main": [
         [
           {
-            "node": "Log LogOnly Event to Wazuh1",
+            "node": "Log LogOnly Event to SOAR",
             "type": "main",
             "index": 0
           }
@@ -2374,28 +1939,6 @@
         ]
       ]
     },
-    "Log Block Event to Wazuh1": {
-      "main": [
-        [
-          {
-            "node": "Build MISP Event - Block IP",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log Kill Event to Wazuh1": {
-      "main": [
-        [
-          {
-            "node": "Build MISP Event - Kill Process",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Execute an analyzer": {
       "main": [
         [
@@ -2423,60 +1966,6 @@
         [
           {
             "node": "Check if DDoS Alert",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build MISP Event - Block IP": {
-      "main": [
-        [
-          {
-            "node": "Push IOC to MISP - Block IP",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Push IOC to MISP - Block IP": {
-      "main": [
-        [
-          {
-            "node": "Create Event Report - Block IP",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Create Note - Block IP",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build MISP Event - Kill Process": {
-      "main": [
-        [
-          {
-            "node": "Push IOC to MISP - Kill Process",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Push IOC to MISP - Kill Process": {
-      "main": [
-        [
-          {
-            "node": "Create Event Report - Kill Process",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Create Note - Kill Process",
             "type": "main",
             "index": 0
           }
@@ -2695,7 +2184,7 @@
       "main": [
         [
           {
-            "node": "Telegram_Send_Block_URL_Alert1",
+            "node": "SOC App - SOAR Callback - Block URL",
             "type": "main",
             "index": 0
           }
@@ -2750,7 +2239,7 @@
       "main": [
         [
           {
-            "node": "Log Block URL Event to Wazuh1",
+            "node": "Log Block URL Event to SOAR",
             "type": "main",
             "index": 0
           }
@@ -2768,22 +2257,70 @@
         ]
       ]
     },
-    "Log Block URL Event to Wazuh1": {
+    "SOC App - SOAR Callback - Block IP": {
       "main": [
         [
           {
-            "node": "Build MISP Event - Block URL",
+            "node": "Telegram_Send_Block_Alert1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build MISP Event - Block URL": {
+    "pfSense SSH - Block IP1": {
       "main": [
         [
           {
-            "node": "Push IOC to MISP - Block url",
+            "node": "SOC App - SOAR Callback - Block IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOC App - SOAR Callback - Kill Process": {
+      "main": [
+        [
+          {
+            "node": "Telegram_Send_Execute_Kill1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOC App - SOAR Callback - Block URL": {
+      "main": [
+        [
+          {
+            "node": "Telegram_Send_Block_URL_Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Block Event to SOAR": {
+      "main": [
+        []
+      ]
+    },
+    "Log Kill Event to SOAR": {
+      "main": [
+        []
+      ]
+    },
+    "Log Block URL Event to SOAR": {
+      "main": [
+        []
+      ]
+    },
+    "SOC App - Kill Process API": {
+      "main": [
+        [
+          {
+            "node": "SOC App - SOAR Callback - Kill Process",
             "type": "main",
             "index": 0
           }
@@ -2797,7 +2334,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "bf2d8d47-4e50-43a3-83d3-7a1357de4f8c",
+  "versionId": "f0a043b8-1c14-481b-851b-82babb320981",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "88b3b600d62a38b9608292b540d8c9071a2a33ce6c9e93fd11131e23c9f0be82"

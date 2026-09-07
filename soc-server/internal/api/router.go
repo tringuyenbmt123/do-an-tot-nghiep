@@ -67,6 +67,7 @@ func SetupRouter(
 			// Alerts CRUD
 			alerts := protected.Group("/alerts")
 			{
+				alerts.POST("", alertHandler.CreateAlert)
 				alerts.GET("", alertHandler.GetAlerts)
 				alerts.PATCH("/:id/status", alertHandler.UpdateAlertStatus)
 			}
@@ -90,6 +91,7 @@ func SetupRouter(
 			// Indicators CRUD (blacklist / IOCs)
 			indicators := protected.Group("/indicators")
 			{
+				indicators.POST("/restSearch", indicatorHandler.SearchMISPCompat)
 				indicators.GET("", indicatorHandler.GetIndicators)
 				indicators.POST("", indicatorHandler.CreateIndicator)
 				indicators.PUT("/:id", indicatorHandler.UpdateIndicator)

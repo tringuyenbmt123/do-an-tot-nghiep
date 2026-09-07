@@ -6,12 +6,10 @@ PS D:\DO AN TOT NGHIEP\soc-agent> go run main.go -config config.json
 
 
 cách cài đặt trên agent : 
-cách 1 có sẵn : 
- vô thư mục D:\DO AN TOT NGHIEP\soc-agent\bin : copy file exe và file config ra bên máy agent rồi run admin
-
-cách 2 : go build -ldflags="-s -w" -o bin\soc-agent.exe main.go để tạo file exe . Rồi tiếp tục làm như trên
-
-
+build ra file exe : go build -ldflags "-H=windowsgui" -o soc-agent.exe . 
+sau đó copy vô máy agent, tiếp theo chạy 2 lệnh để tiến hành chạy nền
+     .\soc-agent.exe -service install
+     .\soc-agent.exe -service start
 
 
 New-Item -ItemType Directory "C:\Users\Public\SOC-Test" -Force

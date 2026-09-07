@@ -9,6 +9,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -165,7 +166,7 @@ func main() {
 	// 10. Khởi tạo REST API Handlers & Router
 	authHandler := handlers.NewAuthHandler(authService)
 	alertHandler := handlers.NewAlertHandler(alertService)
-	soarHandler := handlers.NewSOARHandler(soarService, connManager, alertService)
+	soarHandler := handlers.NewSOARHandler(soarService, connManager, alertService, cfg.SOAR.CallbackSecret)
 	caseHandler := handlers.NewCaseHandler(caseService)
 	agentHandler := handlers.NewAgentHandler(agentService)
 	indicatorHandler := handlers.NewIndicatorHandler(indicatorService)
@@ -197,6 +198,9 @@ func main() {
 			log.Fatalf("❌ gRPC Server ngưng hoạt động: %v", err)
 		}
 	}()
+
+	// Khởi động Alert Cleanup Job (xóa LOW alerts cũ sau N ngày)
+	go alertService.StartAlertCleanupJob(context.Background(), cfg.Alert.RetentionDays)
 
 	// 12. Bật goroutine chạy REST API Server
 	go func() {

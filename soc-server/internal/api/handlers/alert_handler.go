@@ -125,18 +125,21 @@ func (h *AlertHandler) GetAlertStats(c *gin.Context) {
 }
 
 // UpdateAlertStatus - PATCH /api/v1/alerts/:id/status
+// Nhận thêm description và tags để n8n SOAR có thể cập nhật context sau xử lý.
 func (h *AlertHandler) UpdateAlertStatus(c *gin.Context) {
 	id := c.Param("id")
 
 	var payload struct {
-		Status string `json:"status" binding:"required"`
+		Status      string   `json:"status" binding:"required"`
+		Description string   `json:"description"`   // SOAR có thể gửi kèm kết quả xử lý
+		Tags        []string `json:"tags"`           // SOAR labels: ai-decision, auto-blocked...
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Dữ liệu không hợp lệ"})
 		return
 	}
 
-	err := h.alertService.UpdateAlertStatus(id, models.AlertStatus(payload.Status))
+	err := h.alertService.UpdateAlertStatusWithContext(id, models.AlertStatus(payload.Status), payload.Description, payload.Tags)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

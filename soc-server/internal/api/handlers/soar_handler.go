@@ -22,25 +22,44 @@ import (
 	"github.com/google/uuid"
 )
 
+// callbackSecretHeader - Tên header n8n phải gửi kèm để xác thực
+const callbackSecretHeader = "X-SOC-Callback-Secret"
+
 // SOARHandler - Handler xử lý SOAR API
 type SOARHandler struct {
-	soarService *services.SOARService
-	connManager *agent_grpc.ConnectionManager
-	alertService *services.AlertService // Thêm để lấy thông tin Agent từ Alert
+	soarService    *services.SOARService
+	connManager    *agent_grpc.ConnectionManager
+	alertService   *services.AlertService
+	callbackSecret string // Shared secret xác thực callback từ n8n
 }
 
 // NewSOARHandler - Khởi tạo SOARHandler
-func NewSOARHandler(soar *services.SOARService, cm *agent_grpc.ConnectionManager, alert *services.AlertService) *SOARHandler {
+func NewSOARHandler(soar *services.SOARService, cm *agent_grpc.ConnectionManager, alert *services.AlertService, callbackSecret string) *SOARHandler {
 	return &SOARHandler{
-		soarService:  soar,
-		connManager:  cm,
-		alertService: alert,
+		soarService:    soar,
+		connManager:    cm,
+		alertService:   alert,
+		callbackSecret: callbackSecret,
 	}
 }
 
 // HandleN8NCallback - POST /api/v1/soar/callback
 // Nhận kết quả phân tích AI hoặc phê duyệt HITL từ n8n
+//
+// Bảo mật: Yêu cầu header X-SOC-Callback-Secret khớp với callback_secret trong config.
+// n8n phải cấu hình thêm header này trong node HTTP Request của workflow.
 func (h *SOARHandler) HandleN8NCallback(c *gin.Context) {
+	// ===== Xác thực Shared Secret =====
+	if h.callbackSecret != "" {
+		receivedSecret := c.GetHeader(callbackSecretHeader)
+		if receivedSecret != h.callbackSecret {
+			log.Printf("[SOAR HANDLER] 🚫 Callback bị từ chối: Secret không hợp lệ (IP: %s)", c.ClientIP())
+			// Trả về 401 nhưng không tiết lộ lý do cụ thể (tránh information leakage)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+	}
+
 	var payload services.SOARCallbackPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Payload JSON không hợp lệ: " + err.Error()})

@@ -59,8 +59,14 @@ type N8NWebhookPayload struct {
 
 // DispatchToN8N - Hàm bắn Webhook sang n8n (chạy non-blocking goroutine)
 func (s *SOARService) DispatchToN8N(alert *models.Alert) {
-	if !s.config.Enabled || s.config.N8NWebhookURL == "" || !shouldDispatchToN8N(alert) {
-		return // SOAR integration bị tắt
+	if !s.config.Enabled || !shouldDispatchToN8N(alert) {
+		return
+	}
+
+	// Chọn đúng webhook URL theo event_type
+	webhookURL := s.getWebhookURL(alert)
+	if webhookURL == "" {
+		return
 	}
 
 	payload := N8NWebhookPayload{
@@ -76,10 +82,9 @@ func (s *SOARService) DispatchToN8N(alert *models.Alert) {
 
 	payloadBytes, _ := json.Marshal(payload)
 
-	// Retry logic đơn giản
 	go func() {
 		for i := 1; i <= s.config.MaxRetries; i++ {
-			req, err := http.NewRequest("POST", s.config.N8NWebhookURL, bytes.NewBuffer(payloadBytes))
+			req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(payloadBytes))
 			if err != nil {
 				log.Printf("[SOAR] ❌ Lỗi tạo webhook request: %v", err)
 				return
@@ -91,9 +96,8 @@ func (s *SOARService) DispatchToN8N(alert *models.Alert) {
 			if err == nil {
 				resp.Body.Close()
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-					log.Printf("[SOAR] ✅ Đã dispatch Alert '%s' sang n8n thành công", alert.ID)
-
-					// Ghi Audit Log: Bắn webhook thành công
+					log.Printf("[SOAR] ✅ Đã dispatch Alert '%s' (type: %s) sang n8n thành công",
+						alert.ID, alert.EventType)
 					s.auditService.LogAction(
 						"soar_webhook_dispatched",
 						models.AuditSourceSOAR,
@@ -102,20 +106,46 @@ func (s *SOARService) DispatchToN8N(alert *models.Alert) {
 						fmt.Sprintf("Sent payload to n8n for analysis"),
 						"", alert.ID, alert.AgentID,
 					)
-					return // Thành công, thoát khỏi vòng lặp
+					return
 				}
 				log.Printf("[SOAR] ⚠️ Webhook trả về status code: %d", resp.StatusCode)
 			} else {
 				log.Printf("[SOAR] ⚠️ Lỗi gọi webhook n8n (lần %d/%d): %v", i, s.config.MaxRetries, err)
 			}
 
-			// Đợi trước khi retry
 			if i < s.config.MaxRetries {
-				time.Sleep(time.Duration(i*2) * time.Second) // Exponential backoff: 2s, 4s, 6s
+				backoff := time.Duration(1<<uint(i)) * time.Second
+				if backoff > 30*time.Second {
+					backoff = 30 * time.Second
+				}
+				time.Sleep(backoff)
 			}
 		}
 		log.Printf("[SOAR] ❌ Đã thử %d lần nhưng không thể dispatch Alert '%s' sang n8n", s.config.MaxRetries, alert.ID)
 	}()
+}
+
+// getWebhookURL - Chọn đúng n8n webhook URL theo event_type của Alert.
+// n8n có 4 webhook paths: ddos-alert, phishing-alert, wazuh-critical-alert, wazuh-alerts-v2
+func (s *SOARService) getWebhookURL(alert *models.Alert) string {
+	eventType := strings.ToLower(string(alert.EventType))
+	switch eventType {
+	case "ddos_detected":
+		if s.config.N8NWebhookURLDDoS != "" {
+			return s.config.N8NWebhookURLDDoS
+		}
+	case "phishing_detected":
+		if s.config.N8NWebhookURLPhishing != "" {
+			return s.config.N8NWebhookURLPhishing
+		}
+	case "file_integrity", "fim", "fim_detected",
+		"brute_force", "brute_force_detected", "wazuh_alert":
+		if s.config.N8NWebhookURLWazuh != "" {
+			return s.config.N8NWebhookURLWazuh
+		}
+	}
+	// Fallback URL mặc định
+	return s.config.N8NWebhookURL
 }
 
 // shouldDispatchToN8N chỉ đưa alert cần orchestration sang n8n.

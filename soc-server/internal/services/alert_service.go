@@ -158,9 +158,29 @@ func (s *AlertService) CreateAlert(alert *models.Alert) error {
 	return s.db.Create(alert).Error
 }
 
-// UpdateAlertStatus - Cập nhật trạng thái Alert
+// UpdateAlertStatus - Cập nhật trạng thái Alert (dùng nội bộ)
 func (s *AlertService) UpdateAlertStatus(id string, status models.AlertStatus) error {
 	result := s.db.Model(&models.Alert{}).Where("id = ?", id).Update("status", status)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("không tìm thấy Alert '%s'", id)
+	}
+	return result.Error
+}
+
+// UpdateAlertStatusWithContext - Cập nhật trạng thái + context từ n8n SOAR
+// Description: kết quả xử lý SOAR (markdown)
+// Tags: nhãn phân loại (ai-decision, auto-blocked, soar...)
+func (s *AlertService) UpdateAlertStatusWithContext(id string, status models.AlertStatus, description string, tags []string) error {
+	updates := map[string]interface{}{
+		"status": status,
+	}
+	if description != "" {
+		updates["description"] = description
+	}
+	// Tags lưu dưới dạng JSON string trong description nếu model chưa có cột tags riêng
+	// Nếu bạn muốn lưu tags riêng, thêm cột tags VARCHAR vào model Alert
+
+	result := s.db.Model(&models.Alert{}).Where("id = ?", id).Updates(updates)
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("không tìm thấy Alert '%s'", id)
 	}
@@ -209,20 +229,46 @@ func (s *AlertService) GetAlertStats() (map[string]interface{}, error) {
 	s.db.Model(&models.Case{}).Where("status != ? AND status != ?", models.CaseStatusClosed, models.CaseStatusRejected).Count(&activeCases)
 	stats["active_cases"] = activeCases
 
-	// Alert trend last 24h
+	// Alert trend last 24h — 1 query duy nhất thay vì 72 queries
+	type HourlyRow struct {
+		Hour     string
+		Severity string
+		Count    int64
+	}
+	var rows []HourlyRow
+	start24h2 := time.Now().Add(-24 * time.Hour)
+
+	// MySQL: DATE_FORMAT + GROUP BY để đếm theo giờ xá severity
+	s.db.Raw(`
+		SELECT DATE_FORMAT(created_at, '%H:00') AS hour,
+		       severity,
+		       COUNT(*) AS count
+		FROM alerts
+		WHERE created_at >= ?
+		  AND severity IN ('critical','high','medium')
+		GROUP BY hour, severity
+		ORDER BY hour ASC
+	`, start24h2).Scan(&rows)
+
+	// Chuyển kết quả thành map[hour][severity]=count
+	hourMap := make(map[string]map[string]int64)
+	for _, r := range rows {
+		if _, ok := hourMap[r.Hour]; !ok {
+			hourMap[r.Hour] = map[string]int64{"critical": 0, "high": 0, "medium": 0}
+		}
+		hourMap[r.Hour][r.Severity] = r.Count
+	}
+
+	// Tạo chuỗi 24 slots theo thứ tự thời gian
 	alertTrend := make([]map[string]interface{}, 0, 24)
 	for i := 23; i >= 0; i-- {
-		hourStart := time.Now().Add(-time.Duration(i+1) * time.Hour).Truncate(time.Hour)
-		hourEnd := hourStart.Add(time.Hour)
-		var critical, high, medium int64
-		s.db.Model(&models.Alert{}).Where("created_at >= ? AND created_at < ? AND severity = ?", hourStart, hourEnd, models.SeverityCritical).Count(&critical)
-		s.db.Model(&models.Alert{}).Where("created_at >= ? AND created_at < ? AND severity = ?", hourStart, hourEnd, models.SeverityHigh).Count(&high)
-		s.db.Model(&models.Alert{}).Where("created_at >= ? AND created_at < ? AND severity = ?", hourStart, hourEnd, models.SeverityMedium).Count(&medium)
+		hourLabel := time.Now().Add(-time.Duration(i+1) * time.Hour).Truncate(time.Hour).Format("15:00")
+		counts := hourMap[hourLabel]
 		alertTrend = append(alertTrend, map[string]interface{}{
-			"hour":     hourStart.Format("15:00"),
-			"critical": critical,
-			"high":     high,
-			"medium":   medium,
+			"hour":     hourLabel,
+			"critical": counts["critical"],
+			"high":     counts["high"],
+			"medium":   counts["medium"],
 		})
 	}
 	stats["alert_trend"] = alertTrend
@@ -269,4 +315,56 @@ func (s *AlertService) GetAlertStats() (map[string]interface{}, error) {
 
 	log.Printf("[ALERT SERVICE] Dashboard stats: totalAlertsToday=%d, agentsOnline=%d/%d, activeCases=%d", totalAlertsToday, agentsOnline, agentsTotal, activeCases)
 	return stats, nil
+}
+
+// ==============================================================================
+// StartAlertCleanupJob - Job tự động dọn dẹp Alert cũ (chạy background goroutine)
+//
+// Logic:
+//   - Chạy mỗi 24 giờ một lần
+//   - Xóa Alert có severity = 'low' hoặc rule_id = 'EVENT-OBSERVED'
+//     nếu created_at cũ hơn retentionDays ngày
+//   - Alert HIGH/CRITICAL/MEDIUM được giữ lại vĩnh viễn
+//
+// Gọi hàm này một lần trong main() với `go alertService.StartAlertCleanupJob(ctx, retentionDays)`
+// ==============================================================================
+func (s *AlertService) StartAlertCleanupJob(ctx context.Context, retentionDays int) {
+	if retentionDays <= 0 {
+		retentionDays = 7
+	}
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
+	log.Printf("[CLEANUP JOB] 🧹 Khởi động Alert Cleanup Job: xóa LOW alerts cũ hơn %d ngày", retentionDays)
+
+	// Chạy ngay lần đầu khi khởi động
+	s.runCleanup(retentionDays)
+
+	for {
+		select {
+		case <-ticker.C:
+			s.runCleanup(retentionDays)
+		case <-ctx.Done():
+			log.Println("[CLEANUP JOB] Dừng Alert Cleanup Job.")
+			return
+		}
+	}
+}
+
+// runCleanup - Thực hiện xóa một lần
+func (s *AlertService) runCleanup(retentionDays int) {
+	cutoff := time.Now().AddDate(0, 0, -retentionDays)
+	result := s.db.Where(
+		"(severity = ? OR rule_id = ?) AND created_at < ?",
+		string(models.SeverityLow), "EVENT-OBSERVED", cutoff,
+	).Delete(&models.Alert{})
+
+	if result.Error != nil {
+		log.Printf("[CLEANUP JOB] ❌ Lỗi khi dọn dẹp alert cũ: %v", result.Error)
+		return
+	}
+	if result.RowsAffected > 0 {
+		log.Printf("[CLEANUP JOB] ✅ Đã xóa %d LOW/EVENT-OBSERVED alerts cũ hơn %d ngày",
+			result.RowsAffected, retentionDays)
+	}
 }

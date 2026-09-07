@@ -44,6 +44,14 @@ mtls:
   server_key_path: "configs/certs/server.key"
 
 # ==============================================================================
+# Cấu hình Retention & Clean DB cho Alert
+# ==============================================================================
+alert:
+  # Số ngày lưu trữ cho Alert mức độ LOW / EVENT-OBSERVED trước khi tự động xóa
+  # Các Alert MEDIUM / HIGH / CRITICAL sẽ được giữ lại vĩnh viễn cho mục đích truy vết
+  retention_days: 7
+
+# ==============================================================================
 # Cấu hình Detection Rules - Đường dẫn tới thư mục chứa file YAML rules
 # ==============================================================================
 rules:
@@ -56,14 +64,22 @@ rules:
 # Cấu hình n8n SOAR Integration - Webhook 2 chiều
 # ==============================================================================
 soar:
-  # URL webhook của n8n để nhận Alert mới
-  n8n_webhook_url: "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook-test/soc-alert"
+  # URL webhook mặc định (fallback nếu URL riêng chưa cấu hình)
+  n8n_webhook_url: "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook/soc-alert"
+  # URL webhook riêng cho từng loại sự kiện — khớp với n8n webhook paths
+  n8n_webhook_url_ddos:     "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook/ddos-alert"
+  n8n_webhook_url_phishing: "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook/phishing-alert"
+  n8n_webhook_url_wazuh:    "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook/wazuh-critical-alert"
   # Timeout khi gọi webhook (giây)
   webhook_timeout_seconds: 10
   # Số lần retry khi gọi webhook thất bại
   max_retries: 3
   # Bật/tắt tích hợp SOAR
   enabled: true
+  # Shared secret để xác thực callback từ n8n về Server.
+  # n8n phải thêm header: X-SOC-Callback-Secret: <giá trị này> trong node HTTP Request.
+  # Để trống ("") sẽ BỎ QUA xác thực (không khuyến khích khi deploy thật).
+  callback_secret: "your-strong-random-secret-here"
 
 # ==============================================================================
 # Cấu hình Agent Heartbeat Monitor
@@ -73,3 +89,12 @@ heartbeat:
   check_interval_seconds: 30
   # Thời gian không nhận heartbeat thì đánh dấu Agent offline (giây)
   offline_threshold_seconds: 90
+
+# ==============================================================================
+# Cấu hình Alert Lifecycle - Tự động dọn dẹp LOW alerts cũ
+# ==============================================================================
+alert:
+  # Số ngày giữ lại Alert LOW / EVENT-OBSERVED trước khi xóa tự động.
+  # Alert MEDIUM/HIGH/CRITICAL KHÔNG bị xóa bởi job này.
+  # Đặt 0 để dùng mặc định (7 ngày).
+  retention_days: 7

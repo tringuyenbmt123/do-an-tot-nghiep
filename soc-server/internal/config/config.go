@@ -24,6 +24,7 @@ type AppConfig struct {
 	Rules     RulesConfig     `yaml:"rules"`
 	SOAR      SOARConfig      `yaml:"soar"`
 	Heartbeat HeartbeatConfig `yaml:"heartbeat"`
+	Alert     AlertConfig     `yaml:"alert"`
 }
 
 // ServerConfig - Cấu hình cổng REST API và gRPC
@@ -77,10 +78,23 @@ type RulesConfig struct {
 
 // SOARConfig - Cấu hình tích hợp n8n SOAR
 type SOARConfig struct {
-	N8NWebhookURL       string `yaml:"n8n_webhook_url"`
-	WebhookTimeoutSecs  int    `yaml:"webhook_timeout_seconds"`
-	MaxRetries          int    `yaml:"max_retries"`
-	Enabled             bool   `yaml:"enabled"`
+	N8NWebhookURL        string `yaml:"n8n_webhook_url"`         // URL webhook mặc định (fallback)
+	N8NWebhookURLDDoS    string `yaml:"n8n_webhook_url_ddos"`    // URL webhook riêng cho DDoS events
+	N8NWebhookURLPhishing string `yaml:"n8n_webhook_url_phishing"` // URL webhook riêng cho Phishing events
+	N8NWebhookURLWazuh   string `yaml:"n8n_webhook_url_wazuh"`   // URL webhook riêng cho Wazuh/EDR events
+	WebhookTimeoutSecs   int    `yaml:"webhook_timeout_seconds"`
+	MaxRetries           int    `yaml:"max_retries"`
+	Enabled              bool   `yaml:"enabled"`
+	// CallbackSecret - Shared secret để xác thực callback từ n8n.
+	// n8n phải gửi header: X-SOC-Callback-Secret: <giá trị này>
+	CallbackSecret       string `yaml:"callback_secret"`
+}
+
+// AlertConfig - Cấu hình quản lý Alert lifecycle
+type AlertConfig struct {
+	// RetentionDays - Số ngày giữ lại Alert LOW không match rule trước khi xóa.
+	// Alert HIGH/CRITICAL/MEDIUM không bị ảnh hưởng bởi retention này.
+	RetentionDays int `yaml:"retention_days"`
 }
 
 // HeartbeatConfig - Cấu hình giám sát heartbeat Agent
@@ -148,6 +162,18 @@ func applyEnvOverrides(cfg *AppConfig) {
 	if v := os.Getenv("SOC_N8N_WEBHOOK_URL"); v != "" {
 		cfg.SOAR.N8NWebhookURL = v
 	}
+	if v := os.Getenv("SOC_N8N_WEBHOOK_URL_DDOS"); v != "" {
+		cfg.SOAR.N8NWebhookURLDDoS = v
+	}
+	if v := os.Getenv("SOC_N8N_WEBHOOK_URL_PHISHING"); v != "" {
+		cfg.SOAR.N8NWebhookURLPhishing = v
+	}
+	if v := os.Getenv("SOC_N8N_WEBHOOK_URL_WAZUH"); v != "" {
+		cfg.SOAR.N8NWebhookURLWazuh = v
+	}
+	if v := os.Getenv("SOC_SOAR_CALLBACK_SECRET"); v != "" {
+		cfg.SOAR.CallbackSecret = v
+	}
 
 	// Override Server ports
 	if v := os.Getenv("SOC_REST_PORT"); v != "" {
@@ -196,5 +222,9 @@ func applyDefaults(cfg *AppConfig) {
 	}
 	if !cfg.MTLS.Enabled && cfg.MTLS.CACertPath == "" && cfg.MTLS.ServerCertPath == "" && cfg.MTLS.ServerKeyPath == "" {
 		cfg.MTLS.Enabled = false
+	}
+	// Mặc định giữ LOW alerts 7 ngày trước khi xóa
+	if cfg.Alert.RetentionDays == 0 {
+		cfg.Alert.RetentionDays = 7
 	}
 }

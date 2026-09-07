@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -128,15 +129,18 @@ func (e *RuleEngine) GetRuleCount() int {
 //     Ví dụ: {"process_name": "powershell.exe", "command_line": "-enc xxx", ...}
 //
 // Trả về:
-//   - *models.Alert: Alert object nếu khớp Rule (nil nếu không khớp)
-//   - bool: true nếu có Rule match, false nếu không có
+//   - *models.Alert: Alert object với severity CAO NHẤT trong tất cả rule match
+//   - bool: true nếu có ít nhất 1 Rule match, false nếu không có
 //
-// Logic: Duyệt lần lượt qua từng Rule active. Rule nào match TRƯỚC sẽ thắng.
-//        Mỗi Rule yêu cầu TẤT CẢ conditions phải thỏa mãn (AND logic).
+// Logic: Duyệt QUA TẤT CẢ rules (không dừng sớm). Thu thập tất cả match.
+//        Chọn rule có severity cao nhất để tạo Alert (đảm bảo không bỏ sót mối nguy hiểm).
 // ==============================================================================
 func (e *RuleEngine) EvaluateLog(rawLog map[string]interface{}, agentID string) (*models.Alert, bool) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
+
+	// Thu thập tất cả rules match
+	var matchedRules []LoadedRule
 
 	// Duyệt qua từng rule active
 	for _, rule := range e.rules {
@@ -156,32 +160,62 @@ func (e *RuleEngine) EvaluateLog(rawLog map[string]interface{}, agentID string) 
 		if e.matchAllConditions(rawLog, rule.Conditions) {
 			log.Printf("[RULE ENGINE] 🚨 MATCH! Rule '%s' (%s) khớp với event từ Agent '%s'",
 				rule.ID, rule.Name, agentID)
-
-			// Serialize rawLog thành JSON để lưu vào RawPayload
-			rawPayloadJSON, _ := json.Marshal(rawLog)
-
-			// Tạo Alert object
-			alert := &models.Alert{
-				ID:               uuid.New().String(),
-				AgentID:          agentID,
-				RuleID:           rule.ID,
-				EventType:        models.AlertEventType(mapSeverityToEventType(rule.EventType)),
-				Severity:         models.AlertSeverity(rule.Severity),
-				RawPayload:       string(rawPayloadJSON),
-				Status:           models.AlertStatusNew,
-				Title:            fmt.Sprintf("[%s] %s", strings.ToUpper(rule.Severity), rule.Name),
-				Description:      rule.Description,
-				MITRETactic:      rule.MITRETactic,
-				MITRETechniqueID: rule.MITRETechniqueID,
-				CreatedAt:        time.Now(),
-			}
-
-			return alert, true
+			matchedRules = append(matchedRules, rule)
 		}
 	}
 
 	// Không có rule nào match
-	return nil, false
+	if len(matchedRules) == 0 {
+		return nil, false
+	}
+
+	// Chọn rule có severity cao nhất trong số các rule đã match
+	winnerRule := pickHighestSeverity(matchedRules)
+
+	if len(matchedRules) > 1 {
+		log.Printf("[RULE ENGINE] ⚡ Đã match %d rules, chọn rule severity cao nhất: '%s' (%s)",
+			len(matchedRules), winnerRule.ID, winnerRule.Severity)
+	}
+
+	// Serialize rawLog thành JSON để lưu vào RawPayload
+	rawPayloadJSON, _ := json.Marshal(rawLog)
+
+	// Tạo Alert object từ rule thắng
+	alert := &models.Alert{
+		ID:               uuid.New().String(),
+		AgentID:          agentID,
+		RuleID:           winnerRule.ID,
+		EventType:        models.AlertEventType(mapSeverityToEventType(winnerRule.EventType)),
+		Severity:         models.AlertSeverity(winnerRule.Severity),
+		RawPayload:       string(rawPayloadJSON),
+		Status:           models.AlertStatusNew,
+		Title:            fmt.Sprintf("[%s] %s", strings.ToUpper(winnerRule.Severity), winnerRule.Name),
+		Description:      winnerRule.Description,
+		MITRETactic:      winnerRule.MITRETactic,
+		MITRETechniqueID: winnerRule.MITRETechniqueID,
+		CreatedAt:        time.Now(),
+	}
+
+	return alert, true
+}
+
+// severityOrder - Map severity sang điểm số để so sánh
+var severityOrder = map[string]int{
+	"critical": 4,
+	"high":     3,
+	"medium":   2,
+	"low":      1,
+}
+
+// pickHighestSeverity - Chọn rule có severity cao nhất từ danh sách
+func pickHighestSeverity(rules []LoadedRule) LoadedRule {
+	winner := rules[0]
+	for _, r := range rules[1:] {
+		if severityOrder[strings.ToLower(r.Severity)] > severityOrder[strings.ToLower(winner.Severity)] {
+			winner = r
+		}
+	}
+	return winner
 }
 
 // matchAllConditions - Kiểm tra tất cả conditions của 1 rule (AND logic)
@@ -251,6 +285,16 @@ func (e *RuleEngine) matchCondition(rawLog map[string]interface{}, cond models.R
 	case "ends_with":
 		// Kiểm tra field kết thúc bằng chuỗi
 		return strings.HasSuffix(fieldValueLower, condValueLower)
+
+	case "regex":
+		// Kiểm tra field khớp với pattern regex
+		// Ví dụ: operator=regex, value="^powershell(\.exe)?$"
+		matched, err := regexp.MatchString("(?i)"+cond.Value, fieldValue)
+		if err != nil {
+			log.Printf("[RULE ENGINE] ⚠️ Regex pattern không hợp lệ '%s': %v", cond.Value, err)
+			return false
+		}
+		return matched
 
 	default:
 		log.Printf("[RULE ENGINE] ⚠️ Operator không được hỗ trợ: '%s'", cond.Operator)

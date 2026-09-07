@@ -568,7 +568,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer 7NDMX2xxpQqSNy0p23HK+flnN402fZ0x"
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
             },
             {
               "name": "Content-Type",
@@ -692,7 +692,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $json.domain + '-' + Date.now(),\n  title: 'URL phishing bị từ chối chặn (Log Only): ' + $('Restore Alert Data - Rejected').item.json.domain,\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — CHỈ GHI NHẬN (LOG ONLY)\\n\\n' +\n    '* **Domain:** ' + $('Restore Alert Data - Rejected').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Alert Data - Rejected').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Alert Data - Rejected').item.json.employee_ip + '\\n' +\n    '* **Độ tin cậy:** ' + $('Restore Alert Data - Rejected').item.json.ai_confidence + '\\n' +\n    '* **Lý do:** ' + $('Restore Alert Data - Rejected').item.json.reason + '\\n' +\n    '* **Thời gian:** ' + $('Restore Alert Data - Rejected').item.json.timestamp + '\\n\\n' +\n    '⚠️ Cảnh báo này đã bị từ chối chặn (Decline) — cần chuyên gia SOC xác minh thủ công.',\n  severity: 2,\n  tlp: 2,\n  tags: [($('Restore Alert Data - Rejected').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'log-only', 'pending-soc-review'],\n  status: 'new'\n}) }}",
+        "jsonBody": "={{ JSON.stringify({ status: \"in_progress\", description: \"SOAR Log Only - \" + ($json.reason || \"N/A\"), tags: [\"log-only\", \"pending-soc-review\"] }) }}",
         "options": {
           "allowUnauthorizedCerts": false
         }
@@ -755,11 +755,13 @@
       "parameters": {
         "method": "POST",
         "url": "http://192.168.1.8:8080/api/v1/indicators/restSearch",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mispApi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
             {
               "name": "Accept",
               "value": "application/json"
@@ -784,13 +786,7 @@
         464
       ],
       "id": "cd5e5c36-84e4-4e12-90d4-e2ede5691e57",
-      "name": "Search MISP Event",
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
-      }
+      "name": "Search MISP Event"
     },
     {
       "parameters": {
@@ -809,11 +805,13 @@
       "parameters": {
         "method": "POST",
         "url": "=http://192.168.1.8:8080/api/v1/indicators",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "mispApi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
             {
               "name": "Accept",
               "value": "application/json"
@@ -838,13 +836,7 @@
         464
       ],
       "id": "95cfc571-e936-424e-a5df-3e4381281cfc",
-      "name": "Sync MISP Event",
-      "credentials": {
-        "mispApi": {
-          "id": "RnSPYwkb7pogQLDj",
-          "name": "MISP account"
-        }
-      }
+      "name": "Sync MISP Event"
     },
     {
       "parameters": {
@@ -1404,8 +1396,16 @@
         "headerParameters": {
           "parameters": [
             {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
+            {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "your-strong-random-secret-here"
             }
           ]
         },
@@ -1431,8 +1431,16 @@
         "headerParameters": {
           "parameters": [
             {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
+            {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "your-strong-random-secret-here"
             }
           ]
         },
@@ -1458,8 +1466,16 @@
         "headerParameters": {
           "parameters": [
             {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
+            {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "your-strong-random-secret-here"
             }
           ]
         },
@@ -1556,11 +1572,20 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.1.8:8080/api/v1/agents/kill-process",
+        "url": "=http://192.168.1.8:8080/api/v1/agents/{{ $('Action Switch1').item.json.agent_id }}/response/kill-process",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  JSON.stringify({\n    agent_id: $('Action Switch1').item.json.agent_id,\n    process_id: $('Action Switch1').item.json.process_id,\n    reason: $('Action Switch1').item.json.reason,\n    triggered_by: $('Action Switch1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based'\n  })\n}}",
-        "options": {}
+        "jsonBody": "={{\n  JSON.stringify({\n    pid: Number($(\"Action Switch1\").item.json.process_id) || 0,\n    reason: $(\"Action Switch1\").item.json.reason\n  })\n}}",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            }
+          ]
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,

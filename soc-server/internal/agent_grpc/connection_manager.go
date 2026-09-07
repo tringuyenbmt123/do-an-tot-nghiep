@@ -89,14 +89,18 @@ func (cm *ConnectionManager) SendCommand(agentID string, cmd *pb.CommandResponse
 		return fmt.Errorf("Agent '%s' không online hoặc không có kết nối gRPC active", agentID)
 	}
 
-	// Đẩy command vào channel (non-blocking)
+	// Đẩy command vào channel (non-blocking với cảnh báo khi đầy)
 	select {
 	case conn.CmdChan <- cmd:
 		log.Printf("[CONN MANAGER] 📤 Đã gửi lệnh '%s' xuống Agent '%s' (target: %s)",
 			cmd.CommandType.String(), agentID, cmd.Target)
 		return nil
 	default:
-		return fmt.Errorf("command channel của Agent '%s' đã đầy, không thể gửi lệnh", agentID)
+		// Channel đầy: log cảnh báo rõ ràng để ops team phát hiện backpressure
+		log.Printf("[CONN MANAGER] ⚠️ CẢNH BÁO: Command channel của Agent '%s' đã đầy (%d/%d). Lệnh '%s' bị bỏ qua!",
+			agentID, cap(conn.CmdChan), cap(conn.CmdChan), cmd.CommandType.String())
+		return fmt.Errorf("command channel của Agent '%s' đã đầy (%d slots), không thể gửi lệnh '%s'",
+			agentID, cap(conn.CmdChan), cmd.CommandType.String())
 	}
 }
 

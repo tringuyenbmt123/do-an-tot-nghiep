@@ -89,12 +89,3 @@ heartbeat:
   check_interval_seconds: 30
   # Thời gian không nhận heartbeat thì đánh dấu Agent offline (giây)
   offline_threshold_seconds: 90
-
-# ==============================================================================
-# Cấu hình Alert Lifecycle - Tự động dọn dẹp LOW alerts cũ
-# ==============================================================================
-alert:
-  # Số ngày giữ lại Alert LOW / EVENT-OBSERVED trước khi xóa tự động.
-  # Alert MEDIUM/HIGH/CRITICAL KHÔNG bị xóa bởi job này.
-  # Đặt 0 để dùng mặc định (7 ngày).
-  retention_days: 7

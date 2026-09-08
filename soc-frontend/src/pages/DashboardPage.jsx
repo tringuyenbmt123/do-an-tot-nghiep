@@ -6,6 +6,7 @@ import {
   Activity,
   AlertTriangle,
   Bell,
+  ChevronRight,
   Cpu,
   RefreshCw,
   Shield,
@@ -27,6 +28,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import AlertDetailDrawer from '../components/alerts/AlertDetailDrawer';
 import MetricCard from '../components/common/MetricCard';
 import SeverityBadge from '../components/common/SeverityBadge';
 import StatusBadge from '../components/common/StatusBadge';
@@ -93,16 +95,22 @@ const PieLegend = ({ data }) => (
 );
 
 // ─── Live Alert Row ────────────────────────────────────────────────────────────
-const LiveAlertRow = ({ alert, isNew }) => (
-  <tr className={isNew ? 'flash' : ''} style={{ animation: isNew ? 'flash-row 2s ease-out' : 'none' }}>
+const LiveAlertRow = ({ alert, isNew, onSelect }) => (
+  <tr
+    className={`cursor-pointer transition-colors ${isNew ? 'flash' : ''}`}
+    onClick={() => onSelect(alert)}
+    style={{ animation: isNew ? 'flash-row 2s ease-out' : 'none' }}
+    onMouseEnter={(e) => e.currentTarget.querySelectorAll('td').forEach((td) => (td.style.background = 'rgba(15,23,42,0.85)'))}
+    onMouseLeave={(e) => e.currentTarget.querySelectorAll('td').forEach((td) => (td.style.background = ''))}
+  >
     <td><SeverityBadge severity={alert.severity} /></td>
     <td className="max-w-xs">
-      <p className="truncate font-medium" style={{ color: '#f8fafc', fontSize: '12.5px' }}>
+      <p className="truncate font-semibold text-slate-100 hover:text-cyan-400 transition-colors" style={{ fontSize: '12.5px' }}>
         {alert.title || alert.event_type}
       </p>
     </td>
     <td>
-      <span className="font-mono text-xs" style={{ color: '#94a3b8' }}>
+      <span className="font-mono text-xs text-slate-300">
         {alert.agent?.hostname || alert.agent_id?.substring(0, 8) || '—'}
       </span>
     </td>
@@ -122,6 +130,9 @@ const LiveAlertRow = ({ alert, isNew }) => (
     <td className="font-mono whitespace-nowrap" style={{ color: '#64748b', fontSize: '11.5px' }}>
       {new Date(alert.created_at).toLocaleTimeString('en-GB')}
     </td>
+    <td style={{ width: '30px', textAlign: 'right' }}>
+      <ChevronRight size={14} className="text-slate-600 hover:text-cyan-400 inline-block" />
+    </td>
   </tr>
 );
 
@@ -132,6 +143,7 @@ export default function DashboardPage() {
   const { addToast, addLiveAlert, setWsConnected, liveAlerts } = useApp();
   const { stats, loading, refresh }     = useDashboardStats();
   const [recentIds, setRecentIds]       = useState(new Set());
+  const [selectedAlert, setSelectedAlert] = useState(null);
   const feedRef                         = useRef(null);
 
   // WebSocket handler
@@ -166,13 +178,29 @@ export default function DashboardPage() {
   const { isConnected, reconnectAttempts } = useWebSocket(handleWsMessage);
   useEffect(() => { setWsConnected(isConnected); }, [isConnected, setWsConnected]);
 
-  // Merge API + live alerts
   const [apiAlerts, setApiAlerts] = useState([]);
-  useEffect(() => {
+
+  const loadAlerts = useCallback(() => {
     import('../services/api').then(({ getAlerts }) => {
       getAlerts({ limit: 50 }).then((res) => setApiAlerts(res.data || []));
     });
   }, []);
+
+  useEffect(() => {
+    loadAlerts();
+  }, [loadAlerts]);
+
+  const handleAlertUpdated = () => {
+    refresh();
+    loadAlerts();
+    if (selectedAlert) {
+      import('../services/api').then(({ getAlertById }) => {
+        getAlertById(selectedAlert.id)
+          .then((res) => setSelectedAlert(res))
+          .catch(() => {});
+      });
+    }
+  };
 
   const allAlerts = [
     ...liveAlerts,
@@ -218,7 +246,7 @@ export default function DashboardPage() {
             Real-time security event monitoring • {new Date().toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}
           </p>
         </div>
-        <button onClick={refresh} className="btn-ghost flex items-center gap-2 text-xs">
+        <button onClick={() => { refresh(); loadAlerts(); }} className="btn-ghost flex items-center gap-2 text-xs">
           <RefreshCw size={12} style={{ color: '#06b6d4' }} />
           Refresh
         </button>
@@ -369,24 +397,39 @@ export default function DashboardPage() {
                 <th>MITRE Tactic</th>
                 <th>Status</th>
                 <th>Time</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {allAlerts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-16" style={{ color: '#475569' }}>
+                  <td colSpan={7} className="text-center py-16" style={{ color: '#475569' }}>
                     {loading ? 'Loading alerts...' : '⚡ No alerts yet — Waiting for incoming security events...'}
                   </td>
                 </tr>
               ) : (
                 allAlerts.map((alert) => (
-                  <LiveAlertRow key={alert.id} alert={alert} isNew={recentIds.has(alert.id)} />
+                  <LiveAlertRow
+                    key={alert.id}
+                    alert={alert}
+                    isNew={recentIds.has(alert.id)}
+                    onSelect={setSelectedAlert}
+                  />
                 ))
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* ── Alert Detail Drawer ── */}
+      {selectedAlert && (
+        <AlertDetailDrawer
+          alert={selectedAlert}
+          onClose={() => setSelectedAlert(null)}
+          onUpdated={handleAlertUpdated}
+        />
+      )}
     </div>
   );
 }

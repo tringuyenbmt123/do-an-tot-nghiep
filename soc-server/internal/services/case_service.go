@@ -141,6 +141,78 @@ func (s *CaseService) CreateCaseFromAlert(alertID string, title, description str
 	return newCase, nil
 }
 
+// CreateManualCase - Tạo Case thủ công không cần Alert gốc
+func (s *CaseService) CreateManualCase(title, description string, assignedTo string) (*models.Case, error) {
+	newCase := &models.Case{
+		ID:          uuid.New().String(),
+		Title:       title,
+		Description: description,
+		SeverityNum: 3,
+		Status:      models.CaseStatusNew,
+		AssignedTo:  assignedTo,
+		Tags:        `["manual"]`,
+	}
+	if err := s.db.Create(newCase).Error; err != nil {
+		return nil, err
+	}
+	s.auditService.LogAction(
+		"case_created",
+		models.AuditSourceManual,
+		models.ActionCreateCase,
+		assignedTo,
+		"Tạo Case thủ công",
+		newCase.ID, "", "",
+	)
+	return newCase, nil
+}
+
+// AssignCase - Gán Case cho Analyst
+func (s *CaseService) AssignCase(id string, assignedTo string, actor string) error {
+	result := s.db.Model(&models.Case{}).Where("id = ?", id).Update("assigned_to", assignedTo)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("không tìm thấy Case '%s'", id)
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+
+	s.auditService.LogAction(
+		"case_assigned",
+		models.AuditSourceManual,
+		models.ActionUpdateCase,
+		actor,
+		fmt.Sprintf("Gán case cho %s", assignedTo),
+		id, "", "",
+	)
+	return nil
+}
+
+// AddCaseNote - Thêm ghi chú vào Case description
+func (s *CaseService) AddCaseNote(id string, note string, actor string) error {
+	var c models.Case
+	if err := s.db.First(&c, "id = ?", id).Error; err != nil {
+		return fmt.Errorf("không tìm thấy Case '%s'", id)
+	}
+
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	newNote := fmt.Sprintf("\n\n---\n**[%s] %s**: %s", timestamp, actor, note)
+	c.Description += newNote
+
+	if err := s.db.Model(&models.Case{}).Where("id = ?", id).Update("description", c.Description).Error; err != nil {
+		return err
+	}
+
+	s.auditService.LogAction(
+		"case_note_added",
+		models.AuditSourceManual,
+		models.ActionUpdateCase,
+		actor,
+		"Đã thêm ghi chú điều tra",
+		id, "", "",
+	)
+	return nil
+}
+
 // UpdateCaseStatus - Cập nhật trạng thái của Case
 func (s *CaseService) UpdateCaseStatus(id string, status models.CaseStatus, actor string) error {
 	result := s.db.Model(&models.Case{}).Where("id = ?", id).Update("status", status)

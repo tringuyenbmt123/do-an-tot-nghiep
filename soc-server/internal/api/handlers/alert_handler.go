@@ -8,6 +8,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -20,11 +21,17 @@ import (
 // AlertHandler - Handler cho Alert API
 type AlertHandler struct {
 	alertService *services.AlertService
+	caseService  *services.CaseService
+	soarService  *services.SOARService
 }
 
 // NewAlertHandler - Khởi tạo
-func NewAlertHandler(s *services.AlertService) *AlertHandler {
-	return &AlertHandler{alertService: s}
+func NewAlertHandler(s *services.AlertService, cs *services.CaseService, soar *services.SOARService) *AlertHandler {
+	return &AlertHandler{
+		alertService: s,
+		caseService:  cs,
+		soarService:  soar,
+	}
 }
 
 // CreateAlert - POST /api/v1/alerts
@@ -147,3 +154,76 @@ func (h *AlertHandler) UpdateAlertStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cập nhật thành công"})
 }
+
+// GetAlertByID - GET /api/v1/alerts/:id
+func (h *AlertHandler) GetAlertByID(c *gin.Context) {
+	id := c.Param("id")
+	alert, err := h.alertService.GetAlertByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy Alert: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, alert)
+}
+
+// EscalateToCase - POST /api/v1/alerts/:id/escalate
+func (h *AlertHandler) EscalateToCase(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		AssignedTo  string `json:"assigned_to"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	actor, _ := c.Get("username")
+	if req.AssignedTo == "" {
+		if actor != nil {
+			req.AssignedTo = actor.(string)
+		} else {
+			req.AssignedTo = "soc_analyst"
+		}
+	}
+
+	alert, err := h.alertService.GetAlertByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy Alert: " + err.Error()})
+		return
+	}
+
+	if req.Title == "" {
+		req.Title = fmt.Sprintf("Investigation: %s", alert.Title)
+	}
+	if req.Description == "" {
+		req.Description = fmt.Sprintf("Escalated from Alert: %s\nEvent Type: %s\nSeverity: %s\nRule ID: %s", alert.Title, alert.EventType, alert.Severity, alert.RuleID)
+	}
+
+	newCase, err := h.caseService.CreateCaseFromAlert(id, req.Title, req.Description, req.AssignedTo)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể escalate alert sang case: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Escalated successfully",
+		"case":    newCase,
+	})
+}
+
+// DispatchToSOAR - POST /api/v1/alerts/:id/soar
+func (h *AlertHandler) DispatchToSOAR(c *gin.Context) {
+	id := c.Param("id")
+	alert, err := h.alertService.GetAlertByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy Alert: " + err.Error()})
+		return
+	}
+
+	h.soarService.DispatchToN8N(alert)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Alert dispatched to n8n SOAR pipeline",
+		"alert_id": id,
+	})
+}
+

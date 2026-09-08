@@ -69,15 +69,21 @@ func SetupRouter(
 			{
 				alerts.POST("", alertHandler.CreateAlert)
 				alerts.GET("", alertHandler.GetAlerts)
+				alerts.GET("/:id", alertHandler.GetAlertByID)
 				alerts.PATCH("/:id/status", alertHandler.UpdateAlertStatus)
+				alerts.POST("/:id/escalate", alertHandler.EscalateToCase)
+				alerts.POST("/:id/soar", alertHandler.DispatchToSOAR)
 			}
 
 			// Cases CRUD
 			cases := protected.Group("/cases")
 			{
 				cases.GET("", caseHandler.GetCases)
+				cases.POST("", caseHandler.CreateCase)
 				cases.GET("/:id", caseHandler.GetCaseByID)
 				cases.PATCH("/:id/status", caseHandler.UpdateCaseStatus)
+				cases.PATCH("/:id/assign", caseHandler.AssignCase)
+				cases.POST("/:id/notes", caseHandler.AddNote)
 			}
 
 			// Agents CRUD

@@ -75,18 +75,18 @@ func NewRuleService(db *gorm.DB, ruleEngine *rules.RuleEngine) *RuleService {
 	}
 }
 
-// GetAllRules - Lấy danh sách rules
+// GetAllRules - Lấy toàn bộ danh sách rules từ Database
 func (s *RuleService) GetAllRules() ([]models.Rule, error) {
-	var rulesList []models.Rule
-	err := s.db.Order("created_at DESC").Find(&rulesList).Error
-	return rulesList, err
+	var dbRules []models.Rule
+	err := s.db.Order("created_at DESC").Find(&dbRules).Error
+	return dbRules, err
 }
 
 // CreateRule - Thêm Rule mới vào database và Hot-reload Engine
-// Admin có thể gửi mảng []models.RuleCondition, API layer cần chuyển thành JSON string trước khi truyền vào đây
 func (s *RuleService) CreateRule(rule *models.Rule) error {
-	// Mặc định source là database
-	rule.Source = "database"
+	if rule.Source == "" {
+		rule.Source = "database"
+	}
 	if rule.ID == "" {
 		rule.ID = fmt.Sprintf("RULE-%d", time.Now().UnixNano())
 	}
@@ -100,16 +100,15 @@ func (s *RuleService) CreateRule(rule *models.Rule) error {
 		return err
 	}
 
-	log.Printf("[RULE SERVICE] Đã tạo Rule mới: '%s'. Kích hoạt Hot-reload...", rule.ID)
-	// Hot reload Rule Engine
+	log.Printf("[RULE SERVICE] Đã tạo Rule mới trong DB: '%s'. Kích hoạt Hot-reload...", rule.ID)
 	return s.ruleEngine.ReloadRules()
 }
 
-// ToggleRule - Bật/tắt 1 Rule (IsActive) và Hot-reload
+// ToggleRule - Bật/tắt 1 Rule (IsActive) trong DB và Hot-reload
 func (s *RuleService) ToggleRule(id string, isActive bool) error {
 	result := s.db.Model(&models.Rule{}).Where("id = ?", id).Update("is_active", isActive)
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("không tìm thấy Rule '%s'", id)
+		return fmt.Errorf("không tìm thấy Rule '%s' trong Database", id)
 	}
 	if result.Error != nil {
 		return result.Error
@@ -119,6 +118,7 @@ func (s *RuleService) ToggleRule(id string, isActive bool) error {
 	return s.ruleEngine.ReloadRules()
 }
 
+// UpdateRule - Cập nhật Rule trong DB (nếu chưa có trong DB sẽ tự động tạo mới)
 func (s *RuleService) UpdateRule(id string, rule *models.Rule) error {
 	if rule == nil {
 		return fmt.Errorf("rule không được null")
@@ -129,30 +129,45 @@ func (s *RuleService) UpdateRule(id string, rule *models.Rule) error {
 	if rule.ID == "" {
 		rule.ID = id
 	}
-	result := s.db.Model(&models.Rule{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"name":               rule.Name,
-		"severity":           rule.Severity,
-		"event_type":         rule.EventType,
-		"conditions":         rule.Conditions,
-		"mitre_tactic":       rule.MITRETactic,
-		"mitre_technique_id": rule.MITRETechniqueID,
-		"description":        rule.Description,
-		"is_active":          rule.IsActive,
-		"source":             rule.Source,
-	})
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("không tìm thấy Rule '%s'", id)
+
+	var existing models.Rule
+	err := s.db.Where("id = ?", id).First(&existing).Error
+	if err != nil {
+		// Nếu chưa có trong DB -> tạo mới
+		if rule.Source == "" {
+			rule.Source = "database"
+		}
+		if err := s.db.Create(rule).Error; err != nil {
+			return err
+		}
+	} else {
+		// Đã có -> Cập nhật
+		updates := map[string]interface{}{
+			"name":               rule.Name,
+			"severity":           rule.Severity,
+			"event_type":         rule.EventType,
+			"conditions":         rule.Conditions,
+			"mitre_tactic":       rule.MITRETactic,
+			"mitre_technique_id": rule.MITRETechniqueID,
+			"description":        rule.Description,
+			"is_active":          rule.IsActive,
+		}
+		if rule.Source != "" {
+			updates["source"] = rule.Source
+		}
+		if err := s.db.Model(&existing).Updates(updates).Error; err != nil {
+			return err
+		}
 	}
-	if result.Error != nil {
-		return result.Error
-	}
+
+	log.Printf("[RULE SERVICE] Đã cập nhật Rule '%s'. Kích hoạt Hot-reload...", id)
 	return s.ruleEngine.ReloadRules()
 }
 
 func (s *RuleService) DeleteRule(id string) error {
 	result := s.db.Where("id = ?", id).Delete(&models.Rule{})
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("không tìm thấy Rule '%s'", id)
+		return fmt.Errorf("không tìm thấy Rule '%s' trong DB", id)
 	}
 	if result.Error != nil {
 		return result.Error

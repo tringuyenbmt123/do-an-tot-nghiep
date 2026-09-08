@@ -79,7 +79,7 @@ export async function getDashboardStats() {
 }
 
 // =============================================================================
-// ✅ ALERTS — Endpoints thực, đã có trong backend
+// ✅ ALERTS — Endpoints thực
 // =============================================================================
 
 /**
@@ -90,6 +90,10 @@ export async function getAlerts(params = {}) {
   return await api.get('/alerts', { params });
 }
 
+export async function getAlertById(id) {
+  return await api.get(`/alerts/${id}`);
+}
+
 /**
  * PATCH /api/v1/alerts/:id/status
  */
@@ -97,8 +101,22 @@ export async function updateAlertStatus(id, status) {
   return await api.patch(`/alerts/${id}/status`, { status });
 }
 
+/**
+ * POST /api/v1/alerts/:id/escalate
+ */
+export async function escalateAlertToCase(id, data = {}) {
+  return await api.post(`/alerts/${id}/escalate`, data);
+}
+
+/**
+ * POST /api/v1/alerts/:id/soar
+ */
+export async function dispatchAlertToSOAR(id) {
+  return await api.post(`/alerts/${id}/soar`);
+}
+
 // =============================================================================
-// ✅ SOAR — Endpoint thực, đã có trong backend
+// ✅ SOAR — Endpoint thực
 // =============================================================================
 
 /**
@@ -109,7 +127,7 @@ export async function postSoarCallback(data) {
 }
 
 // =============================================================================
-// 🚧 CASES — Chưa có trong backend, cần thêm vào router.go
+// ✅ CASES — Endpoints thực
 // =============================================================================
 
 export async function getCases(params = {}) {
@@ -118,6 +136,10 @@ export async function getCases(params = {}) {
 
 export async function getCaseById(id) {
   return await api.get(`/cases/${id}`);
+}
+
+export async function createCase(data) {
+  return await api.post('/cases', data);
 }
 
 export async function updateCaseStatus(id, status) {

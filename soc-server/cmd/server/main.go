@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -94,7 +95,37 @@ func main() {
 	caseService := services.NewCaseService(db, auditService)
 	soarService := services.NewSOARService(&cfg.SOAR, caseService, auditService)
 
-	// 9. Seed default SOC rules when database is empty
+	// 9. Seed default SOC rules from YAML files into Database if not present
+	yamlRules, err := rules.LoadRulesFromYAML(cfg.Rules.YAMLDir)
+	if err == nil && len(yamlRules) > 0 {
+		seededCount := 0
+		for _, yr := range yamlRules {
+			var exists int64
+			db.Model(&models.Rule{}).Where("id = ?", yr.ID).Count(&exists)
+			if exists == 0 {
+				condBytes, _ := json.Marshal(yr.Conditions)
+				dbRule := models.Rule{
+					ID:               yr.ID,
+					Name:             yr.Name,
+					Severity:         yr.Severity,
+					EventType:        yr.EventType,
+					Conditions:       string(condBytes),
+					MITRETactic:      yr.MITRETactic,
+					MITRETechniqueID: yr.MITRETechniqueID,
+					Description:      yr.Description,
+					IsActive:         yr.IsActive,
+					Source:           "database",
+				}
+				if err := db.Create(&dbRule).Error; err == nil {
+					seededCount++
+				}
+			}
+		}
+		if seededCount > 0 {
+			log.Printf("[SEED] ✅ Đã nạp tự động %d rule mẫu từ YAML vào Database", seededCount)
+		}
+	}
+
 	var ruleCount int64
 	if err := db.Model(&models.Rule{}).Count(&ruleCount).Error; err == nil && ruleCount == 0 {
 		seedRules := services.DefaultRules()
@@ -105,6 +136,9 @@ func main() {
 		}
 		log.Printf("[SEED] Đã tạo %d rule mặc định cho SOC dashboard", len(seedRules))
 	}
+
+	// Reload Rule Engine from DB
+	ruleEngine.ReloadRules()
 
 	var indicatorCount int64
 	if err := db.Model(&models.Indicator{}).Count(&indicatorCount).Error; err == nil && indicatorCount == 0 {
@@ -165,7 +199,7 @@ func main() {
 
 	// 10. Khởi tạo REST API Handlers & Router
 	authHandler := handlers.NewAuthHandler(authService)
-	alertHandler := handlers.NewAlertHandler(alertService)
+	alertHandler := handlers.NewAlertHandler(alertService, caseService, soarService)
 	soarHandler := handlers.NewSOARHandler(soarService, connManager, alertService, cfg.SOAR.CallbackSecret)
 	caseHandler := handlers.NewCaseHandler(caseService)
 	agentHandler := handlers.NewAgentHandler(agentService)

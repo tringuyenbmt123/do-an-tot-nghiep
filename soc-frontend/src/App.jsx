@@ -14,6 +14,7 @@ import { useApp } from './context/AppContext';
 
 // Lazy-load pages for performance
 const DashboardPage       = lazy(() => import('./pages/DashboardPage'));
+const DetectionRulesPage  = lazy(() => import('./pages/DetectionRulesPage'));
 const CaseManagementPage  = lazy(() => import('./pages/CaseManagementPage'));
 const ThreatIntelPage     = lazy(() => import('./pages/ThreatIntelPage'));
 const AgentControlPage    = lazy(() => import('./pages/AgentControlPage'));
@@ -21,6 +22,7 @@ const AuditLogsPage       = lazy(() => import('./pages/AuditLogsPage'));
 
 const PAGE_MAP = {
   dashboard: DashboardPage,
+  rules:     DetectionRulesPage,
   cases:     CaseManagementPage,
   threats:   ThreatIntelPage,
   agents:    AgentControlPage,

@@ -54,45 +54,24 @@ func NewRuleEngine(db *gorm.DB, yamlDir string, loadFromDB bool) (*RuleEngine, e
 	return engine, nil
 }
 
-// LoadAllRules - Tải toàn bộ rules từ YAML files và Database
-// Merge kết quả: rules từ YAML ưu tiên, rules từ DB bổ sung thêm
+// LoadAllRules - Tải toàn bộ rules từ Database 100%
 func (e *RuleEngine) LoadAllRules() error {
 	var allRules []LoadedRule
 
-	// 1. Tải rules từ file YAML
-	yamlRules, err := LoadRulesFromYAML(e.yamlDir)
-	if err != nil {
-		log.Printf("[RULE ENGINE] ⚠️ Cảnh báo khi tải YAML rules: %v", err)
-	} else {
-		allRules = append(allRules, yamlRules...)
-	}
-
-	// 2. Tải rules từ Database (nếu được bật)
-	if e.loadFromDB && e.db != nil {
+	if e.db != nil {
 		dbRules, err := LoadRulesFromDB(e.db)
 		if err != nil {
-			log.Printf("[RULE ENGINE] ⚠️ Cảnh báo khi tải DB rules: %v", err)
+			log.Printf("[RULE ENGINE] ⚠️ Lỗi khi tải DB rules: %v", err)
 		} else {
-			// Tạo map để kiểm tra trùng ID (YAML rules ưu tiên hơn DB rules)
-			existingIDs := make(map[string]bool)
-			for _, r := range allRules {
-				existingIDs[r.ID] = true
-			}
-			// Chỉ thêm DB rules nếu ID chưa tồn tại từ YAML
-			for _, r := range dbRules {
-				if !existingIDs[r.ID] {
-					allRules = append(allRules, r)
-				}
-			}
+			allRules = dbRules
 		}
 	}
 
-	// 3. Cập nhật rules trong memory (write lock)
 	e.mu.Lock()
 	e.rules = allRules
 	e.mu.Unlock()
 
-	log.Printf("[RULE ENGINE] ✅ Đã tải tổng cộng %d rules vào memory", len(allRules))
+	log.Printf("[RULE ENGINE] ✅ Đã nạp %d rules từ Database vào memory", len(allRules))
 	return nil
 }
 

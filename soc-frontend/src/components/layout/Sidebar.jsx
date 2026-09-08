@@ -11,6 +11,7 @@ import {
   Cpu,
   LayoutDashboard,
   Shield,
+  Sliders,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
@@ -21,6 +22,13 @@ const NAV_ITEMS = [
     label:   'Dashboard & SIEM',
     icon:    LayoutDashboard,
     color:   'text-cyan-400',
+    badge:   null,
+  },
+  {
+    id:      'rules',
+    label:   'Detection Rules',
+    icon:    Sliders,
+    color:   'text-cyan-300',
     badge:   null,
   },
   {

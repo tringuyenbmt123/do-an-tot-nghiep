@@ -77,16 +77,25 @@ func installService() error {
 	}
 
 	s, err = m.CreateService(serviceName, exePath, mgr.Config{
-		DisplayName: serviceDisplayName,
-		Description: serviceDesc,
-		StartType:   mgr.StartAutomatic, // Tự động khởi chạy cùng Windows (Auto-Start)
+		DisplayName:      serviceDisplayName,
+		Description:      serviceDesc,
+		StartType:        mgr.StartAutomatic, // Tự động khởi chạy cùng Windows (Auto-Start)
+		DelayedAutoStart: true,               // Chờ mạng (Network) và Windows khởi động hoàn toàn mới bật
 	})
 	if err != nil {
 		return fmt.Errorf("không thể tạo service: %w", err)
 	}
 	defer s.Close()
 
-	log.Printf("[SERVICE] ✅ Đã đăng ký thành công Windows Service '%s' (Tự động chạy khi mở Windows)", serviceName)
+	// Thiết lập tự động khởi động lại (Auto Recovery) nếu service bị tắt bất ngờ
+	recoveryActions := []mgr.RecoveryAction{
+		{Type: mgr.ServiceRestart, Delay: 5000},  // Thử lại sau 5s
+		{Type: mgr.ServiceRestart, Delay: 10000}, // Thử lại sau 10s
+		{Type: mgr.ServiceRestart, Delay: 30000}, // Thử lại sau 30s
+	}
+	_ = s.SetRecoveryActions(recoveryActions, 86400)
+
+	log.Printf("[SERVICE] ✅ Đã đăng ký thành công Windows Service '%s' (Delayed Auto-Start & Auto Recovery)", serviceName)
 	return nil
 }
 

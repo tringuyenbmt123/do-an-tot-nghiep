@@ -290,6 +290,6 @@ Remove-Item "C:\Users\Public\SOC-Test\test.txt"
 ## 👨‍🎓 Tác giả & Đồ án
 
 * **Đề tài:** Nghiên cứu, thiết kế và xây dựng Hệ thống Giám sát & Phản ứng An ninh mạng Tự động (SOC / SOAR Unified Platform).
-* **Sinh viên thực hiện:** Nguyễn Hữu Trí
+* **Sinh viên thực hiện:** Nguyễn Đình Quốc Trí
 * **Chuyên ngành:** An toàn Thông tin / Công nghệ Thông tin
 * **Repository:** [tringuyenbmt123/do-an-tot-nghiep](https://github.com/tringuyenbmt123/do-an-tot-nghiep)

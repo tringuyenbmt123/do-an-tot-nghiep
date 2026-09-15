@@ -10,8 +10,10 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Code,
   Copy,
   Cpu,
+  FileText,
   Flame,
   Globe,
   Radio,
@@ -293,66 +295,82 @@ export default function AlertDetailDrawer({ alert, onClose, onUpdated, onNavigat
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex px-6 shrink-0 bg-slate-900/40 border-b border-slate-800">
-          {[
-            { id: 'overview', label: '📋 Overview & Context' },
-            { id: 'payload', label: '{ } Raw Payload' },
-            { id: 'actions', label: '⚡ Active Response' },
-            { id: 'escalate', label: '🛡️ Escalate Case Form' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className="px-4 py-3 text-xs font-semibold transition-colors border-b-2"
-              style={
-                activeTab === tab.id
-                  ? { color: '#06b6d4', borderColor: '#06b6d4' }
-                  : { color: '#64748b', borderColor: 'transparent' }
-              }
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Redesigned Premium Tab Navigation Bar */}
+        <div className="px-6 py-3.5 shrink-0 bg-slate-950/90 border-b border-slate-800/80 shadow-md">
+          <div className="flex items-center gap-3 overflow-x-auto py-0.5 no-scrollbar">
+            {[
+              { id: 'overview', label: 'Overview & Context', icon: FileText, color: '#06b6d4' },
+              { id: 'payload', label: 'Raw Payload', icon: Code, color: '#c084fc' },
+              { id: 'actions', label: 'Active Response', icon: Zap, color: '#f59e0b' },
+              { id: 'escalate', label: 'Escalate Case Form', icon: ShieldAlert, color: '#f43f5e' },
+            ].map((tab) => {
+              const IconComp = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap"
+                  style={
+                    isActive
+                      ? {
+                          background: 'linear-gradient(135deg, rgba(6,182,212,0.2) 0%, rgba(59,130,246,0.15) 100%)',
+                          border: '1px solid rgba(6,182,212,0.5)',
+                          color: '#38bdf8',
+                          boxShadow: '0 4px 14px rgba(6,182,212,0.18)',
+                        }
+                      : {
+                          background: 'rgba(15,23,42,0.6)',
+                          border: '1px solid #1e293b',
+                          color: '#94a3b8',
+                        }
+                  }
+                >
+                  <IconComp size={16} style={{ color: isActive ? tab.color : '#64748b' }} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Drawer Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
 
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-col gap-6 animate-fade-in">
               {/* Alert Summary Metadata Cards */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg bg-slate-900/70 border border-slate-800 flex items-start gap-3">
-                  <Cpu size={16} className="text-cyan-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-slate-500 font-medium">Monitored Agent</p>
-                    <p className="text-sm font-semibold text-slate-200 font-mono">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex items-start gap-4 shadow-sm">
+                  <Cpu size={20} className="text-cyan-400 shrink-0 mt-0.5" />
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xs text-slate-400 font-medium">Monitored Agent</p>
+                    <p className="text-sm font-bold text-slate-100 font-mono leading-relaxed">
                       {alert.agent?.hostname || alert.agent_id || 'Unknown'}
                     </p>
                     {alert.agent?.ip_address && (
-                      <p className="text-xs text-slate-400 font-mono mt-0.5">{alert.agent.ip_address} • {alert.agent.os_type || 'OS'}</p>
+                      <p className="text-xs text-slate-400 font-mono leading-relaxed">{alert.agent.ip_address} • {alert.agent.os_type || 'OS'}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-900/70 border border-slate-800 flex items-start gap-3">
-                  <Clock size={16} className="text-purple-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-slate-500 font-medium">Detection Time</p>
-                    <p className="text-sm font-semibold text-slate-200 font-mono">
+                <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex items-start gap-4 shadow-sm">
+                  <Clock size={20} className="text-purple-400 shrink-0 mt-0.5" />
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xs text-slate-400 font-medium">Detection Time</p>
+                    <p className="text-sm font-bold text-slate-100 font-mono leading-relaxed">
                       {new Date(alert.created_at).toLocaleString('en-GB')}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">Event Type: <span className="font-mono text-cyan-300">{alert.event_type}</span></p>
+                    <p className="text-xs text-slate-400 leading-relaxed">Event Type: <span className="font-mono text-cyan-300 font-semibold">{alert.event_type}</span></p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-900/70 border border-slate-800 flex items-start gap-3">
-                  <Shield size={16} className="text-blue-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-slate-500 font-medium">MITRE ATT&CK</p>
-                    <p className="text-sm font-semibold text-slate-200">
+                <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex items-start gap-4 shadow-sm">
+                  <Shield size={20} className="text-blue-400 shrink-0 mt-0.5" />
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xs text-slate-400 font-medium">MITRE ATT&CK</p>
+                    <p className="text-sm font-bold text-slate-100 leading-relaxed">
                       {alert.mitre_tactic ? (
                         <span className="text-blue-300">{alert.mitre_tactic}</span>
                       ) : (
@@ -360,51 +378,51 @@ export default function AlertDetailDrawer({ alert, onClose, onUpdated, onNavigat
                       )}
                     </p>
                     {alert.mitre_technique_id && (
-                      <p className="text-xs text-slate-400 font-mono mt-0.5">Technique ID: {alert.mitre_technique_id}</p>
+                      <p className="text-xs text-slate-400 font-mono leading-relaxed">Technique ID: {alert.mitre_technique_id}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-900/70 border border-slate-800 flex items-start gap-3">
-                  <Radio size={16} className="text-emerald-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-slate-500 font-medium">Detection Engine</p>
-                    <p className="text-sm font-semibold text-slate-200">Real-time Rule Engine</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Rule: <span className="font-mono text-emerald-300">{alert.rule_id || 'System'}</span></p>
+                <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex items-start gap-4 shadow-sm">
+                  <Radio size={20} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xs text-slate-400 font-medium">Detection Engine</p>
+                    <p className="text-sm font-bold text-slate-100 leading-relaxed">Real-time Rule Engine</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">Rule: <span className="font-mono text-emerald-300 font-semibold">{alert.rule_id || 'System'}</span></p>
                   </div>
                 </div>
               </div>
 
               {/* Event Description */}
-              <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-800">
-                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <Flame size={14} className="text-orange-400" />
+              <div className="p-5 rounded-xl bg-slate-900/50 border border-slate-800 flex flex-col gap-3 shadow-sm">
+                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <Flame size={16} className="text-orange-400" />
                   Alert Context & Description
                 </h4>
-                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line font-medium">
                   {alert.description || 'No detailed description recorded for this alert.'}
                 </p>
               </div>
 
               {/* Quick Payload Highlight snippet */}
-              <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-800">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <Terminal size={14} className="text-cyan-400" />
+              <div className="p-5 rounded-xl bg-slate-900/50 border border-slate-800 flex flex-col gap-4 shadow-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <Terminal size={16} className="text-cyan-400" />
                     Key Event Fields
                   </h4>
                   <button
                     onClick={() => setActiveTab('payload')}
-                    className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
+                    className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
                   >
-                    View Full JSON <ArrowUpRight size={12} />
+                    View Full JSON <ArrowUpRight size={14} />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
                   {Object.entries(parsedPayload).slice(0, 8).map(([k, v]) => (
-                    <div key={k} className="p-2 rounded bg-slate-950/60 border border-slate-800/80 truncate">
-                      <span className="text-slate-500">{k}: </span>
-                      <span className="text-cyan-300">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+                    <div key={k} className="p-4 rounded-xl bg-slate-950/90 border border-slate-800/90 shadow-md flex flex-col gap-2">
+                      <span className="text-slate-400 font-bold block text-xs tracking-wide">{k}:</span>
+                      <span className="text-cyan-300 font-mono break-all block text-xs leading-relaxed">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
                     </div>
                   ))}
                 </div>

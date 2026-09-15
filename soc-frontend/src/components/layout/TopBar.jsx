@@ -49,7 +49,7 @@ export default function TopBar() {
 
   return (
     <header
-      className="flex items-center justify-between px-6 py-3 shrink-0 z-10"
+      className="flex items-center justify-between px-6 py-4 shrink-0 z-10"
       style={{ background: 'rgba(10, 14, 23, 0.75)', borderBottom: '1px solid #1e293b', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
     >
       {/* Left: Page title / Breadcrumb */}

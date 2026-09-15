@@ -226,7 +226,7 @@ export default function DashboardPage() {
   const pieData = safeStats.severity_distribution;
 
   return (
-    <div className="flex flex-col gap-5 p-6 animate-fade-in">
+    <div className="flex flex-col gap-6 p-8 animate-fade-in">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
@@ -290,8 +290,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
         {/* AreaChart: Alert Trends 24h */}
-        <div className="soc-card p-5 xl:col-span-2">
-          <div className="flex items-center justify-between mb-5">
+        <div className="soc-card p-6 xl:col-span-2">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#f8fafc' }}>
                 <Zap size={14} style={{ color: '#06b6d4' }} />
@@ -323,8 +323,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Pie Chart: Severity Distribution */}
-        <div className="soc-card p-5">
-          <h3 className="text-sm font-semibold mb-4" style={{ color: '#f8fafc' }}>Severity Distribution</h3>
+        <div className="soc-card p-6">
+          <h3 className="text-sm font-semibold mb-5" style={{ color: '#f8fafc' }}>Severity Distribution</h3>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
               <Pie
@@ -346,8 +346,8 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Top Agents Bar Chart ── */}
-      <div className="soc-card p-5">
-        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: '#f8fafc' }}>
+      <div className="soc-card p-6">
+        <h3 className="text-sm font-semibold mb-5 flex items-center gap-2" style={{ color: '#f8fafc' }}>
           <Cpu size={14} style={{ color: '#10b981' }} />
           Top 5 Most Affected Agents
         </h3>
@@ -370,7 +370,7 @@ export default function DashboardPage() {
 
       {/* ── Live Alert Feed ── */}
       <div className="soc-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #1e293b' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #1e293b' }}>
           <h3 className="text-sm font-semibold flex items-center gap-2.5" style={{ color: '#f8fafc' }}>
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'status-dot-online' : 'status-dot-offline'}`} />
             Real-time Live Alert Feed

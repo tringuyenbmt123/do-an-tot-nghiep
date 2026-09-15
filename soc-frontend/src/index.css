@@ -346,22 +346,23 @@ body {
 }
 
 .soc-table th {
-  background: rgba(10, 14, 23, 0.8);
-  color: #64748b;
-  font-size: 10.5px;
+  background: rgba(10, 14, 23, 0.95);
+  color: #94a3b8;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  padding: 11px 20px;
+  padding: 18px 24px;
   border-bottom: 1px solid #1e293b;
   white-space: nowrap;
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 .soc-table td {
-  padding: 14px 20px;
-  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+  padding: 20px 24px !important;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.6);
   font-size: 13px;
+  line-height: 1.6;
   color: #e2e8f0;
   vertical-align: middle;
   transition: background 0.15s ease;
@@ -383,7 +384,7 @@ body {
   border: 1px solid #1e293b;
   border-radius: 10px;
   color: #f8fafc;
-  padding: 9px 14px;
+  padding: 10px 16px;
   font-size: 13px;
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   width: 100%;
@@ -413,7 +414,7 @@ select.soc-input {
   font-weight: 600;
   border: none;
   border-radius: 10px;
-  padding: 9px 20px;
+  padding: 10px 22px;
   font-size: 13px;
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   cursor: pointer;
@@ -443,7 +444,7 @@ select.soc-input {
   font-weight: 600;
   border: none;
   border-radius: 10px;
-  padding: 9px 20px;
+  padding: 10px 22px;
   font-size: 13px;
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   cursor: pointer;
@@ -465,7 +466,7 @@ select.soc-input {
   border: 1px solid #1e293b;
   color: #94a3b8;
   border-radius: 10px;
-  padding: 9px 18px;
+  padding: 10px 20px;
   font-size: 13px;
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   cursor: pointer;
@@ -539,8 +540,8 @@ select.soc-input {
 .pill-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
   background: #1e293b;
   color: #94a3b8;
   font-size: 11px;
@@ -568,11 +569,11 @@ select.soc-input {
   background: #050810;
   border: 1px solid #1e293b;
   border-radius: 10px;
-  padding: 14px 18px;
+  padding: 18px 22px;
   overflow: auto;
   max-height: 320px;
   color: #67e8f9;
-  line-height: 1.75;
+  line-height: 1.85;
   white-space: pre-wrap;
   word-break: break-all;
 }

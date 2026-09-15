@@ -348,7 +348,7 @@ export default function CaseManagementPage() {
   const severityLabel = { 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low' };
 
   return (
-    <div className="flex flex-col gap-6 p-6 animate-fade-in">
+    <div className="flex flex-col gap-6 p-8 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

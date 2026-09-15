@@ -8,6 +8,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -87,6 +88,8 @@ func LoadConfig(configPath string) (*AgentConfig, error) {
 	// 1. Đọc file config.json nếu tồn tại
 	if configPath != "" {
 		if data, err := os.ReadFile(configPath); err == nil {
+			// Strip UTF-8 BOM (\xEF\xBB\xBF) do PowerShell Out-File -Encoding UTF8 tạo ra
+			data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 			if err := json.Unmarshal(data, cfg); err != nil {
 				return nil, fmt.Errorf("lỗi parse file cấu hình %s: %w", configPath, err)
 			}

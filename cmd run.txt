@@ -16,3 +16,46 @@ New-Item -ItemType Directory "C:\Users\Public\SOC-Test" -Force
 Set-Content "C:\Users\Public\SOC-Test\test.txt" "hello"
 Add-Content "C:\Users\Public\SOC-Test\test.txt" "changed"
 Remove-Item "C:\Users\Public\SOC-Test\test.txt"
+
+
+
+3. Hướng dẫn sử dụng
+Bước 1: Build toàn bộ hệ thống trên máy Server (Chỉ 1 lệnh)
+Mở PowerShell tại thư mục dự án và chạy:
+
+powershell
+# Chạy mặc định -> Tự động bắt IP của máy hiện tại
+.\deploy.ps1
+# (Tùy chọn) Nếu muốn chỉ định IP cụ thể hoặc domain
+.\deploy.ps1 -ServerIP 192.168.1.100
+# (Tùy chọn) Nếu chỉ cần build bản Windows cho nhanh
+.\deploy.ps1 -WindowsOnly
+Kết quả sẽ xuất hiện trong thư mục dist/:
+
+soc-server-windows-v1.0.0.zip (Server Windows)
+soc-server-linux-v1.0.0.zip (Server Linux)
+soc-agent-windows-v1.0.0.zip (Agent Windows cho máy nhân viên)
+soc-agent-linux-v1.0.0.zip (Agent Linux cho server/workstation Linux)
+Bước 2: Triển khai trên máy Endpoint (Máy nhân viên)
+Dành cho Windows:
+Gửi file soc-agent-windows-v1.0.0.zip cho nhân viên hoặc phòng ban IT.
+Giải nén, click chuột phải vào INSTALL.bat chọn Run as Administrator.
+Quá trình cài đặt tự động 100%:
+Tự động đọc cấu hình server IP đã nhúng sẵn.
+Tự động sinh Agent ID theo tên máy tính (Ví dụ: pc-ketoan-01-a8f3c2).
+Tự động copy file vào C:\Program Files\SOC-Agent\.
+Tự động đăng ký và khởi chạy Windows Service (SOCAgent) chạy ngầm (CPU < 1%, RAM < 20MB).
+Dành cho Linux:
+bash
+unzip soc-agent-linux-v1.0.0.zip -d soc-agent && cd soc-agent
+sudo bash install-agent.sh
+(Script sẽ tự cấu hình systemd service soc-agent.service và khởi chạy ngay lập tức).
+
+4. Cách quản lý Agent sau khi cài đặt
+Xem trạng thái / Log:
+Windows: Log được lưu tại C:\Program Files\SOC-Agent\agent.log hoặc kiểm tra trong ứng dụng Services.msc (SOC/EDR Endpoint Agent).
+Linux: journalctl -u soc-agent -f
+Bật / Tắt / Khởi động lại:
+net stop SOCAgent / net start SOCAgent
+Gỡ bỏ hoàn toàn khi cần:
+Chạy soc-agent.exe -service uninstall trong C:\Program Files\SOC-Agent.

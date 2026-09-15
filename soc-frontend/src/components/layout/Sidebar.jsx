@@ -79,7 +79,7 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div
-        className="flex items-center gap-3 px-4 py-5 border-b shrink-0"
+        className="flex items-center gap-3 px-5 py-6 border-b shrink-0"
         style={{ borderColor: '#1e2a3a' }}
       >
         <div className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
@@ -95,8 +95,8 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 overflow-hidden">
-        <ul className="flex flex-col gap-1 px-2">
+      <nav className="flex-1 py-5 overflow-hidden">
+        <ul className="flex flex-col gap-1.5 px-3">
           {NAV_ITEMS.map((item) => {
             const Icon    = item.icon;
             const isActive = activeTab === item.id;
@@ -108,7 +108,7 @@ export default function Sidebar() {
                   onClick={() => setActiveTab(item.id)}
                   title={collapsed ? item.label : undefined}
                   className={`
-                    w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left
+                    w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left
                     transition-all duration-150 relative group
                     ${isActive
                       ? 'bg-cyan-500/10 text-white'
@@ -154,7 +154,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom: Collapse toggle */}
-      <div className="p-3 border-t" style={{ borderColor: '#1e2a3a' }}>
+      <div className="p-4 border-t" style={{ borderColor: '#1e2a3a' }}>
         <button
           onClick={() => setCollapsed((c) => !c)}
           className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors text-xs"

@@ -1,1 +1,22 @@
+# Build / Release
+dist/
+soc-agent/release/
+soc-server/release/
+
+# Logs
+*.log
+
+# TLS private keys / generated certificates
+*.key
+*.csr
+*.srl
+
+# Node
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+
+# Go binaries
 *.exe

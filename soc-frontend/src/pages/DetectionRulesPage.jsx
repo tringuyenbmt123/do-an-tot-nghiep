@@ -41,9 +41,9 @@ const SeverityBadge = ({ severity }) => {
   const sev = (severity || 'medium').toLowerCase();
   const config = {
     critical: { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.4)', label: 'CRITICAL' },
-    high:     { bg: 'rgba(249,115,22,0.15)', text: '#fb923c', border: 'rgba(249,115,22,0.4)', label: 'HIGH' },
-    medium:   { bg: 'rgba(234,179,8,0.15)',  text: '#facc15', border: 'rgba(234,179,8,0.4)',  label: 'MEDIUM' },
-    low:      { bg: 'rgba(59,130,246,0.15)',  text: '#60a5fa', border: 'rgba(59,130,246,0.4)',  label: 'LOW' },
+    high: { bg: 'rgba(249,115,22,0.15)', text: '#fb923c', border: 'rgba(249,115,22,0.4)', label: 'HIGH' },
+    medium: { bg: 'rgba(234,179,8,0.15)', text: '#facc15', border: 'rgba(234,179,8,0.4)', label: 'MEDIUM' },
+    low: { bg: 'rgba(59,130,246,0.15)', text: '#60a5fa', border: 'rgba(59,130,246,0.4)', label: 'LOW' },
   }[sev] || { bg: 'rgba(148,163,184,0.15)', text: '#94a3b8', border: 'rgba(148,163,184,0.4)', label: sev.toUpperCase() };
 
   return (
@@ -385,9 +385,9 @@ export default function DetectionRulesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto text-slate-100">
+    <div className="p-8 space-y-7 max-w-[1600px] mx-auto text-slate-100">
       {/* ─── Header ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
@@ -503,127 +503,127 @@ export default function DetectionRulesPage() {
         </div>
       </div>
 
-      {/* ─── Rules Table ─────────────────────────────────────────────────────── */}
-      <div className="rounded-xl bg-slate-900/60 border border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-950/80 border-b border-slate-800 text-xs font-mono text-slate-400 uppercase tracking-wider">
+      {/* ─── Rules Table (Fits 100% Window Width) ────────────────────────────── */}
+      <div className="soc-card overflow-hidden w-full">
+        <table className="soc-table w-full table-fixed">
+          <thead>
+            <tr>
+              <th className="w-[24%] px-4 py-4 text-left font-bold" style={{ padding: '16px 16px' }}>Rule ID & Tên</th>
+              <th className="w-[11%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>Mức Độ</th>
+              <th className="w-[15%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>Event Type</th>
+              <th className="w-[13%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>MITRE ATT&CK</th>
+              <th className="w-[25%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>Điều Kiện Match</th>
+              <th className="w-[6%] px-2 py-4 text-center font-bold" style={{ padding: '16px 6px' }}>Trạng Thái</th>
+              <th className="w-[6%] px-2 py-4 text-right font-bold" style={{ padding: '16px 6px' }}>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRules.length === 0 ? (
               <tr>
-                <th className="px-4 py-3">Rule ID & Tên</th>
-                <th className="px-4 py-3">Mức Độ</th>
-                <th className="px-4 py-3">Event Type</th>
-                <th className="px-4 py-3">MITRE ATT&CK</th>
-                <th className="px-4 py-3">Điều Kiện Match</th>
-                <th className="px-4 py-3 text-center">Trạng Thái</th>
-                <th className="px-4 py-3 text-right">Thao Tác</th>
+                <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  Không tìm thấy Rule nào phù hợp với bộ lọc
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {filteredRules.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                    Không tìm thấy Rule nào phù hợp với bộ lọc
-                  </td>
-                </tr>
-              ) : (
-                filteredRules.map((rule) => {
-                  const conds = parseConditionsList(rule.conditions);
-                  const isActive = rule.is_active !== false;
+            ) : (
+              filteredRules.map((rule) => {
+                const conds = parseConditionsList(rule.conditions);
+                const isActive = rule.is_active !== false;
 
-                  return (
-                    <tr key={rule.id} className="hover:bg-slate-800/30 transition-colors">
-                      {/* ID & Name */}
-                      <td className="px-4 py-3 max-w-[280px]">
-                        <div className="font-mono text-xs font-bold text-cyan-400 truncate">{rule.id}</div>
-                        <div className="text-sm font-medium text-slate-200 truncate" title={rule.name}>
+                return (
+                  <tr key={rule.id} className="hover:bg-slate-800/40 transition-colors">
+                    {/* ID & Name */}
+                    <td className="px-4 py-4 align-middle" style={{ padding: '18px 16px' }}>
+                      <div className="flex flex-col gap-1.5 overflow-hidden">
+                        <span className="font-mono text-xs font-bold text-cyan-400 tracking-wider truncate block">{rule.id}</span>
+                        <span className="text-sm font-semibold text-slate-100 leading-snug block truncate" title={rule.name}>
                           {rule.name}
-                        </div>
-                      </td>
-
-                      {/* Severity */}
-                      <td className="px-4 py-3">
-                        <SeverityBadge severity={rule.severity} />
-                      </td>
-
-                      {/* Event Type */}
-                      <td className="px-4 py-3 font-mono text-xs text-slate-300">
-                        <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">
-                          {rule.event_type || 'sysmon_process_create'}
                         </span>
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* MITRE ATT&CK */}
-                      <td className="px-4 py-3">
-                        {rule.mitre_technique_id ? (
-                          <div className="font-mono text-xs">
-                            <span className="text-orange-400 font-bold">{rule.mitre_technique_id}</span>
-                            {rule.mitre_tactic && (
-                              <span className="text-slate-400 block text-[11px]">{rule.mitre_tactic}</span>
-                            )}
+                    {/* Severity */}
+                    <td className="px-3 py-4 align-middle" style={{ padding: '18px 12px' }}>
+                      <SeverityBadge severity={rule.severity} />
+                    </td>
+
+                    {/* Event Type */}
+                    <td className="px-3 py-4 font-mono text-xs text-slate-300 align-middle" style={{ padding: '18px 12px' }}>
+                      <span className="px-2.5 py-1 rounded-md bg-slate-800/90 border border-slate-700/80 shadow-sm inline-block font-mono truncate max-w-full" title={rule.event_type}>
+                        {rule.event_type || 'sysmon_process_create'}
+                      </span>
+                    </td>
+
+                    {/* MITRE ATT&CK */}
+                    <td className="px-3 py-4 align-middle" style={{ padding: '18px 12px' }}>
+                      {rule.mitre_technique_id ? (
+                        <div className="flex flex-col gap-1 font-mono text-xs overflow-hidden">
+                          <span className="text-orange-400 font-bold block truncate">{rule.mitre_technique_id}</span>
+                          {rule.mitre_tactic && (
+                            <span className="text-slate-400 block text-xs leading-normal truncate" title={rule.mitre_tactic}>{rule.mitre_tactic}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-xs">-</span>
+                      )}
+                    </td>
+
+                    {/* Conditions Summary */}
+                    <td className="px-3 py-4 align-middle" style={{ padding: '18px 12px' }}>
+                      <div className="flex flex-col gap-1.5 overflow-hidden">
+                        {conds.slice(0, 2).map((c, i) => (
+                          <div key={i} className="text-xs font-mono text-slate-300 truncate leading-snug block" title={`${c.field} ${c.operator} ${c.value}`}>
+                            <span className="text-blue-400 font-semibold">{c.field}</span>{' '}
+                            <span className="text-amber-400 font-medium">{c.operator}</span>{' '}
+                            <span className="text-emerald-300 font-normal">{c.value}</span>
                           </div>
-                        ) : (
-                          <span className="text-slate-600 text-xs">-</span>
+                        ))}
+                        {conds.length > 2 && (
+                          <div className="text-xs text-slate-500 font-mono">+{conds.length - 2} điều kiện nữa...</div>
                         )}
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* Conditions Summary */}
-                      <td className="px-4 py-3 max-w-[320px]">
-                        <div className="space-y-1">
-                          {conds.slice(0, 2).map((c, i) => (
-                            <div key={i} className="text-xs font-mono text-slate-300 truncate" title={`${c.field} ${c.operator} ${c.value}`}>
-                              <span className="text-blue-400 font-semibold">{c.field}</span>{' '}
-                              <span className="text-amber-400">{c.operator}</span>{' '}
-                              <span className="text-emerald-300">{c.value}</span>
-                            </div>
-                          ))}
-                          {conds.length > 2 && (
-                            <div className="text-[11px] text-slate-500">+{conds.length - 2} điều kiện nữa...</div>
-                          )}
-                        </div>
-                      </td>
+                    {/* Active Status Toggle */}
+                    <td className="px-2 py-4 text-center align-middle" style={{ padding: '18px 6px' }}>
+                      <button
+                        onClick={() => handleToggleRule(rule.id, isActive)}
+                        className="inline-flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+                        title={isActive ? 'Nhấn để tắt Rule' : 'Nhấn để bật Rule'}
+                      >
+                        {isActive ? (
+                          <ToggleRight size={30} className="text-emerald-400 hover:text-emerald-300 drop-shadow" />
+                        ) : (
+                          <ToggleLeft size={30} className="text-slate-600 hover:text-slate-500" />
+                        )}
+                      </button>
+                    </td>
 
-                      {/* Active Status Toggle */}
-                      <td className="px-4 py-3 text-center">
+                    {/* Actions */}
+                    <td className="px-2 py-4 text-right align-middle" style={{ padding: '18px 6px' }}>
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => handleToggleRule(rule.id, isActive)}
-                          className="inline-flex items-center justify-center cursor-pointer transition-transform active:scale-95"
-                          title={isActive ? 'Nhấn để tắt Rule' : 'Nhấn để bật Rule'}
+                          onClick={() => openEditModal(rule)}
+                          className="p-1.5 rounded-lg text-slate-300 hover:text-cyan-300 hover:bg-cyan-500/15 transition-colors cursor-pointer"
+                          title="Chỉnh sửa Rule (Form / YAML)"
                         >
-                          {isActive ? (
-                            <ToggleRight size={28} className="text-emerald-400 hover:text-emerald-300" />
-                          ) : (
-                            <ToggleLeft size={28} className="text-slate-600 hover:text-slate-500" />
-                          )}
+                          <Edit3 size={17} />
                         </button>
-                      </td>
 
-                      {/* Actions */}
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => openEditModal(rule)}
-                            className="p-1.5 rounded-lg text-slate-300 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
-                            title="Chỉnh sửa Rule (Form / YAML)"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteRule(rule.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                            title="Xóa Rule"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        <button
+                          onClick={() => handleDeleteRule(rule.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                          title="Xóa Rule"
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* ─── Add / Edit Rule Modal ───────────────────────────────────────────── */}
@@ -655,30 +655,30 @@ export default function DetectionRulesPage() {
             </div>
 
             {/* Modal Tabs Switcher */}
-            <div className="flex items-center gap-2 px-6 pt-3 border-b border-slate-800 bg-slate-950/30">
+            <div className="flex items-center gap-3 px-6 py-3 border-b border-slate-800 bg-slate-950/60">
               <button
                 type="button"
                 onClick={() => handleTabSwitch('form')}
-                className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors cursor-pointer ${
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                   editorTab === 'form'
-                    ? 'border-cyan-500 text-cyan-400'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-md shadow-cyan-500/10'
+                    : 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-slate-200 hover:bg-slate-800/60'
                 }`}
               >
-                <Edit3 size={15} />
+                <Edit3 size={16} className={editorTab === 'form' ? 'text-cyan-400' : 'text-slate-400'} />
                 Form Giao Diện (UI)
               </button>
 
               <button
                 type="button"
                 onClick={() => handleTabSwitch('yaml')}
-                className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors cursor-pointer ${
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                   editorTab === 'yaml'
-                    ? 'border-cyan-500 text-cyan-400'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-md shadow-purple-500/10'
+                    : 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-slate-200 hover:bg-slate-800/60'
                 }`}
               >
-                <Code size={15} />
+                <Code size={16} className={editorTab === 'yaml' ? 'text-purple-400' : 'text-slate-400'} />
                 Trình Chỉnh Sửa YAML
               </button>
             </div>

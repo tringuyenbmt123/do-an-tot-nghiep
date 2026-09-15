@@ -1,0 +1,98 @@
+services:
+  # ==============================================================================
+  # 1. Cơ sở dữ liệu MySQL 8.0 (Tự động khởi tạo và nạp dữ liệu từ dump)
+  # ==============================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: soc-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "1"
+      MYSQL_DATABASE: "soc_edr_db"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - soc-network
+
+  # ==============================================================================
+  # 2. Redis Server (Cache trạng thái Agent và Message Queue)
+  # ==============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: soc-redis
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - soc-network
+
+  # ==============================================================================
+  # 3. SOC/EDR Backend Server (Golang REST API + gRPC)
+  # ==============================================================================
+  soc-server:
+    build:
+      context: ./soc-server
+      dockerfile: Dockerfile
+    container_name: soc-server
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SOC_DB_HOST: "mysql"
+      SOC_DB_PORT: "3306"
+      SOC_DB_USER: "root"
+      SOC_DB_PASSWORD: "1"
+      SOC_DB_NAME: "soc_edr_db"
+      SOC_REDIS_ADDRESS: "redis:6379"
+      SOC_REST_PORT: "8080"
+      SOC_GRPC_PORT: "50051"
+    ports:
+      - "8080:8080"     # REST API & WebSocket
+      - "50051:50051"   # gRPC cho Agents kết nối vào
+    networks:
+      - soc-network
+
+  # ==============================================================================
+  # 4. SOC Web Dashboard Frontend (React + Nginx)
+  # ==============================================================================
+  soc-frontend:
+    build:
+      context: ./soc-frontend
+      dockerfile: Dockerfile
+    container_name: soc-frontend
+    restart: always
+    depends_on:
+      - soc-server
+    ports:
+      - "80:80"         # Truy cập Web Dashboard trực tiếp qua http://<IP_SERVER>
+    networks:
+      - soc-network
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  soc-network:
+    driver: bridge

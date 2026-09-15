@@ -28,6 +28,9 @@ import (
 	"soc-server/internal/rules"
 	"soc-server/internal/services"
 	"soc-server/pkg/database"
+
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -151,26 +154,25 @@ func main() {
 		log.Printf("[SEED] Đã tạo %d IOC mặc định cho SOC dashboard", len(seedIndicators))
 	}
 
-	var agentCount int64
-	if err := db.Model(&models.Agent{}).Count(&agentCount).Error; err == nil && agentCount == 0 {
-		seedAgents := services.DefaultAgents()
-		for i := range seedAgents {
-			if err := db.Create(&seedAgents[i]).Error; err != nil {
-				log.Printf("[SEED] Không thể tạo agent mặc định %s: %v", seedAgents[i].ID, err)
+	// Seed tài khoản quản trị mặc định (admin / admin123) nếu DB mới chưa có user
+	var userCount int64
+	if err := db.Model(&models.User{}).Where("username = ?", "admin").Count(&userCount).Error; err == nil && userCount == 0 {
+		hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+		if err == nil {
+			adminUser := models.User{
+				ID:           uuid.New().String(),
+				Username:     "admin",
+				PasswordHash: string(hash),
+				Email:        "admin@soc.local",
+				Role:         "admin",
+				IsActive:     true,
+			}
+			if err := db.Create(&adminUser).Error; err == nil {
+				log.Println("[SEED] ✅ Đã tạo tài khoản Admin mặc định (user: admin / pass: admin123)")
+			} else {
+				log.Printf("[SEED] ❌ Lỗi tạo tài khoản Admin: %v", err)
 			}
 		}
-		log.Printf("[SEED] Đã tạo %d agent mặc định cho SOC dashboard", len(seedAgents))
-	}
-
-	var alertCount int64
-	if err := db.Model(&models.Alert{}).Count(&alertCount).Error; err == nil && alertCount == 0 {
-		seedAlerts := services.DefaultAlerts()
-		for i := range seedAlerts {
-			if err := db.Create(&seedAlerts[i]).Error; err != nil {
-				log.Printf("[SEED] Không thể tạo alert mặc định %s: %v", seedAlerts[i].ID, err)
-			}
-		}
-		log.Printf("[SEED] Đã tạo %d alert mặc định cho SOC dashboard", len(seedAlerts))
 	}
 
 	// 10. Khởi tạo gRPC Connection Manager

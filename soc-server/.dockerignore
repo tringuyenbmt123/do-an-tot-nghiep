@@ -1,0 +1,8 @@
+bin
+release
+*.exe
+.git
+protoc_bin
+protoc.zip
+main.exe
+server.exe

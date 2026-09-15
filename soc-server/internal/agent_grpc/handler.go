@@ -202,9 +202,6 @@ func (h *AgentServiceHandler) processEvent(event *pb.EventRequest, agentID strin
 	if event.EventType == "system_metric" {
 		return
 	}
-	if event.EventType == "file_integrity" {
-		log.Printf("[STREAM] 📁 Nhận FIM event từ Agent '%s': %s", agentID, event.RawPayload)
-	}
 
 	// ===== Gọi Rule Engine đánh giá event =====
 	alert, matched := h.ruleEngine.EvaluateLog(rawLog, agentID)
@@ -266,9 +263,6 @@ func (h *AgentServiceHandler) processEvent(event *pb.EventRequest, agentID strin
 // Agent gửi heartbeat định kỳ (mỗi 30 giây) để báo cáo trạng thái
 // ==============================================================================
 func (h *AgentServiceHandler) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
-	log.Printf("[HEARTBEAT] 💓 Nhận heartbeat từ Agent '%s' (%s - %s)",
-		req.AgentId, req.Hostname, req.IpAddress)
-
 	now := time.Now()
 
 	// 1. Cập nhật trạng thái Agent trong Redis (với TTL)

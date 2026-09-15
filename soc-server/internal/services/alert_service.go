@@ -313,7 +313,6 @@ func (s *AlertService) GetAlertStats() (map[string]interface{}, error) {
 	stats["by_severity"] = severityMap
 	stats["by_status"] = map[string]int64{"new": 0, "in_progress": 0, "resolved": 0}
 
-	log.Printf("[ALERT SERVICE] Dashboard stats: totalAlertsToday=%d, agentsOnline=%d/%d, activeCases=%d", totalAlertsToday, agentsOnline, agentsTotal, activeCases)
 	return stats, nil
 }
 

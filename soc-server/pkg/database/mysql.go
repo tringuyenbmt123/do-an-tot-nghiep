@@ -26,10 +26,9 @@ func InitMySQL(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	dsn := cfg.DSN()
 	log.Printf("[DATABASE] Đang kết nối MySQL: host=%s port=%d dbname=%s", cfg.Host, cfg.Port, cfg.DBName)
 
-	// Mở kết nối GORM với MySQL driver
+	// Mở kết nối GORM với MySQL driver (chỉ log SQL khi có cảnh báo/lỗi hoặc slow query)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		// Cấu hình logger GORM - hiển thị SQL queries khi debug
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logger.Warn),
 		// Tắt auto-create foreign key constraints (quản lý thủ công)
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})

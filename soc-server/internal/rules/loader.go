@@ -65,7 +65,6 @@ func LoadRulesFromYAML(yamlDir string) ([]LoadedRule, error) {
 		}
 
 		rules = append(rules, *rule)
-		log.Printf("[RULE LOADER] ✅ Đã tải rule '%s' từ file %s", rule.ID, filepath.Base(filePath))
 	}
 
 	log.Printf("[RULE LOADER] Tổng cộng tải được %d rules từ YAML", len(rules))

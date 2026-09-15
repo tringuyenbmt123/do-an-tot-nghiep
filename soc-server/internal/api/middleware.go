@@ -66,8 +66,18 @@ func RequestLogger() gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 
-		// Không log các request /ping hoặc websocket liên tục (tránh rác log)
-		if path != "/api/v1/ping" && path != "/ws/alerts" {
+		// Bỏ qua log đối với các GET request polling từ Frontend nếu thành công (< 400)
+		reqPath := c.Request.URL.Path
+		isPollingGet := method == "GET" && statusCode < 400 && (strings.HasPrefix(reqPath, "/api/v1/alerts") ||
+			strings.HasPrefix(reqPath, "/api/v1/dashboard") ||
+			strings.HasPrefix(reqPath, "/api/v1/agents") ||
+			strings.HasPrefix(reqPath, "/api/v1/cases") ||
+			strings.HasPrefix(reqPath, "/api/v1/indicators") ||
+			strings.HasPrefix(reqPath, "/api/v1/rules") ||
+			strings.HasPrefix(reqPath, "/api/v1/audit-logs") ||
+			reqPath == "/api/v1/ping")
+
+		if reqPath != "/ws/alerts" && !isPollingGet {
 			log.Printf("[REST API] %3d | %13v | %15s | %-7s %s",
 				statusCode,
 				latency,

@@ -1,52 +1,52 @@
-# 🛡️ HỆ THỐNG GIÁM SÁT & PHẢN ỨNG TỰ ĐỘNG SOC / SOAR UNIFIED PLATFORM
-> **ĐỒ ÁN TỐT NGHIỆP — CHUYÊN NGÀNH AN TOÀN THÔNG TIN / CÔNG NGHỆ THÔNG TIN**  
+# HỆ THỐNG GIÁM SÁT & PHẢN ỨNG TỰ ĐỘNG SOC / SOAR UNIFIED PLATFORM
+> **ĐỒ ÁN TỐT NGHỆP — CHUYÊN NGÀNH AN TOÀN THÔNG TIN / CÔNG NGHỆ THÔNG TIN**  
 > *Nền tảng tích hợp toàn diện SIEM (Giám sát & Phát hiện) + SOAR (Tự động hóa phản ứng) + EDR Agent (Phản ứng tích cực trên Endpoint) + Trí tuệ nhân tạo (AI Zero-Trust & Phê duyệt Human-in-the-Loop)*
 
 ---
 
-## 📑 Mục lục
-1. [Giới thiệu tổng quan](#-giới-thiệu-tổng-quan)
-2. [Kiến trúc hệ thống](#-kiến-trúc-hệ-thống)
-3. [Các phân hệ chính](#-các-phân-hệ-chính)
+## Mục lục
+1. [Giới thiệu tổng quan](#giới-thiệu-tổng-quan)
+2. [Kiến trúc hệ thống](#kiến-trúc-hệ-thống)
+3. [Các phân hệ chính](#các-phân-hệ-chính)
    - [1. Trung tâm điều phối & Xử lý (soc-server)](#1-trung-tâm-điều-phối--xử-lý-soc-server)
    - [2. Tác tử giám sát & phản ứng Endpoint (soc-agent)](#2-tác-tử-giám-sát--phản-ứng-endpoint-soc-agent)
    - [3. Giao diện quản trị Cyberpunk SOC Portal (soc-frontend)](#3-giao-diện-quản-trị-cyberpunk-soc-portal-soc-frontend)
    - [4. Kịch bản điều phối SOAR & AI (n8n + Ollama + Telegram HITL)](#4-kịch-bản-điều-phối-soar--ai-n8n--ollama--telegram-hitl)
-4. [Công nghệ sử dụng](#-công-nghệ-sử-dụng)
-5. [Cấu trúc thư mục dự án](#-cấu-trúc-thư-mục-dự-án)
-6. [Hướng dẫn cài đặt & Chạy hệ thống](#-hướng-dẫn-cài-đặt--chạy-hệ-thống)
+4. [Công nghệ sử dụng](#công-nghệ-sử-dụng)
+5. [Cấu trúc thư mục dự án](#cấu-trúc-thư-mục-dự-án)
+6. [Hướng dẫn cài đặt & Chạy hệ thống](#hướng-dẫn-cài-đặt--chạy-hệ-thống)
    - [Yêu cầu môi trường](#yêu-cầu-môi-trường)
    - [Khởi chạy Backend (soc-server)](#bước-1-khởi-chạy-soc-server)
    - [Khởi chạy Frontend (soc-frontend)](#bước-2-khởi-chạy-soc-frontend)
    - [Triển khai Agent trên Endpoint (soc-agent)](#bước-3-triển-khai-soc-agent-trên-máy-nạn-nhânendpoint)
    - [Cấu hình n8n SOAR Workflow](#bước-4-cấu-hình-n8n-soar-workflow)
-7. [Kịch bản kiểm thử thực tế](#-kịch-bản-kiểm-thử-thực-tế)
-8. [Tác giả & Đồ án](#-tác-giả--đồ-án)
+7. [Kịch bản kiểm thử thực tế](#kịch-bản-kiểm-thử-thực-tế)
+8. [Tác giả & Đồ án](#tác-giả--đồ-án)
 
 ---
 
-## 🌟 Giới thiệu tổng quan
+## Giới thiệu tổng quan
 
 Trong các trung tâm giám sát an ninh mạng (SOC) truyền thống, quy trình từ lúc **phát hiện sự cố (SIEM)** đến khi **điều tra (Threat Intel/TheHive)** và **cô lập mối đe dọa (EDR/Firewall)** thường bị rời rạc, đòi hỏi nhiều thao tác thủ công và phụ thuộc hoàn toàn vào chuyên viên phân tích bậc 1 (Tier 1 SOC Analyst).
 
 Dự án này xây dựng một **Nền tảng SOC / SOAR Hợp nhất (Unified SOC & SOAR Platform)** khép kín:
-* 📡 **Thu thập & Giám sát thời gian thực:** Thu thập sự kiện (FIM, Process, Network, Syslog) từ các Endpoint thông qua luồng kênh truyền nhị phân bảo mật **gRPC mTLS**.
-* ⚡ **Bộ quy tắc phát hiện động (Rule Engine):** Đánh giá sự kiện theo thời gian thực (Real-time Evaluation), ánh xạ chuẩn khung **MITRE ATT&CK**, hỗ trợ hot-reload và quản lý quy tắc trực tiếp từ Web UI.
-* 🤖 **Tự động hóa SOAR & Trợ lý AI Zero-Trust:** Tích hợp n8n workflow kết hợp mô hình ngôn ngữ lớn (LLM / Ollama) để đánh giá độ tin cậy và tự động đưa ra quyết định xử lý.
-* 👨‍💻 **Phê duyệt Human-in-the-Loop (HITL):** Gửi cảnh báo tương tác qua **Telegram Bot**, cho phép chuyên viên phê duyệt chặn tức thì chỉ với một chạm.
-* 🎯 **Phản ứng tích cực (Active Response):** Truyền ngược lệnh từ Server xuống Agent qua kênh gRPC để **Kill Process độc hại**, **Khóa IP qua Firewall (iptables/netsh)**, hoặc **Cô lập URL**.
+* **Thu thập & Giám sát thời gian thực:** Thu thập sự kiện (FIM, Process, Network, Syslog) từ các Endpoint thông qua luồng kênh truyền nhị phân bảo mật **gRPC mTLS**.
+* **Bộ quy tắc phát hiện động (Rule Engine):** Đánh giá sự kiện theo thời gian thực (Real-time Evaluation), ánh xạ chuẩn khung **MITRE ATT&CK**, hỗ trợ hot-reload và quản lý quy tắc trực tiếp từ Web UI.
+* **Tự động hóa SOAR & Trợ lý AI Zero-Trust:** Tích hợp n8n workflow kết hợp mô hình ngôn ngữ lớn (LLM / Ollama) để đánh giá độ tin cậy và tự động đưa ra quyết định xử lý.
+* **Phê duyệt Human-in-the-Loop (HITL):** Gửi cảnh báo tương tác qua **Telegram Bot**, cho phép chuyên viên phê duyệt chặn tức thì chỉ với một chạm.
+* **Phản ứng tích cực (Active Response):** Truyền ngược lệnh từ Server xuống Agent qua kênh gRPC để **Kill Process độc hại**, **Khóa IP qua Firewall (iptables/netsh)**, hoặc **Cô lập URL**.
 
 ---
 
-## 🏗️ Kiến trúc hệ thống
+## Kiến trúc hệ thống
 
 ```mermaid
 flowchart TB
-    subgraph Endpoints ["🖥️ Monitored Endpoints (Windows / Linux)"]
+    subgraph Endpoints ["Monitored Endpoints (Windows / Linux)"]
         Agent["soc-agent (Golang Service)\n• File Integrity Monitor (FIM)\n• Process Monitor\n• Network Traffic Monitor\n• Active Response Executor"]
     end
 
-    subgraph CoreBackend ["⚙️ SOC Core Server (Golang Gin & gRPC)"]
+    subgraph CoreBackend ["SOC Core Server (Golang Gin & gRPC)"]
         gRPCServer["gRPC Gateway (mTLS Port :50051)"]
         RuleEngine["Real-time Rule Engine (Hot-Reload)"]
         AlertService["Alert & Case Engine"]
@@ -56,7 +56,7 @@ flowchart TB
         Redis[(Redis Cache & Heartbeat)]
     end
 
-    subgraph Frontend ["💻 SOC Portal UI (React + Vite + Cyberpunk Design)"]
+    subgraph Frontend ["SOC Portal UI (React + Vite + Cyberpunk Design)"]
         Dashboard["SIEM Analytics & Live Feed"]
         AlertDrawer["Alert Detail & Quick Escalate"]
         CaseMgmt["TheHive Case Workflow"]
@@ -65,7 +65,7 @@ flowchart TB
         AgentCtrl["EDR Fleet Management"]
     end
 
-    subgraph Automation ["🤖 SOAR & AI Orchestration Layer"]
+    subgraph Automation ["SOAR & AI Orchestration Layer"]
         n8n["n8n Automation Engine"]
         Ollama["AI LLM / Ollama (Zero-Trust Analysis)"]
         Telegram["Telegram Bot (Human-in-the-Loop Review)"]
@@ -95,7 +95,7 @@ flowchart TB
 
 ---
 
-## 🧩 Các phân hệ chính
+## Các phân hệ chính
 
 ### 1. Trung tâm điều phối & Xử lý (`soc-server`)
 * **Kiến trúc hiệu năng cao:** Viết bằng Golang, sử dụng Gin Web Framework và gRPC.
@@ -132,7 +132,7 @@ flowchart TB
 
 ---
 
-## 💻 Công nghệ sử dụng
+## Công nghệ sử dụng
 
 | Phân hệ | Công nghệ / Thư viện chính |
 |---|---|
@@ -144,7 +144,7 @@ flowchart TB
 
 ---
 
-## 📁 Cấu trúc thư mục dự án
+## Cấu trúc thư mục dự án
 
 ```
 DO AN TOT NGHIEP/
@@ -182,7 +182,7 @@ DO AN TOT NGHIEP/
 
 ---
 
-## 🚀 Hướng dẫn cài đặt & Chạy hệ thống
+## Hướng dẫn cài đặt & Chạy hệ thống
 
 ### Yêu cầu môi trường
 * **Hệ điều hành:** Windows 10/11 hoặc Linux (Ubuntu 20.04+)
@@ -260,7 +260,7 @@ go run main.go -config config.json
 
 ---
 
-## 🧪 Kịch bản kiểm thử thực tế
+## Kịch bản kiểm thử thực tế
 
 ### Kịch bản 1: Kiểm thử File Integrity Monitoring (FIM)
 Tạo, chỉnh sửa hoặc xóa file trong thư mục giám sát trên máy có Agent:
@@ -277,17 +277,17 @@ Remove-Item "C:\Users\Public\SOC-Test\test.txt"
 1. Click vào bất kỳ dòng Alert nào trên Dashboard.
 2. Drawer **Alert Details** xuất hiện từ bên phải.
 3. Xem thông tin MITRE ATT&CK, Raw JSON Payload.
-4. Chuyển sang tab **🛡️ Escalate Case Form** → Nhấn **Confirm Escalation**.
+4. Chuyển sang tab **Escalate Case Form** → Nhấn **Confirm Escalation**.
 5. Mở trang **Case Management** để xem Case mới tạo với đầy đủ timeline điều tra.
 
 ### Kịch bản 3: Tự động hóa SOAR & Phản ứng tích cực (Active Response)
-1. Trong Alert Drawer, nhấn nút **⚡ Trigger SOAR (n8n/AI)**.
-2. Alert được bắn sang n8n → n8n phân tích AI và gửi tin nhắn về Telegram của quản trị viên kèm 2 nút: `[✅ Chấp thuận chặn IP]` và `[❌ Bỏ qua]`.
+1. Trong Alert Drawer, nhấn nút **Trigger SOAR (n8n/AI)**.
+2. Alert được bắn sang n8n → n8n phân tích AI và gửi tin nhắn về Telegram của quản trị viên kèm 2 nút: `[Chấp thuận chặn IP]` và `[Bỏ qua]`.
 3. Khi nhấn Chấp thuận trên Telegram → n8n gọi Callback về `soc-server` → Server đẩy lệnh `BLOCK_IP` qua gRPC xuống Agent → Agent chặn IP thành công bằng Firewall.
 
 ---
 
-## 👨‍🎓 Tác giả & Đồ án
+## Tác giả & Đồ án
 
 * **Đề tài:** Nghiên cứu, thiết kế và xây dựng Hệ thống Giám sát & Phản ứng An ninh mạng Tự động (SOC / SOAR Unified Platform).
 * **Sinh viên thực hiện:** Nguyễn Đình Quốc Trí

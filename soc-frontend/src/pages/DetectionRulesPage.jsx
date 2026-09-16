@@ -385,7 +385,7 @@ export default function DetectionRulesPage() {
   }
 
   return (
-    <div className="p-8 space-y-7 max-w-[1600px] mx-auto text-slate-100">
+    <div className="p-6 space-y-7 max-w-[1600px] mx-auto text-slate-100">
       {/* ─── Header ───────────────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-6">
         <div>

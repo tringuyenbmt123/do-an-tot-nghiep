@@ -204,11 +204,11 @@ func (h *AgentServiceHandler) processEvent(event *pb.EventRequest, agentID strin
 	}
 
 	// ===== Gọi Rule Engine đánh giá event =====
-	alert, matched := h.ruleEngine.EvaluateLog(rawLog, agentID)
+	alerts, matched := h.ruleEngine.EvaluateLog(rawLog, agentID)
 	if !matched {
 		// Event không nguy hiểm vẫn được lưu để analyst theo dõi trên dashboard.
 		rawPayloadJSON, _ := json.Marshal(rawLog)
-		alert = &models.Alert{
+		observedAlert := &models.Alert{
 			ID:          uuid.New().String(),
 			AgentID:     agentID,
 			RuleID:      "EVENT-OBSERVED",
@@ -220,41 +220,43 @@ func (h *AgentServiceHandler) processEvent(event *pb.EventRequest, agentID strin
 			Description: "Sự kiện được ghi nhận từ Agent nhưng không khớp detection rule nguy hiểm.",
 			CreatedAt:   time.Now(),
 		}
+		alerts = []*models.Alert{observedAlert}
 	}
 
-	// ===== Rule matched! Lưu Alert vào database =====
-	if err := h.db.Create(alert).Error; err != nil {
-		log.Printf("[STREAM] ❌ Lỗi lưu Alert vào database: %v", err)
-		return
-	}
+	// ===== Duyệt qua tất cả Alerts được tạo để lưu DB và dispatch =====
+	for _, alert := range alerts {
+		if err := h.db.Create(alert).Error; err != nil {
+			log.Printf("[STREAM] ❌ Lỗi lưu Alert vào database: %v", err)
+			continue
+		}
 
-	log.Printf("[STREAM] 🚨 ALERT CREATED: [%s] %s (Agent: %s, Rule: %s)",
-		alert.Severity, alert.Title, agentID, alert.RuleID)
+		log.Printf("[STREAM] 🚨 ALERT CREATED: [%s] %s (Agent: %s, Rule: %s)",
+			alert.Severity, alert.Title, agentID, alert.RuleID)
 
-	// ===== Ghi Audit Log =====
-	payloadSummary, _ := json.Marshal(map[string]string{
-		"event_type": string(alert.EventType),
-		"rule_id":    alert.RuleID,
-		"severity":   string(alert.Severity),
-	})
-	auditLog := &models.AuditLog{
-		ID:             uuid.New().String(),
-		EventType:      "alert_created",
-		Source:         models.AuditSourceRuleBased,
-		ActionTaken:    models.ActionLogOnly,
-		Confidence:     1.0,
-		Actor:          "rule_engine",
-		PayloadSummary: string(payloadSummary),
-		RelatedAlertID: alert.ID,
-		RelatedAgentID: agentID,
-		CreatedAt:      time.Now(),
-	}
-	h.db.Create(auditLog)
+		// ===== Ghi Audit Log =====
+		payloadSummary, _ := json.Marshal(map[string]string{
+			"event_type": string(alert.EventType),
+			"rule_id":    alert.RuleID,
+			"severity":   string(alert.Severity),
+		})
+		auditLog := &models.AuditLog{
+			ID:             uuid.New().String(),
+			EventType:      "alert_created",
+			Source:         models.AuditSourceRuleBased,
+			ActionTaken:    models.ActionLogOnly,
+			Confidence:     1.0,
+			Actor:          "rule_engine",
+			PayloadSummary: string(payloadSummary),
+			RelatedAlertID: alert.ID,
+			RelatedAgentID: agentID,
+			CreatedAt:      time.Now(),
+		}
+		h.db.Create(auditLog)
 
-	// ===== Gọi callback thông báo Alert mới =====
-	// Callback sẽ: 1) Broadcast WebSocket, 2) Dispatch n8n
-	if h.onNewAlert != nil {
-		go h.onNewAlert(alert) // Non-blocking: chạy trong goroutine riêng
+		// ===== Gọi callback thông báo Alert mới =====
+		if h.onNewAlert != nil {
+			go h.onNewAlert(alert)
+		}
 	}
 }
 

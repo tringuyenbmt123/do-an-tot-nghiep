@@ -13,20 +13,20 @@ import LoginPage from './pages/LoginPage';
 import { useApp } from './context/AppContext';
 
 // Lazy-load pages for performance
-const DashboardPage       = lazy(() => import('./pages/DashboardPage'));
-const DetectionRulesPage  = lazy(() => import('./pages/DetectionRulesPage'));
-const CaseManagementPage  = lazy(() => import('./pages/CaseManagementPage'));
-const ThreatIntelPage     = lazy(() => import('./pages/ThreatIntelPage'));
-const AgentControlPage    = lazy(() => import('./pages/AgentControlPage'));
-const AuditLogsPage       = lazy(() => import('./pages/AuditLogsPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const DetectionRulesPage = lazy(() => import('./pages/DetectionRulesPage'));
+const CaseManagementPage = lazy(() => import('./pages/CaseManagementPage'));
+const ThreatIntelPage = lazy(() => import('./pages/ThreatIntelPage'));
+const AgentControlPage = lazy(() => import('./pages/AgentControlPage'));
+const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
 
 const PAGE_MAP = {
   dashboard: DashboardPage,
-  rules:     DetectionRulesPage,
-  cases:     CaseManagementPage,
-  threats:   ThreatIntelPage,
-  agents:    AgentControlPage,
-  audit:     AuditLogsPage,
+  rules: DetectionRulesPage,
+  cases: CaseManagementPage,
+  threats: ThreatIntelPage,
+  agents: AgentControlPage,
+  audit: AuditLogsPage,
 };
 
 function ActivePage() {
@@ -55,19 +55,19 @@ export default function App() {
 
   return (
     <div
-      className="flex h-screen overflow-hidden"
-      style={{ background: '#0a0e17', color: '#f8fafc' }}
+      className="flex h-screen"
+      style={{ background: '#0a0e17', color: '#f8fafc', minWidth: '1280px', overflow: 'hidden' }}
     >
       {/* Left Sidebar */}
       <Sidebar />
 
       {/* Main content area */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden" style={{ minWidth: 0 }}>
         {/* Top navigation bar */}
         <TopBar />
 
         {/* Scrollable page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <ActivePage />
         </main>
       </div>

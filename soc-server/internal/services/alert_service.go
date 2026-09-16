@@ -198,10 +198,22 @@ func (s *AlertService) GetAlertStats() (map[string]interface{}, error) {
 	s.db.Model(&models.Alert{}).Where("created_at >= ?", start24h).Count(&totalAlertsToday)
 	stats["total_alerts_today"] = totalAlertsToday
 
-	// Alert critical trong 24h
-	var criticalAlerts int64
-	s.db.Model(&models.Alert{}).Where("severity = ? AND created_at >= ?", models.SeverityCritical, start24h).Count(&criticalAlerts)
-	stats["critical_alerts"] = criticalAlerts
+	// Severity distribution & Critical Alert count
+	severityMap := map[string]int64{}
+	for _, severity := range []models.AlertSeverity{models.SeverityCritical, models.SeverityHigh, models.SeverityMedium, models.SeverityLow} {
+		var count int64
+		s.db.Model(&models.Alert{}).Where("severity = ?", severity).Count(&count)
+		severityMap[string(severity)] = count
+	}
+	stats["critical_alerts"] = severityMap[string(models.SeverityCritical)]
+
+	severityDistribution := []map[string]interface{}{
+		{"name": "Critical", "value": severityMap[string(models.SeverityCritical)], "color": "#ff3366"},
+		{"name": "High", "value": severityMap[string(models.SeverityHigh)], "color": "#ff9900"},
+		{"name": "Medium", "value": severityMap[string(models.SeverityMedium)], "color": "#eab308"},
+		{"name": "Low", "value": severityMap[string(models.SeverityLow)], "color": "#60a5fa"},
+	}
+	stats["severity_distribution"] = severityDistribution
 
 	// Tổng agent / online agent
 	var agentsTotal int64
@@ -272,21 +284,6 @@ func (s *AlertService) GetAlertStats() (map[string]interface{}, error) {
 		})
 	}
 	stats["alert_trend"] = alertTrend
-
-	// Severity distribution
-	severityMap := map[string]int64{}
-	for _, severity := range []models.AlertSeverity{models.SeverityCritical, models.SeverityHigh, models.SeverityMedium, models.SeverityLow} {
-		var count int64
-		s.db.Model(&models.Alert{}).Where("severity = ?", severity).Count(&count)
-		severityMap[string(severity)] = count
-	}
-	severityDistribution := []map[string]interface{}{
-		{"name": "Critical", "value": severityMap[string(models.SeverityCritical)], "color": "#ff3366"},
-		{"name": "High", "value": severityMap[string(models.SeverityHigh)], "color": "#ff9900"},
-		{"name": "Medium", "value": severityMap[string(models.SeverityMedium)], "color": "#eab308"},
-		{"name": "Low", "value": severityMap[string(models.SeverityLow)], "color": "#60a5fa"},
-	}
-	stats["severity_distribution"] = severityDistribution
 
 	// Top affected agents
 	type TopAgent struct {

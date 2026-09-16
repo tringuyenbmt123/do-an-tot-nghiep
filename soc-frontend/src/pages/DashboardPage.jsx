@@ -6,13 +6,14 @@ import {
   Activity,
   AlertTriangle,
   Bell,
+  ChevronLeft,
   ChevronRight,
   Cpu,
   RefreshCw,
   Shield,
   Zap,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -61,19 +62,19 @@ const ChartTooltip = ({ active, payload, label }) => {
 const ChartGradients = () => (
   <defs>
     <linearGradient id="gradCritical" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="5%"  stopColor="#ff3366" stopOpacity={0.25} />
+      <stop offset="5%" stopColor="#ff3366" stopOpacity={0.25} />
       <stop offset="95%" stopColor="#ff3366" stopOpacity={0} />
     </linearGradient>
     <linearGradient id="gradHigh" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="5%"  stopColor="#ff9900" stopOpacity={0.2} />
+      <stop offset="5%" stopColor="#ff9900" stopOpacity={0.2} />
       <stop offset="95%" stopColor="#ff9900" stopOpacity={0} />
     </linearGradient>
     <linearGradient id="gradMedium" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="5%"  stopColor="#eab308" stopOpacity={0.15} />
+      <stop offset="5%" stopColor="#eab308" stopOpacity={0.15} />
       <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
     </linearGradient>
     <linearGradient id="gradBar" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%"  stopColor="#06b6d4" />
+      <stop offset="0%" stopColor="#06b6d4" />
       <stop offset="100%" stopColor="#3b82f6" />
     </linearGradient>
   </defs>
@@ -141,10 +142,10 @@ const LiveAlertRow = ({ alert, isNew, onSelect }) => (
 // =============================================================================
 export default function DashboardPage() {
   const { addToast, addLiveAlert, setWsConnected, liveAlerts } = useApp();
-  const { stats, loading, refresh }     = useDashboardStats();
-  const [recentIds, setRecentIds]       = useState(new Set());
+  const { stats, loading, refresh } = useDashboardStats();
+  const [recentIds, setRecentIds] = useState(new Set());
   const [selectedAlert, setSelectedAlert] = useState(null);
-  const feedRef                         = useRef(null);
+  const feedRef = useRef(null);
 
   // WebSocket handler
   const handleWsMessage = useCallback((data) => {
@@ -152,14 +153,14 @@ export default function DashboardPage() {
 
     const payload = data.payload;
     const alert = {
-      id:         payload.id || crypto.randomUUID(),
-      severity:   payload.severity || 'low',
-      title:      payload.title || payload.event_type || 'Security Event',
+      id: payload.id || crypto.randomUUID(),
+      severity: payload.severity || 'low',
+      title: payload.title || payload.event_type || 'Security Event',
       event_type: payload.event_type,
-      agent:      payload.agent || null,
-      agent_id:   payload.agent_id,
+      agent: payload.agent || null,
+      agent_id: payload.agent_id,
       mitre_tactic: payload.mitre_tactic,
-      status:     payload.status || 'new',
+      status: payload.status || 'new',
       created_at: payload.created_at || data.time || new Date().toISOString(),
     };
     addLiveAlert(alert);
@@ -178,11 +179,14 @@ export default function DashboardPage() {
   const { isConnected, reconnectAttempts } = useWebSocket(handleWsMessage);
   useEffect(() => { setWsConnected(isConnected); }, [isConnected, setWsConnected]);
 
+  const [severityFilter, setSeverityFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
   const [apiAlerts, setApiAlerts] = useState([]);
 
   const loadAlerts = useCallback(() => {
     import('../services/api').then(({ getAlerts }) => {
-      getAlerts({ limit: 50 }).then((res) => setApiAlerts(res.data || []));
+      getAlerts({ limit: 150 }).then((res) => setApiAlerts(res.data || []));
     });
   }, []);
 
@@ -197,7 +201,7 @@ export default function DashboardPage() {
       import('../services/api').then(({ getAlertById }) => {
         getAlertById(selectedAlert.id)
           .then((res) => setSelectedAlert(res))
-          .catch(() => {});
+          .catch(() => { });
       });
     }
   };
@@ -205,18 +209,31 @@ export default function DashboardPage() {
   const allAlerts = [
     ...liveAlerts,
     ...apiAlerts.filter((a) => !liveAlerts.some((la) => la.id === a.id)),
-  ].slice(0, 80);
+  ].slice(0, 150);
+
+  const filteredAlerts = useMemo(() => {
+    if (severityFilter === 'all') return allAlerts;
+    return allAlerts.filter((a) => (a.severity || '').toLowerCase() === severityFilter);
+  }, [allAlerts, severityFilter]);
+
+  const totalPages = Math.ceil(filteredAlerts.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedAlerts = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredAlerts.slice(start, start + pageSize);
+  }, [filteredAlerts, safeCurrentPage, pageSize]);
 
   // --- Safe data access (không fallback hardcode, chỉ null-safe) ---
   const safeStats = {
-    total_alerts_today:    stats?.total_alerts_today    ?? null,
-    critical_alerts:       stats?.critical_alerts        ?? null,
-    agents_online:         stats?.agents_online          ?? null,
-    agents_total:          stats?.agents_total           ?? null,
-    active_cases:          stats?.active_cases           ?? null,
-    alert_trend:           stats?.alert_trend            || [],
-    severity_distribution: stats?.severity_distribution  || [],
-    top_agents:            stats?.top_agents             || [],
+    total_alerts_today: stats?.total_alerts_today ?? null,
+    critical_alerts: stats?.critical_alerts ?? null,
+    agents_online: stats?.agents_online ?? null,
+    agents_total: stats?.agents_total ?? null,
+    active_cases: stats?.active_cases ?? null,
+    alert_trend: stats?.alert_trend || [],
+    severity_distribution: stats?.severity_distribution || [],
+    top_agents: stats?.top_agents || [],
   };
 
   const agentsLabel = safeStats.agents_online != null
@@ -226,7 +243,7 @@ export default function DashboardPage() {
   const pieData = safeStats.severity_distribution;
 
   return (
-    <div className="flex flex-col gap-6 p-8 animate-fade-in">
+    <div className="flex flex-col gap-6 p-6 animate-fade-in">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
@@ -243,7 +260,7 @@ export default function DashboardPage() {
             Dashboard &amp; SIEM Analytics
           </h1>
           <p className="text-xs mt-1" style={{ color: '#64748b' }}>
-            Real-time security event monitoring • {new Date().toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}
+            Real-time security event monitoring • {new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
         <button onClick={() => { refresh(); loadAlerts(); }} className="btn-ghost flex items-center gap-2 text-xs">
@@ -253,7 +270,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Metric Cards ── */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Total Alerts Today"
           value={safeStats.total_alerts_today}
@@ -287,10 +304,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Charts Row ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* AreaChart: Alert Trends 24h */}
-        <div className="soc-card p-6 xl:col-span-2">
+        <div className="soc-card p-6 lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#f8fafc' }}>
@@ -300,7 +317,7 @@ export default function DashboardPage() {
               <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>Alert volume by severity over time</p>
             </div>
             <div className="flex items-center gap-4 text-xs">
-              {[['#ff3366','Critical'],['#ff9900','High'],['#eab308','Medium']].map(([color,label]) => (
+              {[['#ff3366', 'Critical'], ['#ff9900', 'High'], ['#eab308', 'Medium']].map(([color, label]) => (
                 <span key={label} className="flex items-center gap-1.5">
                   <span className="w-3 h-0.5 rounded-full inline-block" style={{ background: color }} />
                   <span style={{ color: '#64748b' }}>{label}</span>
@@ -316,8 +333,8 @@ export default function DashboardPage() {
               <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTooltip />} />
               <Area type="monotone" dataKey="critical" stroke="#ff3366" strokeWidth={2} fill="url(#gradCritical)" name="Critical" dot={false} />
-              <Area type="monotone" dataKey="high"     stroke="#ff9900" strokeWidth={2} fill="url(#gradHigh)"     name="High"     dot={false} />
-              <Area type="monotone" dataKey="medium"   stroke="#eab308" strokeWidth={1.5} fill="url(#gradMedium)" name="Medium"   dot={false} />
+              <Area type="monotone" dataKey="high" stroke="#ff9900" strokeWidth={2} fill="url(#gradHigh)" name="High" dot={false} />
+              <Area type="monotone" dataKey="medium" stroke="#eab308" strokeWidth={1.5} fill="url(#gradMedium)" name="Medium" dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -355,7 +372,7 @@ export default function DashboardPage() {
           <BarChart data={safeStats.top_agents} margin={{ left: -20, right: 10 }} layout="vertical">
             <defs>
               <linearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%"   stopColor="#06b6d4" />
+                <stop offset="0%" stopColor="#06b6d4" />
                 <stop offset="100%" stopColor="#3b82f6" />
               </linearGradient>
             </defs>
@@ -370,24 +387,53 @@ export default function DashboardPage() {
 
       {/* ── Live Alert Feed ── */}
       <div className="soc-card overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #1e293b' }}>
-          <h3 className="text-sm font-semibold flex items-center gap-2.5" style={{ color: '#f8fafc' }}>
-            <span className={`w-2 h-2 rounded-full ${isConnected ? 'status-dot-online' : 'status-dot-offline'}`} />
-            Real-time Live Alert Feed
-            <span className="text-xs font-normal px-2 py-0.5 rounded-full" style={{ background: '#1e293b', color: '#64748b' }}>
-              {allAlerts.length} alerts
-            </span>
-          </h3>
-          {!isConnected && (
-            <span className="text-xs flex items-center gap-1.5 px-3 py-1 rounded-full"
-              style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>
-              <RefreshCw size={10} className="animate-spin" />
-              Reconnecting{reconnectAttempts > 0 ? ` (#${reconnectAttempts})` : '...'}
-            </span>
-          )}
+        <div className="flex flex-wrap items-center justify-between px-6 py-3.5 gap-3" style={{ borderBottom: '1px solid #1e293b' }}>
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2.5" style={{ color: '#f8fafc' }}>
+              <span className={`w-2 h-2 rounded-full ${isConnected ? 'status-dot-online' : 'status-dot-offline'}`} />
+              Real-time Live Alert Feed
+              <span className="text-xs font-normal px-2 py-0.5 rounded-full font-mono" style={{ background: '#1e293b', color: '#64748b' }}>
+                {filteredAlerts.length} / {allAlerts.length} alerts
+              </span>
+            </h3>
+            {!isConnected && (
+              <span className="text-xs flex items-center gap-1.5 px-3 py-1 rounded-full"
+                style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>
+                <RefreshCw size={10} className="animate-spin" />
+                Reconnecting{reconnectAttempts > 0 ? ` (#${reconnectAttempts})` : '...'}
+              </span>
+            )}
+          </div>
+
+          {/* Severity Filter Button Group */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono">
+            {[
+              { id: 'all', label: 'Tất cả' },
+              { id: 'critical', label: 'Critical', activeColor: '#f87171', activeBg: 'rgba(239,68,68,0.18)', activeBorder: 'rgba(239,68,68,0.4)' },
+              { id: 'high', label: 'High', activeColor: '#fb923c', activeBg: 'rgba(249,115,22,0.18)', activeBorder: 'rgba(249,115,22,0.4)' },
+              { id: 'medium', label: 'Medium', activeColor: '#facc15', activeBg: 'rgba(234,179,8,0.18)', activeBorder: 'rgba(234,179,8,0.4)' },
+              { id: 'low', label: 'Low', activeColor: '#60a5fa', activeBg: 'rgba(59,130,246,0.18)', activeBorder: 'rgba(59,130,246,0.4)' },
+            ].map((item) => {
+              const isActive = severityFilter === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { setSeverityFilter(item.id); setCurrentPage(1); }}
+                  className="px-2.5 py-1 rounded-md text-xs font-bold font-mono transition-all cursor-pointer"
+                  style={{
+                    color: isActive ? (item.activeColor || '#38bdf8') : '#64748b',
+                    background: isActive ? (item.activeBg || 'rgba(56,189,248,0.15)') : 'transparent',
+                    border: isActive ? `1px solid ${item.activeBorder || 'rgba(56,189,248,0.3)'}` : '1px solid transparent',
+                  }}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="overflow-auto" style={{ maxHeight: '380px' }} ref={feedRef}>
+        <div className="overflow-auto" style={{ maxHeight: '520px' }} ref={feedRef}>
           <table className="soc-table">
             <thead>
               <tr>
@@ -401,14 +447,18 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {allAlerts.length === 0 ? (
+              {filteredAlerts.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-16" style={{ color: '#475569' }}>
-                    {loading ? 'Loading alerts...' : '⚡ No alerts yet — Waiting for incoming security events...'}
+                    {loading
+                      ? 'Loading alerts...'
+                      : severityFilter !== 'all'
+                        ? `Không có alert nào thuộc mức độ ${severityFilter.toUpperCase()}`
+                        : '⚡ No alerts yet — Waiting for incoming security events...'}
                   </td>
                 </tr>
               ) : (
-                allAlerts.map((alert) => (
+                paginatedAlerts.map((alert) => (
                   <LiveAlertRow
                     key={alert.id}
                     alert={alert}
@@ -419,6 +469,48 @@ export default function DashboardPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* ── Card Footer: Pagination Controls ── */}
+        <div className="flex flex-wrap items-center justify-between px-6 py-3 border-t border-slate-800/80 bg-slate-950/60 gap-3">
+          <div className="text-xs font-mono text-slate-400">
+            Hiển thị <span className="text-slate-200 font-bold">{filteredAlerts.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}</span> - <span className="text-slate-200 font-bold">{Math.min(safeCurrentPage * pageSize, filteredAlerts.length)}</span> trên <span className="text-cyan-400 font-bold">{filteredAlerts.length}</span> alerts
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5 font-mono text-xs">
+              <button
+                disabled={safeCurrentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              >
+                <ChevronLeft size={14} /> Trước
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-7 h-7 rounded-lg font-bold font-mono text-xs flex items-center justify-center transition-all cursor-pointer ${safeCurrentPage === pageNum
+                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm'
+                        : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800 hover:bg-slate-800'
+                      }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                disabled={safeCurrentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              >
+                Sau <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

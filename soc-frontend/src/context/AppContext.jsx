@@ -56,8 +56,8 @@ function appReducer(state, action) {
     case ACTIONS.ADD_LIVE_ALERT:
       return {
         ...state,
-        // Keep newest 100 alerts in live feed
-        liveAlerts: [action.payload, ...state.liveAlerts].slice(0, 100),
+        // Keep newest 200 alerts in live feed
+        liveAlerts: [action.payload, ...state.liveAlerts].slice(0, 200),
       };
 
     case ACTIONS.CLEAR_ALERTS:

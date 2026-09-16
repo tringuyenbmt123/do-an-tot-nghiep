@@ -99,7 +99,16 @@ func isSupportedAlertSeverity(severity models.AlertSeverity) bool {
 // Lấy danh sách Alerts có phân trang và filter
 func (h *AlertHandler) GetAlerts(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+
+	// Frontend gửi 'limit', legacy dùng 'pageSize' — hỗ trợ cả hai
+	pageSizeStr := c.Query("limit")
+	if pageSizeStr == "" {
+		pageSizeStr = c.DefaultQuery("pageSize", "100")
+	}
+	pageSize, _ := strconv.Atoi(pageSizeStr)
+	if pageSize <= 0 || pageSize > 500 {
+		pageSize = 100
+	}
 
 	filters := map[string]string{
 		"severity":   c.Query("severity"),

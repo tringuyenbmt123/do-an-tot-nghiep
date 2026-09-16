@@ -18,46 +18,46 @@ import { useApp } from '../../context/AppContext';
 
 const NAV_ITEMS = [
   {
-    id:      'dashboard',
-    label:   'Dashboard & SIEM',
-    icon:    LayoutDashboard,
-    color:   'text-cyan-400',
-    badge:   null,
+    id: 'dashboard',
+    label: 'Dashboard & SIEM',
+    icon: LayoutDashboard,
+    color: 'text-cyan-400',
+    badge: null,
   },
   {
-    id:      'rules',
-    label:   'Detection Rules',
-    icon:    Sliders,
-    color:   'text-cyan-300',
-    badge:   null,
+    id: 'rules',
+    label: 'Detection Rules',
+    icon: Sliders,
+    color: 'text-cyan-300',
+    badge: null,
   },
   {
-    id:      'cases',
-    label:   'Case Management',
-    icon:    BookOpen,
-    color:   'text-purple-400',
-    badge:   null,
+    id: 'cases',
+    label: 'Case Management',
+    icon: BookOpen,
+    color: 'text-purple-400',
+    badge: null,
   },
   {
-    id:      'threats',
-    label:   'Threat Intelligence',
-    icon:    Shield,
-    color:   'text-orange-400',
-    badge:   null,
+    id: 'threats',
+    label: 'Threat Intelligence',
+    icon: Shield,
+    color: 'text-orange-400',
+    badge: null,
   },
   {
-    id:      'agents',
-    label:   'Agents & EDR',
-    icon:    Cpu,
-    color:   'text-green-400',
-    badge:   null,
+    id: 'agents',
+    label: 'Agents & EDR',
+    icon: Cpu,
+    color: 'text-green-400',
+    badge: null,
   },
   {
-    id:      'audit',
-    label:   'Audit & Settings',
-    icon:    Activity,
-    color:   'text-blue-400',
-    badge:   null,
+    id: 'audit',
+    label: 'Audit & Settings',
+    icon: Activity,
+    color: 'text-blue-400',
+    badge: null,
   },
 ];
 
@@ -72,9 +72,9 @@ export default function Sidebar() {
     <aside
       className="flex flex-col h-full transition-all duration-300 ease-in-out shrink-0"
       style={{
-        width:      collapsed ? '64px' : '220px',
+        width: collapsed ? '64px' : '220px',
         background: 'linear-gradient(180deg, #080c12 0%, #0d1117 100%)',
-        borderRight:'1px solid #1e2a3a',
+        borderRight: '1px solid #1e2a3a',
       }}
     >
       {/* Logo */}
@@ -98,7 +98,7 @@ export default function Sidebar() {
       <nav className="flex-1 py-5 overflow-hidden">
         <ul className="flex flex-col gap-1.5 px-3">
           {NAV_ITEMS.map((item) => {
-            const Icon    = item.icon;
+            const Icon = item.icon;
             const isActive = activeTab === item.id;
             const showBadge = item.id === 'dashboard' && newAlertCount > 0;
 

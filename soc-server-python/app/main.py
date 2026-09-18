@@ -201,9 +201,11 @@ async def log_requests(request: Request, call_next):
 
 
 # Ping / Health check endpoint
+@app.get("/health")
+@app.get("/api/v1/health")
 @app.get("/api/v1/ping")
 async def ping():
-    return {"status": "ok", "message": "SOC Server is running"}
+    return {"status": "ok", "service": "soc-server-python", "message": "SOC Server is running"}
 
 
 # WebSocket Endpoint cho Frontend: ws://localhost:8080/ws/alerts

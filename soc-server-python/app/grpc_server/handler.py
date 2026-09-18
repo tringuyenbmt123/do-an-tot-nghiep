@@ -231,20 +231,20 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                     )
 
                     # ===== Ghi Audit Log =====
-                    audit_details = json.dumps({
+                    audit_payload = {
                         "event_type": alert.event_type,
                         "rule_id": alert.rule_id,
                         "severity": alert.severity,
-                    })
+                    }
                     audit = AuditLog(
                         id=str(uuid.uuid4()),
                         event_type="alert_created",
                         source="rule_based",
-                        action="log_only",
+                        action_taken="log_only",
                         actor="rule_engine",
-                        details=audit_details,
-                        alert_id=alert.id,
-                        agent_id=agent_id,
+                        payload_summary=audit_payload,
+                        related_alert_id=alert.id,
+                        related_agent_id=agent_id,
                         created_at=datetime.utcnow(),
                     )
                     db.add(audit)

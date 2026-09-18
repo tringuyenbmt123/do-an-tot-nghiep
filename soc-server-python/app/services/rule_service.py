@@ -9,7 +9,7 @@ import time
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from sqlalchemy import select, delete, desc
+from sqlalchemy import select, delete, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.rule import Rule
@@ -74,14 +74,16 @@ class RuleService:
         self.engine = engine
 
     async def get_all_rules(self) -> List[Rule]:
-        """Lấy toàn bộ danh sách rules từ Database"""
-        stmt = select(Rule).order_by(desc(Rule.created_at))
+        """Lấy toàn bộ danh sách rules chưa bị xóa từ Database"""
+        stmt = select(Rule).where(Rule.deleted_at.is_(None)).order_by(desc(Rule.created_at))
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def create_rule(self, data: Dict[str, Any]) -> Rule:
         """Thêm Rule mới vào database và Hot-reload Engine"""
-        rule_id = data.get("id") or f"RULE-{int(time.time() * 1000)}"
+        raw_id = (data.get("id") or "").strip()
+        rule_id = raw_id if raw_id else f"RULE-{int(time.time() * 1000)}"
+        rule_name = (data.get("name") or "Unnamed Rule").strip()
 
         # Validate JSON conditions
         conditions_str = data.get("conditions", "[]")
@@ -95,7 +97,7 @@ class RuleService:
 
         rule = Rule(
             id=rule_id,
-            name=data["name"],
+            name=rule_name,
             severity=data.get("severity", "medium"),
             event_type=data.get("event_type", "process_creation"),
             conditions=conditions_str,
@@ -115,11 +117,21 @@ class RuleService:
         await self.engine.load_all_rules(self.db)
         return rule
 
+    async def _find_rule(self, rule_id: str) -> Optional[Rule]:
+        """Tìm rule theo id chính xác, hoặc trim whitespace, hoặc theo name"""
+        clean_id = rule_id.strip()
+        stmt = select(Rule).where(
+            (Rule.id == rule_id) |
+            (func.trim(Rule.id) == clean_id) |
+            (Rule.name == rule_id) |
+            (func.trim(Rule.name) == clean_id)
+        )
+        res = await self.db.execute(stmt)
+        return res.scalars().first()
+
     async def update_rule(self, rule_id: str, data: Dict[str, Any]) -> Rule:
         """Cập nhật Rule trong DB và hot-reload"""
-        stmt = select(Rule).where(Rule.id == rule_id)
-        res = await self.db.execute(stmt)
-        rule = res.scalar_one_or_none()
+        rule = await self._find_rule(rule_id)
 
         conditions_str = data.get("conditions")
         if conditions_str is not None:
@@ -132,10 +144,10 @@ class RuleService:
                     raise ValueError("conditions không phải là JSON hợp lệ")
 
         if not rule:
-            # Tạo mới nếu chưa có
+            clean_id = (rule_id or "").strip() or f"RULE-{int(time.time() * 1000)}"
             rule = Rule(
-                id=rule_id,
-                name=data.get("name", "Unnamed Rule"),
+                id=clean_id,
+                name=(data.get("name") or "Unnamed Rule").strip(),
                 severity=data.get("severity", "medium"),
                 event_type=data.get("event_type", "process_creation"),
                 conditions=conditions_str or "[]",
@@ -151,7 +163,10 @@ class RuleService:
         else:
             for field in ["name", "severity", "event_type", "mitre_tactic", "mitre_technique_id", "description", "is_active", "source"]:
                 if field in data and data[field] is not None:
-                    setattr(rule, field, data[field])
+                    val = data[field]
+                    if field in ["name", "id"] and isinstance(val, str):
+                        val = val.strip()
+                    setattr(rule, field, val)
             if conditions_str is not None:
                 rule.conditions = conditions_str
             rule.updated_at = datetime.utcnow()
@@ -164,9 +179,7 @@ class RuleService:
 
     async def toggle_rule(self, rule_id: str, is_active: bool) -> bool:
         """Bật/tắt 1 Rule trong DB và hot-reload"""
-        stmt = select(Rule).where(Rule.id == rule_id)
-        res = await self.db.execute(stmt)
-        rule = res.scalar_one_or_none()
+        rule = await self._find_rule(rule_id)
         if not rule:
             return False
 
@@ -177,11 +190,13 @@ class RuleService:
         return True
 
     async def delete_rule(self, rule_id: str) -> bool:
-        """Xóa 1 Rule khỏi DB và hot-reload"""
-        stmt = delete(Rule).where(Rule.id == rule_id)
-        res = await self.db.execute(stmt)
+        """Xóa 1 Rule khỏi DB và hot-reload (hỗ trợ cả tìm kiếm khoảng trắng)"""
+        rule = await self._find_rule(rule_id)
+        if not rule:
+            return False
+
+        await self.db.delete(rule)
         await self.db.commit()
-        if (res.rowcount or 0) > 0:
-            await self.engine.load_all_rules(self.db)
-            return True
-        return False
+        logger.info(f"[RULE SERVICE] Đã xóa vĩnh viễn Rule '{rule.id}'. Kích hoạt hot-reload...")
+        await self.engine.load_all_rules(self.db)
+        return True

@@ -27,6 +27,12 @@ class SOARCallbackPayload(BaseModel):
     human_approved_by: Optional[str] = ""
 
 
+import uuid
+import time
+from app.grpc_server.connection_manager import global_conn_manager
+from app.services.alert_service import AlertService
+
+
 @router.post("/callback")
 async def handle_n8n_callback(
     payload: SOARCallbackPayload,
@@ -41,6 +47,36 @@ async def handle_n8n_callback(
 
     soar_service = SOARService(db)
     audit_action, target = await soar_service.handle_callback(payload.dict())
+
+    # Nếu action là can thiệp (Active Response), đẩy lệnh xuống Agent qua gRPC
+    if audit_action in ["kill_process", "block_ip", "block_url"]:
+        alert_service = AlertService(db)
+        alert = await alert_service.get_alert_by_id(payload.alert_id)
+        if alert and alert.agent_id:
+            cmd_type = 0
+            if audit_action == "kill_process":
+                cmd_type = 1  # KILL_PROCESS
+            elif audit_action == "block_ip":
+                cmd_type = 3  # BLOCK_IP
+            elif audit_action == "block_url":
+                cmd_type = 4  # BLOCK_URL
+
+            cmd = {
+                "command_id": str(uuid.uuid4()),
+                "command_type": cmd_type,
+                "target": target or "",
+                "timestamp": int(time.time() * 1000),
+                "parameters": {
+                    "reason": payload.ai_reason or "SOAR Automated Action",
+                    "alert_id": payload.alert_id,
+                    "issued_by": payload.human_approved_by or "n8n_soar_automation",
+                },
+            }
+            success = await global_conn_manager.send_command(alert.agent_id, cmd)
+            if success:
+                logger.info(f"[SOAR HANDLER] ⚡ Đã ra lệnh {audit_action} xuống Agent '{alert.agent_id}' thành công")
+            else:
+                logger.warning(f"[SOAR HANDLER] ⚠️ Không thể gửi lệnh xuống Agent '{alert.agent_id}' (Agent offline)")
 
     # Ghi nhận thành công
     return {

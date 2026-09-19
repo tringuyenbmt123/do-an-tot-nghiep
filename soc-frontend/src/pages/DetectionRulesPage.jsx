@@ -385,33 +385,33 @@ export default function DetectionRulesPage() {
   }
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-6 space-y-6 min-w-0 text-slate-100 animate-fade-in">
+    <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-7 pb-12 space-y-8 min-w-0 text-slate-100 animate-fade-in">
       {/* ─── Header ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-              <Sliders size={22} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 border-b border-slate-800/80 pb-7 pt-1">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-lg shadow-cyan-950/40 shrink-0">
+            <Sliders size={24} />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-white">
                 Detection Rules Management
-                <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono">
-                  Engine Ready
-                </span>
               </h1>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Quản lý, tinh chỉnh luật phát hiện mối đe dọa trực tiếp (Chạy 100% Database & Hỗ trợ xem/sửa YAML Code)
-              </p>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono font-medium">
+                Engine Ready
+              </span>
             </div>
+            <p className="text-sm text-slate-400 mt-1.5 leading-relaxed">
+              Quản lý, tinh chỉnh luật phát hiện mối đe dọa trực tiếp (Chạy 100% Database &amp; Hỗ trợ xem/sửa YAML Code)
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={fetchRulesList}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition-colors border border-slate-700 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white text-sm font-medium transition-all border border-slate-700 cursor-pointer shadow-sm active:scale-95"
           >
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             Làm mới
@@ -419,7 +419,7 @@ export default function DetectionRulesPage() {
 
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/25 transition-all cursor-pointer active:scale-95"
           >
             <Plus size={18} />
             Tạo Rule Mới
@@ -471,33 +471,43 @@ export default function DetectionRulesPage() {
       </div>
 
       {/* ─── Search & Filter Bar ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/80 border border-slate-800 w-full">
-        <div className="relative w-full sm:w-80">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3.5 sm:p-4 rounded-xl bg-slate-900/80 border border-slate-800 w-full shadow-md">
+        <div className="relative w-full sm:w-96 flex items-center">
+          <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-cyan-400/80 pointer-events-none z-10" />
           <input
             type="text"
             placeholder="Tìm theo ID, Tên, MITRE T1059..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+            style={{ paddingLeft: '44px', paddingRight: search ? '36px' : '14px' }}
+            className="w-full py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/25 transition-all"
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-0.5 rounded transition-colors cursor-pointer"
+              title="Xóa tìm kiếm"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {/* Severity filter */}
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Filter size={14} />
-            <span>Severity:</span>
+          <div className="flex items-center gap-2.5 text-xs text-slate-400 bg-slate-950/70 px-3 py-1.5 rounded-xl border border-slate-800">
+            <Filter size={14} className="text-cyan-400" />
+            <span className="font-medium text-slate-300">Severity:</span>
             <select
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none"
+              className="bg-transparent border-none text-slate-200 text-xs rounded px-1 py-1 focus:outline-none cursor-pointer"
             >
-              <option value="all">Tất cả Mức Độ</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
+              <option value="all" className="bg-slate-900">Tất cả Mức Độ</option>
+              <option value="critical" className="bg-slate-900">Critical</option>
+              <option value="high" className="bg-slate-900">High</option>
+              <option value="medium" className="bg-slate-900">Medium</option>
+              <option value="low" className="bg-slate-900">Low</option>
             </select>
           </div>
         </div>

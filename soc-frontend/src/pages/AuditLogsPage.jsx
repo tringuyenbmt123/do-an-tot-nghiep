@@ -22,11 +22,11 @@ import { formatDateTime } from '../utils/date';
 // ─── Source Badge ─────────────────────────────────────────────────────────────
 const SourceBadge = ({ source }) => {
   const map = {
-    'Rule-based': { color: '#3b82f6', bg: 'rgba(59,130,246,0.08)',   border: 'rgba(59,130,246,0.2)',  label: '⚙ Rule-based' },
-    AI:           { color: '#06b6d4', bg: 'rgba(6,182,212,0.08)',    border: 'rgba(6,182,212,0.2)',   label: '🤖 AI' },
-    'Human-HITL': { color: '#ff9900', bg: 'rgba(255,153,0,0.08)',    border: 'rgba(255,153,0,0.2)',   label: '👤 HITL' },
-    Manual:       { color: '#a855f7', bg: 'rgba(168,85,247,0.08)',   border: 'rgba(168,85,247,0.2)', label: '🖱 Manual' },
-    SOAR:         { color: '#10b981', bg: 'rgba(16,185,129,0.08)',   border: 'rgba(16,185,129,0.2)', label: '🔄 SOAR' },
+    'Rule-based': { color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.2)', label: '⚙ Rule-based' },
+    AI: { color: '#06b6d4', bg: 'rgba(6,182,212,0.08)', border: 'rgba(6,182,212,0.2)', label: '🤖 AI' },
+    'Human-HITL': { color: '#ff9900', bg: 'rgba(255,153,0,0.08)', border: 'rgba(255,153,0,0.2)', label: '👤 HITL' },
+    Manual: { color: '#a855f7', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.2)', label: '🖱 Manual' },
+    SOAR: { color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', label: '🔄 SOAR' },
   };
   const cfg = map[source] || { color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.2)', label: source };
   return (
@@ -40,7 +40,7 @@ const SourceBadge = ({ source }) => {
 // ─── Action Badge ─────────────────────────────────────────────────────────────
 const ActionBadge = ({ action }) => {
   const dangerous = ['block_ip', 'kill_process', 'isolate_network', 'quarantine_file'];
-  const isDanger  = dangerous.includes(action);
+  const isDanger = dangerous.includes(action);
   return (
     <span className="font-mono text-xs px-2 py-0.5 rounded-md"
       style={isDanger
@@ -57,21 +57,21 @@ const ConfidenceBar = ({ value }) => {
   const color = pct >= 80 ? '#10b981' : pct >= 60 ? '#eab308' : '#ff9900';
   return (
     <div className="flex items-center gap-2">
-      <div style={{ width:'56px', height:'4px', borderRadius:'999px', background:'#1e293b', overflow:'hidden', flexShrink:0 }}>
-        <div style={{ height:'100%', width:`${pct}%`, background: color, borderRadius:'999px', transition:'width 0.4s ease' }} />
+      <div style={{ width: '56px', height: '4px', borderRadius: '999px', background: '#1e293b', overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '999px', transition: 'width 0.4s ease' }} />
       </div>
-      <span className="font-mono text-xs" style={{ color, minWidth:'30px' }}>{pct}%</span>
+      <span className="font-mono text-xs" style={{ color, minWidth: '30px' }}>{pct}%</span>
     </div>
   );
 };
 
 // ─── Settings Panel ────────────────────────────────────────────────────────────
 function SettingsPanel() {
-  const { addToast }              = useApp();
-  const [settings, setSettings]  = useState(null);
-  const [loading,  setLoading]   = useState(true);
-  const [saving,   setSaving]    = useState(false);
-  const [saved,    setSaved]     = useState(false);
+  const { addToast } = useApp();
+  const [settings, setSettings] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     getSystemSettings().then(data => { setSettings(data); setLoading(false); });
@@ -93,9 +93,9 @@ function SettingsPanel() {
 
   const Toggle = ({ field, label, description, accentColor = '#06b6d4' }) => {
     const on = settings?.[field];
-    const r  = parseInt(accentColor.slice(1,3),16);
-    const g  = parseInt(accentColor.slice(3,5),16);
-    const b  = parseInt(accentColor.slice(5,7),16);
+    const r = parseInt(accentColor.slice(1, 3), 16);
+    const g = parseInt(accentColor.slice(3, 5), 16);
+    const b = parseInt(accentColor.slice(5, 7), 16);
     return (
       <div className="flex items-start justify-between p-4 rounded-xl transition-all"
         style={{ background: on ? `rgba(${r},${g},${b},0.06)` : '#0a0e17', border: `1px solid ${on ? `rgba(${r},${g},${b},0.2)` : '#1e293b'}` }}>
@@ -106,7 +106,7 @@ function SettingsPanel() {
         <button onClick={() => setSettings(s => ({ ...s, [field]: !s[field] }))} className="shrink-0 mt-0.5 ml-4">
           {on
             ? <ToggleRight size={26} style={{ color: accentColor }} />
-            : <ToggleLeft  size={26} style={{ color: '#334155' }} />}
+            : <ToggleLeft size={26} style={{ color: '#334155' }} />}
         </button>
       </div>
     );
@@ -169,11 +169,11 @@ function SettingsPanel() {
 // Main Component
 // =============================================================================
 export default function AuditLogsPage() {
-  const [logs,          setLogs]         = useState([]);
-  const [loading,       setLoading]      = useState(true);
-  const [filterSource,  setFilterSource] = useState('');
-  const [filterAction,  setFilterAction] = useState('');
-  const [activeTab,     setActiveTab]    = useState('logs');
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterSource, setFilterSource] = useState('');
+  const [filterAction, setFilterAction] = useState('');
+  const [activeTab, setActiveTab] = useState('logs');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -196,12 +196,12 @@ export default function AuditLogsPage() {
   const uniqueActions = [...new Set(logs.map(l => l.action_taken))];
 
   return (
-    <div className="flex flex-col gap-6 p-6 animate-fade-in">
+    <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-6 flex flex-col gap-6 min-w-0 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2.5" style={{ color: '#f8fafc' }}>
-            <span style={{ background:'linear-gradient(135deg,rgba(59,130,246,0.2),rgba(59,130,246,0.05))', border:'1px solid rgba(59,130,246,0.25)', borderRadius:'10px', padding:'6px 8px', display:'inline-flex' }}>
+            <span style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.2),rgba(59,130,246,0.05))', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '10px', padding: '6px 8px', display: 'inline-flex' }}>
               <Activity size={18} style={{ color: '#3b82f6' }} />
             </span>
             Audit Logs &amp; System Settings
@@ -217,15 +217,15 @@ export default function AuditLogsPage() {
 
       {/* Sub-tabs */}
       <div style={{ borderBottom: '1px solid #1e293b' }}>
-        <div className="flex">
+        <div className="flex overflow-x-auto">
           {[
-            { id: 'logs',     label: '📋 Audit Logs' },
+            { id: 'logs', label: '📋 Audit Logs' },
             { id: 'settings', label: '⚙ System Settings' },
           ].map(t => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className="px-5 py-3 text-xs font-semibold transition-colors border-b-2"
+              className="px-5 py-3 text-xs font-semibold transition-colors border-b-2 whitespace-nowrap"
               style={activeTab === t.id
                 ? { color: '#06b6d4', borderColor: '#06b6d4' }
                 : { color: '#64748b', borderColor: 'transparent' }}
@@ -243,7 +243,7 @@ export default function AuditLogsPage() {
           <div className="flex gap-3 flex-wrap">
             <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="soc-input" style={{ width: '160px' }}>
               <option value="">All Sources</option>
-              {['Rule-based','AI','Human-HITL','Manual','SOAR'].map(s => <option key={s} value={s}>{s}</option>)}
+              {['Rule-based', 'AI', 'Human-HITL', 'Manual', 'SOAR'].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <select value={filterAction} onChange={(e) => setFilterAction(e.target.value)} className="soc-input" style={{ width: '160px' }}>
               <option value="">All Actions</option>
@@ -257,8 +257,8 @@ export default function AuditLogsPage() {
           {/* Logs Table */}
           <div className="soc-card overflow-hidden">
             {loading ? <PageLoader /> : (
-              <div className="overflow-x-auto">
-                <table className="soc-table">
+              <div className="w-full overflow-x-auto">
+                <table className="soc-table w-full min-w-[850px]">
                   <thead>
                     <tr>
                       <th>Timestamp</th>
@@ -293,8 +293,8 @@ export default function AuditLogsPage() {
                           <td><ConfidenceBar value={log.confidence} /></td>
                           <td>
                             <div className="flex gap-1.5 text-xs font-mono" style={{ color: '#475569' }}>
-                              {payload.target_ip  && <span>ip:{payload.target_ip}</span>}
-                              {payload.alert_id   && <span>alert:{String(payload.alert_id).substring(0,6)}</span>}
+                              {payload.target_ip && <span>ip:{payload.target_ip}</span>}
+                              {payload.alert_id && <span>alert:{String(payload.alert_id).substring(0, 6)}</span>}
                               {payload.result && (
                                 <span style={{ color: payload.result === 'success' ? '#10b981' : '#ff3366', fontWeight: 600 }}>
                                   [{payload.result}]
@@ -316,7 +316,7 @@ export default function AuditLogsPage() {
       {/* Settings Tab */}
       {activeTab === 'settings' && (
         <div className="soc-card p-6">
-          <div className="flex items-center gap-2.5 mb-6" style={{ paddingBottom:'16px', borderBottom:'1px solid #1e293b' }}>
+          <div className="flex items-center gap-2.5 mb-6" style={{ paddingBottom: '16px', borderBottom: '1px solid #1e293b' }}>
             <Settings size={16} style={{ color: '#06b6d4' }} />
             <h3 className="text-sm font-semibold" style={{ color: '#f8fafc' }}>SOAR / n8n Integration Configuration</h3>
           </div>

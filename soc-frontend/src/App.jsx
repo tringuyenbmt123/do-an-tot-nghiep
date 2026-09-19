@@ -4,7 +4,7 @@
 // Renders: LoginPage (if unauthenticated) OR Sidebar + TopBar + Active Page
 // =============================================================================
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { PageLoader } from './components/common/LoadingSpinner';
 import ToastContainer from './components/layout/ToastContainer';
 import Sidebar from './components/layout/Sidebar';
@@ -42,8 +42,26 @@ function ActivePage() {
 
 export default function App() {
   const { isAuthenticated } = useApp();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // 🔒 Nếu chưa đăng nhập → chỉ hiện Login Page
+  // Auto handle collapse state based on window breakpoint
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setCollapsed(false);
+      } else if (window.innerWidth < 1280) {
+        setCollapsed(true);
+      } else {
+        setCollapsed(false);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // If unauthenticated -> render Login Page
   if (!isAuthenticated) {
     return (
       <>
@@ -55,19 +73,23 @@ export default function App() {
 
   return (
     <div
-      className="flex h-screen"
-      style={{ background: '#0a0e17', color: '#f8fafc', minWidth: '1280px', overflow: 'hidden' }}
+      className="flex h-screen w-full bg-[#0a0e17] text-[#f8fafc] overflow-hidden"
     >
       {/* Left Sidebar */}
-      <Sidebar />
+      <Sidebar
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
 
       {/* Main content area */}
-      <div className="flex flex-col flex-1 overflow-hidden" style={{ minWidth: 0 }}>
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Top navigation bar */}
-        <TopBar />
+        <TopBar onOpenMobileMenu={() => setMobileOpen(true)} />
 
         {/* Scrollable page content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
           <ActivePage />
         </main>
       </div>
@@ -77,4 +99,3 @@ export default function App() {
     </div>
   );
 }
-

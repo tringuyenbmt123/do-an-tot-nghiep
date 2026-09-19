@@ -23,10 +23,10 @@ import { useApp } from '../context/AppContext';
 const TimelineEvent = ({ event }) => {
   const sourceColor = {
     'Rule-based': 'bg-blue-500',
-    AI:           'bg-cyan-500',
+    AI: 'bg-cyan-500',
     'Human-HITL': 'bg-orange-500',
-    Manual:       'bg-purple-500',
-    SOAR:         'bg-green-500',
+    Manual: 'bg-purple-500',
+    SOAR: 'bg-green-500',
   }[event.source] || 'bg-gray-500';
 
   return (
@@ -57,34 +57,34 @@ const TimelineEvent = ({ event }) => {
 // ─── Case Detail Drawer ────────────────────────────────────────────────────────
 function CaseDetailDrawer({ caseItem, onClose, onUpdated }) {
   const { addToast } = useApp();
-  const [activePanel, setActivePanel]   = useState('timeline'); // timeline | payload | notes
-  const [newStatus,   setNewStatus]     = useState(caseItem?.status || '');
-  const [assignTo,    setAssignTo]      = useState(caseItem?.assigned_to || '');
-  const [note,        setNote]          = useState('');
-  const [saving,      setSaving]        = useState(false);
+  const [activePanel, setActivePanel] = useState('timeline'); // timeline | payload | notes
+  const [newStatus, setNewStatus] = useState(caseItem?.status || '');
+  const [assignTo, setAssignTo] = useState(caseItem?.assigned_to || '');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Build timeline events from case data
   const timeline = caseItem ? [
     {
-      source:      'Rule-based',
-      timestamp:   caseItem.created_at,
+      source: 'Rule-based',
+      timestamp: caseItem.created_at,
       description: 'Alert detected and Case automatically created by Detection Rule Engine.',
-      detail:      `Case #${caseItem.id?.substring(0, 8)}`,
+      detail: `Case #${caseItem.id?.substring(0, 8)}`,
     },
     ...(caseItem.soar_status !== 'pending' ? [{
-      source:    'AI',
+      source: 'AI',
       timestamp: caseItem.updated_at,
       description: caseItem.ai_reason || 'AI Zero-Trust analysis completed.',
-      detail:    `Confidence: ${Math.round((caseItem.confidence || 0) * 100)}%`,
+      detail: `Confidence: ${Math.round((caseItem.confidence || 0) * 100)}%`,
     }] : []),
     ...(caseItem.human_approved_by ? [{
-      source:      'Human-HITL',
-      timestamp:   caseItem.updated_at,
+      source: 'Human-HITL',
+      timestamp: caseItem.updated_at,
       description: `Approved via Telegram HITL by: ${caseItem.human_approved_by}`,
     }] : []),
     ...(caseItem.status === 'Closed' || caseItem.status === 'Rejected' ? [{
-      source:      'Manual',
-      timestamp:   caseItem.updated_at,
+      source: 'Manual',
+      timestamp: caseItem.updated_at,
       description: `Case ${caseItem.status.toLowerCase()} by analyst.`,
     }] : []),
   ] : [];
@@ -166,8 +166,8 @@ function CaseDetailDrawer({ caseItem, onClose, onUpdated }) {
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg transition-colors" style={{ color: '#64748b' }}
-            onMouseEnter={e => { e.currentTarget.style.background='#1e293b'; e.currentTarget.style.color='#f8fafc'; }}
-            onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#64748b'; }}>
+            onMouseEnter={e => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.color = '#f8fafc'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; }}>
             <X size={16} />
           </button>
         </div>
@@ -176,8 +176,8 @@ function CaseDetailDrawer({ caseItem, onClose, onUpdated }) {
         <div className="flex px-6 shrink-0" style={{ borderBottom: '1px solid #1e293b' }}>
           {[
             { id: 'timeline', label: '📋 Timeline' },
-            { id: 'payload',  label: '{ } Raw Payload' },
-            { id: 'actions',  label: '⚡ Actions' },
+            { id: 'payload', label: '{ } Raw Payload' },
+            { id: 'actions', label: '⚡ Actions' },
           ].map((t) => (
             <button
               key={t.id}
@@ -319,12 +319,12 @@ function CaseDetailDrawer({ caseItem, onClose, onUpdated }) {
 // Main Component
 // =============================================================================
 export default function CaseManagementPage() {
-  const [cases,          setCases]       = useState([]);
-  const [loading,        setLoading]     = useState(true);
-  const [search,         setSearch]      = useState('');
-  const [filterStatus,   setFilterStatus] = useState('');
+  const [cases, setCases] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [filterSeverity, setFilterSeverity] = useState('');
-  const [selectedCase,   setSelectedCase] = useState(null);
+  const [selectedCase, setSelectedCase] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -339,8 +339,8 @@ export default function CaseManagementPage() {
   useEffect(() => { load(); }, [load]);
 
   const filtered = cases.filter((c) => {
-    const matchSearch   = !search || c.title.toLowerCase().includes(search.toLowerCase());
-    const matchStatus   = !filterStatus || c.status === filterStatus;
+    const matchSearch = !search || c.title.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = !filterStatus || c.status === filterStatus;
     const matchSeverity = !filterSeverity || String(c.severity_num) === filterSeverity;
     return matchSearch && matchStatus && matchSeverity;
   });
@@ -348,7 +348,7 @@ export default function CaseManagementPage() {
   const severityLabel = { 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low' };
 
   return (
-    <div className="flex flex-col gap-6 p-6 animate-fade-in">
+    <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-6 flex flex-col gap-6 min-w-0 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -363,37 +363,43 @@ export default function CaseManagementPage() {
       {/* Capsule Toolbar */}
       <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl" style={{ background: '#0a0e17', border: '1px solid #1e293b' }}>
         <div className="relative flex-1 min-w-48">
-          <Search size={13} style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', color:'#475569' }} />
+          <Search size={13} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
           <input
             type="text"
             placeholder="Search cases by title..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ background:'transparent', border:'none', outline:'none', padding:'8px 12px 8px 34px',
-              color:'#f8fafc', fontSize:'13px', width:'100%', fontFamily:"'Plus Jakarta Sans',sans-serif" }}
+            style={{
+              background: 'transparent', border: 'none', outline: 'none', padding: '8px 12px 8px 34px',
+              color: '#f8fafc', fontSize: '13px', width: '100%', fontFamily: "'Plus Jakarta Sans',sans-serif"
+            }}
           />
         </div>
-        <div style={{ width:'1px', height:'24px', background:'#1e293b', flexShrink:0 }} />
+        <div style={{ width: '1px', height: '24px', background: '#1e293b', flexShrink: 0 }} />
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-          style={{ background:'transparent', border:'none', outline:'none', color:'#94a3b8', fontSize:'13px',
-            padding:'7px 12px', cursor:'pointer', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-          <option value="" style={{background:'#0a0e17'}}>All Status</option>
-          <option value="New" style={{background:'#0a0e17'}}>New</option>
-          <option value="InProgress" style={{background:'#0a0e17'}}>In Progress</option>
-          <option value="Closed" style={{background:'#0a0e17'}}>Closed</option>
-          <option value="Rejected" style={{background:'#0a0e17'}}>Rejected</option>
+          style={{
+            background: 'transparent', border: 'none', outline: 'none', color: '#94a3b8', fontSize: '13px',
+            padding: '7px 12px', cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif"
+          }}>
+          <option value="" style={{ background: '#0a0e17' }}>All Status</option>
+          <option value="New" style={{ background: '#0a0e17' }}>New</option>
+          <option value="InProgress" style={{ background: '#0a0e17' }}>In Progress</option>
+          <option value="Closed" style={{ background: '#0a0e17' }}>Closed</option>
+          <option value="Rejected" style={{ background: '#0a0e17' }}>Rejected</option>
         </select>
-        <div style={{ width:'1px', height:'24px', background:'#1e293b', flexShrink:0 }} />
+        <div style={{ width: '1px', height: '24px', background: '#1e293b', flexShrink: 0 }} />
         <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)}
-          style={{ background:'transparent', border:'none', outline:'none', color:'#94a3b8', fontSize:'13px',
-            padding:'7px 12px', cursor:'pointer', fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-          <option value="" style={{background:'#0a0e17'}}>All Severity</option>
-          <option value="1" style={{background:'#0a0e17'}}>⬤ Critical</option>
-          <option value="2" style={{background:'#0a0e17'}}>⬤ High</option>
-          <option value="3" style={{background:'#0a0e17'}}>⬤ Medium</option>
-          <option value="4" style={{background:'#0a0e17'}}>⬤ Low</option>
+          style={{
+            background: 'transparent', border: 'none', outline: 'none', color: '#94a3b8', fontSize: '13px',
+            padding: '7px 12px', cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif"
+          }}>
+          <option value="" style={{ background: '#0a0e17' }}>All Severity</option>
+          <option value="1" style={{ background: '#0a0e17' }}>⬤ Critical</option>
+          <option value="2" style={{ background: '#0a0e17' }}>⬤ High</option>
+          <option value="3" style={{ background: '#0a0e17' }}>⬤ Medium</option>
+          <option value="4" style={{ background: '#0a0e17' }}>⬤ Low</option>
         </select>
-        <span className="ml-auto text-xs px-3 py-1 rounded-lg" style={{ background:'#1e293b', color:'#64748b' }}>
+        <span className="ml-auto text-xs px-3 py-1 rounded-lg" style={{ background: '#1e293b', color: '#64748b' }}>
           {filtered.length} cases
         </span>
       </div>
@@ -401,8 +407,8 @@ export default function CaseManagementPage() {
       {/* Cases Table */}
       <div className="soc-card overflow-hidden">
         {loading ? <PageLoader /> : (
-          <div className="overflow-x-auto">
-            <table className="soc-table">
+          <div className="w-full overflow-x-auto">
+            <table className="soc-table w-full min-w-[850px]">
               <thead>
                 <tr>
                   <th>Case ID</th>
@@ -422,17 +428,17 @@ export default function CaseManagementPage() {
                 ) : filtered.map((c) => {
                   const tags = (() => { try { return JSON.parse(c.tags || '[]'); } catch { return []; } })();
                   return (
-                    <tr key={c.id} className="cursor-pointer" style={{ transition:'background 0.15s ease' }}
+                    <tr key={c.id} className="cursor-pointer" style={{ transition: 'background 0.15s ease' }}
                       onClick={() => setSelectedCase(c)}
-                      onMouseEnter={e => e.currentTarget.querySelectorAll('td').forEach(td => td.style.background='rgba(15,23,42,0.8)')}
-                      onMouseLeave={e => e.currentTarget.querySelectorAll('td').forEach(td => td.style.background='')}>
+                      onMouseEnter={e => e.currentTarget.querySelectorAll('td').forEach(td => td.style.background = 'rgba(15,23,42,0.8)')}
+                      onMouseLeave={e => e.currentTarget.querySelectorAll('td').forEach(td => td.style.background = '')}>
                       <td>
-                        <span className="font-mono text-xs px-2 py-1 rounded-md" style={{ background:'rgba(6,182,212,0.08)', color:'#06b6d4', border:'1px solid rgba(6,182,212,0.15)', letterSpacing:'0.05em' }}>
+                        <span className="font-mono text-xs px-2 py-1 rounded-md" style={{ background: 'rgba(6,182,212,0.08)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.15)', letterSpacing: '0.05em' }}>
                           #{c.id?.substring(0, 8).toUpperCase()}
                         </span>
                       </td>
                       <td className="max-w-xs">
-                        <p className="text-sm font-semibold truncate" style={{ color:'#f8fafc' }}>{c.title}</p>
+                        <p className="text-sm font-semibold truncate" style={{ color: '#f8fafc' }}>{c.title}</p>
                       </td>
                       <td><SeverityBadge severity={c.severity_num} /></td>
                       <td><StatusBadge status={c.status} type="case" /></td>
@@ -447,14 +453,14 @@ export default function CaseManagementPage() {
                           {tags.slice(0, 3).map((tag, i) => (
                             <span key={i} className="pill-badge">{tag}</span>
                           ))}
-                          {tags.length > 3 && <span style={{ color:'#475569', fontSize:'11px' }}>+{tags.length - 3}</span>}
+                          {tags.length > 3 && <span style={{ color: '#475569', fontSize: '11px' }}>+{tags.length - 3}</span>}
                         </div>
                       </td>
-                      <td className="font-mono whitespace-nowrap" style={{ color:'#64748b', fontSize:'11.5px' }}>
+                      <td className="font-mono whitespace-nowrap" style={{ color: '#64748b', fontSize: '11.5px' }}>
                         {new Date(c.created_at).toLocaleDateString('en-GB')}
                       </td>
                       <td>
-                        <ChevronRight size={14} style={{ color:'#334155' }} />
+                        <ChevronRight size={14} style={{ color: '#334155' }} />
                       </td>
                     </tr>
                   );

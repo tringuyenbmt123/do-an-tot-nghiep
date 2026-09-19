@@ -82,15 +82,25 @@ const ChartGradients = () => (
 );
 
 // ─── Pie chart custom legend ───────────────────────────────────────────────────
+// 2. PieLegend — thêm min-w-0 cho row + chừa padding phải cho cột số
+//    (paddingRight nhỏ để số không dính sát mép trong, dù card có min-w-0)
 const PieLegend = ({ data }) => (
-  <div className="flex flex-col gap-1.5 mt-2">
+  <div className="flex flex-col gap-2 w-full min-w-0" style={{ paddingTop: '14px' }}>
     {data.map((d) => (
-      <div key={d.name} className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
-          <span style={{ color: '#94a3b8' }}>{d.name}</span>
+      <div
+        key={d.name}
+        className="flex items-center justify-between gap-3 text-xs w-full min-w-0"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
+          <span className="truncate" style={{ color: '#94a3b8' }}>{d.name}</span>
         </div>
-        <span className="font-semibold font-mono" style={{ color: '#f8fafc' }}>{d.value}</span>
+        <span
+          className="font-semibold font-mono shrink-0"
+          style={{ color: '#f8fafc', fontVariantNumeric: 'tabular-nums', paddingRight: '2px' }}
+        >
+          {d.value}
+        </span>
       </div>
     ))}
   </div>
@@ -248,10 +258,10 @@ export default function DashboardPage() {
   const pieData = safeStats.severity_distribution;
 
   return (
-    <div className="flex flex-col gap-6 p-6 animate-fade-in">
+    <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-6 flex flex-col gap-6 min-w-0 animate-fade-in">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2.5" style={{ color: '#f8fafc' }}>
             <span style={{
@@ -275,7 +285,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Metric Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full">
         <MetricCard
           title="Total Alerts Today"
           value={safeStats.total_alerts_today}
@@ -312,8 +322,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* AreaChart: Alert Trends 24h */}
-        <div className="soc-card p-6 lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
+        <div className="soc-card p-4 sm:p-5 lg:col-span-2 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div>
               <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#f8fafc' }}>
                 <Zap size={14} style={{ color: '#06b6d4' }} />
@@ -345,14 +355,16 @@ export default function DashboardPage() {
         </div>
 
         {/* Pie Chart: Severity Distribution */}
-        <div className="soc-card p-6">
-          <h3 className="text-sm font-semibold mb-5" style={{ color: '#f8fafc' }}>Severity Distribution</h3>
+        <div className="soc-card p-4 sm:p-5 flex flex-col min-w-0">
+          <h3 className="text-sm font-semibold mb-3" style={{ color: '#f8fafc' }}>
+            Severity Distribution
+          </h3>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
               <Pie
                 data={pieData}
                 cx="50%" cy="50%"
-                innerRadius={48} outerRadius={72}
+                innerRadius={44} outerRadius={68}
                 paddingAngle={3} dataKey="value"
                 strokeWidth={0}
               >
@@ -368,8 +380,8 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Top Agents Bar Chart ── */}
-      <div className="soc-card p-6">
-        <h3 className="text-sm font-semibold mb-5 flex items-center gap-2" style={{ color: '#f8fafc' }}>
+      <div className="soc-card p-4 sm:p-5">
+        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: '#f8fafc' }}>
           <Cpu size={14} style={{ color: '#10b981' }} />
           Top 5 Most Affected Agents
         </h3>
@@ -392,8 +404,8 @@ export default function DashboardPage() {
 
       {/* ── Live Alert Feed ── */}
       <div className="soc-card overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between px-6 py-3.5 gap-3" style={{ borderBottom: '1px solid #1e293b' }}>
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-3.5 gap-3" style={{ borderBottom: '1px solid #1e293b' }}>
+          <div className="flex items-center gap-3 flex-wrap">
             <h3 className="text-sm font-semibold flex items-center gap-2.5" style={{ color: '#f8fafc' }}>
               <span className={`w-2 h-2 rounded-full ${isConnected ? 'status-dot-online' : 'status-dot-offline'}`} />
               Real-time Live Alert Feed
@@ -411,7 +423,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Severity Filter Button Group */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono">
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono shrink-0 overflow-x-auto max-w-full">
             {[
               { id: 'all', label: 'Tất cả' },
               { id: 'critical', label: 'Critical', activeColor: '#f87171', activeBg: 'rgba(239,68,68,0.18)', activeBorder: 'rgba(239,68,68,0.4)' },
@@ -424,7 +436,7 @@ export default function DashboardPage() {
                 <button
                   key={item.id}
                   onClick={() => { setSeverityFilter(item.id); setCurrentPage(1); }}
-                  className="px-2.5 py-1 rounded-md text-xs font-bold font-mono transition-all cursor-pointer"
+                  className="px-2.5 py-1 rounded-md text-xs font-bold font-mono transition-all cursor-pointer whitespace-nowrap"
                   style={{
                     color: isActive ? (item.activeColor || '#38bdf8') : '#64748b',
                     background: isActive ? (item.activeBg || 'rgba(56,189,248,0.15)') : 'transparent',
@@ -438,7 +450,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="overflow-auto" style={{ maxHeight: '520px' }} ref={feedRef}>
+        <div className="w-full overflow-x-auto overflow-y-auto" style={{ maxHeight: '520px' }} ref={feedRef}>
           <table className="soc-table">
             <thead>
               <tr>
@@ -498,8 +510,8 @@ export default function DashboardPage() {
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
                     className={`w-7 h-7 rounded-lg font-bold font-mono text-xs flex items-center justify-center transition-all cursor-pointer ${safeCurrentPage === pageNum
-                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm'
-                        : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800 hover:bg-slate-800'
+                      ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm'
+                      : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800 hover:bg-slate-800'
                       }`}
                   >
                     {pageNum}

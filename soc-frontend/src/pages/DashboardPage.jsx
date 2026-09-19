@@ -36,6 +36,7 @@ import StatusBadge from '../components/common/StatusBadge';
 import { useApp } from '../context/AppContext';
 import { useDashboardStats } from '../hooks/useDashboardStats';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { formatTime } from '../utils/date';
 
 // ─── Dark tooltip for all charts ──────────────────────────────────────────────
 const ChartTooltip = ({ active, payload, label }) => {
@@ -112,7 +113,7 @@ const LiveAlertRow = ({ alert, isNew, onSelect }) => (
     </td>
     <td>
       <span className="font-mono text-xs text-slate-300">
-        {alert.agent?.hostname || alert.agent_id?.substring(0, 8) || '—'}
+        {alert.agent?.hostname || alert.hostname || alert.agent_id || '—'}
       </span>
     </td>
     <td>
@@ -129,7 +130,7 @@ const LiveAlertRow = ({ alert, isNew, onSelect }) => (
     </td>
     <td><StatusBadge status={alert.status} type="alert" /></td>
     <td className="font-mono whitespace-nowrap" style={{ color: '#64748b', fontSize: '11.5px' }}>
-      {new Date(alert.created_at).toLocaleTimeString('en-GB')}
+      {formatTime(alert.created_at)}
     </td>
     <td style={{ width: '30px', textAlign: 'right' }}>
       <ChevronRight size={14} className="text-slate-600 hover:text-cyan-400 inline-block" />
@@ -152,13 +153,16 @@ export default function DashboardPage() {
     if (data?.type !== 'new_alert' || !data.payload) return;
 
     const payload = data.payload;
+    const agentObj = payload.agent || (payload.hostname ? { id: payload.agent_id, hostname: payload.hostname } : null);
+
     const alert = {
       id: payload.id || crypto.randomUUID(),
       severity: payload.severity || 'low',
       title: payload.title || payload.event_type || 'Security Event',
       event_type: payload.event_type,
-      agent: payload.agent || null,
+      agent: agentObj,
       agent_id: payload.agent_id,
+      hostname: payload.hostname || agentObj?.hostname || null,
       mitre_tactic: payload.mitre_tactic,
       status: payload.status || 'new',
       created_at: payload.created_at || data.time || new Date().toISOString(),
@@ -171,7 +175,8 @@ export default function DashboardPage() {
       return next;
     });
     if (alert.severity === 'critical' || alert.severity === 'high') {
-      addToast({ severity: alert.severity, title: alert.title, message: alert.agent?.hostname ? `Agent: ${alert.agent.hostname}` : undefined });
+      const agentLabel = alert.agent?.hostname || alert.hostname || alert.agent_id;
+      addToast({ severity: alert.severity, title: alert.title, message: agentLabel ? `Agent: ${agentLabel}` : undefined });
     }
     if (feedRef.current) feedRef.current.scrollTop = 0;
   }, [addLiveAlert, addToast]);

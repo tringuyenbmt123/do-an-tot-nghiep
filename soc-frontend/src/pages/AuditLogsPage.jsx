@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { PageLoader } from '../components/common/LoadingSpinner';
 import { useApp } from '../context/AppContext';
 import { getAuditLogs, getSystemSettings, saveSystemSettings } from '../services/api';
+import { formatDateTime } from '../utils/date';
 
 // ─── Source Badge ─────────────────────────────────────────────────────────────
 const SourceBadge = ({ source }) => {
@@ -278,7 +279,7 @@ export default function AuditLogsPage() {
                         <tr key={log.id}>
                           <td>
                             <span className="font-mono text-xs" style={{ color: '#64748b' }}>
-                              {new Date(log.created_at).toLocaleString('en-GB')}
+                              {formatDateTime(log.created_at)}
                             </span>
                           </td>
                           <td><SourceBadge source={log.source} /></td>

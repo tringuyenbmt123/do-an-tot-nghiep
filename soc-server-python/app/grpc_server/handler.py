@@ -15,6 +15,7 @@
 import asyncio
 import json
 import logging
+import os
 import uuid
 from datetime import datetime
 from typing import Optional, Callable, AsyncIterator
@@ -181,6 +182,27 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
         if event.event_type == "system_metric":
             return
 
+        # Lọc bỏ sự kiện FIM 'modified' trên thư mục (tránh trùng lặp cảnh báo do NTFS cập nhật timestamp thư mục cha khi file con thay đổi)
+        if event.event_type == "file_integrity":
+            action = str(raw_log.get("action", "")).lower()
+            if action == "modified":
+                path_str = str(raw_log.get("path", "")).strip()
+                # 1. Payload có trường is_dir = True
+                if raw_log.get("is_dir") is True:
+                    return
+                # 2. Kiểm tra nếu path là thư mục thực tế trên filesystem
+                try:
+                    if os.path.exists(path_str) and os.path.isdir(path_str):
+                        logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục: {path_str}")
+                        return
+                except Exception:
+                    pass
+                # 3. Heuristic: nếu basename không có file extension (thư mục)
+                base = os.path.basename(path_str.replace("\\", "/").rstrip("/"))
+                if "." not in base:
+                    logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục (không có extension): {path_str}")
+                    return
+
         # ===== Gọi Rule Engine đánh giá event =====
         alerts_data, matched = self.rule_engine.evaluate_log(raw_log, agent_id)
 
@@ -203,11 +225,21 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                 }
             ]
 
+        # Xác định thời gian sự kiện từ agent.timestamp (nếu có) hoặc fallback về utcnow
+        event_dt = datetime.utcnow()
+        if getattr(event, "timestamp", None) and event.timestamp > 0:
+            try:
+                ts_sec = event.timestamp / 1000.0 if event.timestamp > 1e11 else float(event.timestamp)
+                event_dt = datetime.utcfromtimestamp(ts_sec)
+            except Exception:
+                event_dt = datetime.utcnow()
+
         # ===== Lưu Alerts vào DB và dispatch =====
         async with AsyncSessionLocal() as db:
             for alert_data in alerts_data:
+                alert_id = alert_data.get("id") or str(uuid.uuid4())
                 alert = Alert(
-                    id=alert_data.get("id", str(uuid.uuid4())),
+                    id=alert_id,
                     agent_id=alert_data["agent_id"],
                     rule_id=alert_data.get("rule_id"),
                     event_type=alert_data["event_type"],
@@ -218,7 +250,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                     description=alert_data.get("description", ""),
                     mitre_tactic=alert_data.get("mitre_tactic", ""),
                     mitre_technique_id=alert_data.get("mitre_technique_id", ""),
-                    created_at=datetime.utcnow(),
+                    created_at=event_dt,
                 )
                 db.add(alert)
 
@@ -229,6 +261,24 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                         f"[STREAM] 🚨 ALERT CREATED: [{alert.severity.upper()}] "
                         f"{alert.title} (Agent: {agent_id}, Rule: {alert.rule_id})"
                     )
+
+                    # Cập nhật alert_data để payload WebSocket có đầy đủ ID và created_at
+                    alert_data["id"] = alert.id
+                    alert_data["created_at"] = alert.created_at.isoformat() + "Z"
+
+                    # Bổ sung thông tin Agent để WebSocket payload có đầy đủ hostname và agent object
+                    agent_hostname = event.hostname
+                    if not agent_hostname:
+                        conn = await self.conn_manager.get_connection(agent_id)
+                        if conn and conn.hostname:
+                            agent_hostname = conn.hostname
+
+                    alert_data["hostname"] = agent_hostname or agent_id
+                    alert_data["agent"] = {
+                        "id": agent_id,
+                        "hostname": agent_hostname or agent_id,
+                        "ip_address": event.ip_address or "",
+                    }
 
                     # ===== Ghi Audit Log =====
                     audit_payload = {

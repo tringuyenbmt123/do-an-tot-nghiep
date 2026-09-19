@@ -14,9 +14,22 @@ soc-server/release/
 # Node
 node_modules/
 
+# Python
+venv/
+**/venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
 # Environment / secrets
 .env
 .env.*
 
 # Go binaries
 *.exe
+
+# Temporary / Patch files
+fix-frontend/

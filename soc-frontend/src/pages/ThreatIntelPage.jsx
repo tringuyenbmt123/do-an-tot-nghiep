@@ -58,13 +58,13 @@ const RiskBar = ({ score }) => {
 // ─── IOC Type Badge ────────────────────────────────────────────────────────────
 const IOCTypeBadge = ({ type }) => {
   const map = {
-    'ip-src':  { label: 'IP-SRC',  color: '#ff3366', bg: 'rgba(255,51,102,0.08)',  border: 'rgba(255,51,102,0.2)' },
-    'ip-dst':  { label: 'IP-DST',  color: '#ff9900', bg: 'rgba(255,153,0,0.08)',   border: 'rgba(255,153,0,0.2)' },
-    domain:    { label: 'DOMAIN',  color: '#a855f7', bg: 'rgba(168,85,247,0.08)',  border: 'rgba(168,85,247,0.2)' },
-    sha256:    { label: 'SHA256',  color: '#3b82f6', bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.2)' },
-    md5:       { label: 'MD5',     color: '#06b6d4', bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.2)' },
-    url:       { label: 'URL',     color: '#eab308', bg: 'rgba(234,179,8,0.08)',   border: 'rgba(234,179,8,0.2)' },
-    email:     { label: 'EMAIL',   color: '#10b981', bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.2)' },
+    'ip-src': { label: 'IP-SRC', color: '#ff3366', bg: 'rgba(255,51,102,0.08)', border: 'rgba(255,51,102,0.2)' },
+    'ip-dst': { label: 'IP-DST', color: '#ff9900', bg: 'rgba(255,153,0,0.08)', border: 'rgba(255,153,0,0.2)' },
+    domain: { label: 'DOMAIN', color: '#a855f7', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.2)' },
+    sha256: { label: 'SHA256', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.2)' },
+    md5: { label: 'MD5', color: '#06b6d4', bg: 'rgba(6,182,212,0.08)', border: 'rgba(6,182,212,0.2)' },
+    url: { label: 'URL', color: '#eab308', bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.2)' },
+    email: { label: 'EMAIL', color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)' },
   };
   const cfg = map[type] || { label: type?.toUpperCase(), color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.2)' };
   return (
@@ -208,13 +208,13 @@ function AddIOCModal({ isOpen, onClose, onAdded, initialData = null }) {
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#64748b' }}>IOC Type</label>
             <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="soc-input">
-              {['ip-src','ip-dst','domain','sha256','md5','url','email'].map(t => <option key={t} value={t}>{t}</option>)}
+              {['ip-src', 'ip-dst', 'domain', 'sha256', 'md5', 'url', 'email'].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#64748b' }}>Category</label>
             <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="soc-input">
-              {['malware','phishing','c2_server','ransomware'].map(c => <option key={c} value={c}>{c}</option>)}
+              {['malware', 'phishing', 'c2_server', 'ransomware'].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         </div>
@@ -227,7 +227,7 @@ function AddIOCModal({ isOpen, onClose, onAdded, initialData = null }) {
           <div>
             <label className="block text-xs mb-1.5" style={{ color: '#64748b' }}>Source</label>
             <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="soc-input">
-              {['analyst','osint','misp_feed','internal'].map(s => <option key={s} value={s}>{s}</option>)}
+              {['analyst', 'osint', 'misp_feed', 'internal'].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div>
@@ -320,7 +320,7 @@ function RuleFormModal({ isOpen, onClose, initialData, onSaved }) {
         <div>
           <label className="block text-xs mb-1.5" style={{ color: '#64748b' }}>Severity</label>
           <select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })} className="soc-input">
-            {['low','medium','high','critical'].map(v => <option key={v} value={v}>{v}</option>)}
+            {['low', 'medium', 'high', 'critical'].map(v => <option key={v} value={v}>{v}</option>)}
           </select>
         </div>
         <div>
@@ -449,19 +449,19 @@ function RulesManager({ rules, onRefresh, onEdit, onDelete, onToggle }) {
 // Main Component
 // =============================================================================
 export default function ThreatIntelPage() {
-  const { addToast }                      = useApp();
-  const [indicators, setIndicators]       = useState([]);
-  const [rules, setRules]                 = useState([]);
-  const [loading, setLoading]             = useState(true);
-  const [search, setSearch]               = useState('');
-  const [filterType, setFilterType]       = useState('');
-  const [lookupVal, setLookupVal]         = useState('');
-  const [lookupType, setLookupType]       = useState('ip-src');
-  const [analyzing, setAnalyzing]         = useState(false);
-  const [cortexResult, setCortexResult]   = useState(null);
-  const [showAddModal, setShowAddModal]   = useState(false);
+  const { addToast } = useApp();
+  const [indicators, setIndicators] = useState([]);
+  const [rules, setRules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [lookupVal, setLookupVal] = useState('');
+  const [lookupType, setLookupType] = useState('ip-src');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [cortexResult, setCortexResult] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showRuleModal, setShowRuleModal] = useState(false);
-  const [editingRule, setEditingRule]     = useState(null);
+  const [editingRule, setEditingRule] = useState(null);
   const [editingIndicator, setEditingIndicator] = useState(null);
   const [activePanel, setActivePanel] = useState('ioc');
 
@@ -550,24 +550,24 @@ export default function ThreatIntelPage() {
 
   const filtered = indicators.filter((ind) => {
     const matchSearch = !search || ind.value.toLowerCase().includes(search.toLowerCase());
-    const matchType   = !filterType || ind.type === filterType;
+    const matchType = !filterType || ind.type === filterType;
     return matchSearch && matchType;
   });
 
   return (
-    <div className="flex flex-col gap-6 p-6 animate-fade-in">
+    <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-6 flex flex-col gap-6 min-w-0 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2.5" style={{ color: '#f8fafc' }}>
-            <span style={{ background:'linear-gradient(135deg,rgba(255,153,0,0.2),rgba(255,153,0,0.05))', border:'1px solid rgba(255,153,0,0.25)', borderRadius:'10px', padding:'6px 8px', display:'inline-flex' }}>
+            <span style={{ background: 'linear-gradient(135deg,rgba(255,153,0,0.2),rgba(255,153,0,0.05))', border: '1px solid rgba(255,153,0,0.25)', borderRadius: '10px', padding: '6px 8px', display: 'inline-flex' }}>
               <Shield size={18} style={{ color: '#ff9900' }} />
             </span>
             Threat Intelligence &amp; IOCs
           </h1>
           <p className="text-xs mt-1" style={{ color: '#64748b' }}>MISP-compatible IOC management • Cortex Analyzer integration</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 ml-3">
+        <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
           <Plus size={13} />
           Add IOC
         </button>
@@ -581,9 +581,9 @@ export default function ThreatIntelPage() {
       {activePanel === 'ioc' && (
         <>
           {/* ── Cortex Analyzer Search Widget ── */}
-          <div className="soc-card p-5">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div style={{ background:'rgba(6,182,212,0.1)', border:'1px solid rgba(6,182,212,0.2)', borderRadius:'8px', padding:'6px' }}>
+          <div className="soc-card p-4 sm:p-5">
+            <div className="flex flex-wrap items-center gap-2.5 mb-4">
+              <div style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)', borderRadius: '8px', padding: '6px' }}>
                 <Zap size={14} style={{ color: '#06b6d4' }} />
               </div>
               <div>
@@ -591,35 +591,39 @@ export default function ThreatIntelPage() {
                 <p className="text-xs" style={{ color: '#64748b' }}>Powered by VirusTotal / MISP intelligence feeds</p>
               </div>
               <span className="ml-auto text-[10.5px] px-2.5 py-1 rounded-full font-semibold"
-                style={{ background:'rgba(6,182,212,0.1)', color:'#06b6d4', border:'1px solid rgba(6,182,212,0.2)' }}>
+                style={{ background: 'rgba(6,182,212,0.1)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.2)' }}>
                 LIVE ANALYSIS
               </span>
             </div>
 
-            <div className="flex gap-2 p-2 rounded-2xl" style={{ background: '#0a0e17', border: '1px solid #1e293b' }}>
+            <div className="flex flex-wrap sm:flex-nowrap gap-2 p-2 rounded-2xl" style={{ background: '#0a0e17', border: '1px solid #1e293b' }}>
               <select value={lookupType} onChange={(e) => setLookupType(e.target.value)}
-                style={{ background:'#111827', border:'1px solid #1e293b', borderRadius:'10px', color:'#94a3b8',
-                  fontSize:'12px', padding:'8px 10px', cursor:'pointer', flexShrink:0, minWidth:'80px', outline:'none' }}>
-                {['ip-src','domain','sha256','url','md5'].map(t => <option key={t} value={t} style={{background:'#111827'}}>{t}</option>)}
+                style={{
+                  background: '#111827', border: '1px solid #1e293b', borderRadius: '10px', color: '#94a3b8',
+                  fontSize: '12px', padding: '8px 10px', cursor: 'pointer', flexShrink: 0, minWidth: '80px', outline: 'none'
+                }}>
+                {['ip-src', 'domain', 'sha256', 'url', 'md5'].map(t => <option key={t} value={t} style={{ background: '#111827' }}>{t}</option>)}
               </select>
 
-              <div className="relative flex-1">
-                <Search size={14} style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', color:'#06b6d4' }} />
+              <div className="relative flex-1 min-w-48">
+                <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#06b6d4' }} />
                 <input
                   type="text"
                   placeholder="Enter IP address, domain name, file hash, or URL to analyze..."
                   value={lookupVal}
                   onChange={(e) => setLookupVal(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAnalyze(); }}
-                  style={{ background:'transparent', border:'none', outline:'none', padding:'9px 12px 9px 34px',
-                    color:'#f8fafc', fontSize:'13px', width:'100%', fontFamily:"'Plus Jakarta Sans',sans-serif" }}
+                  style={{
+                    background: 'transparent', border: 'none', outline: 'none', padding: '9px 12px 9px 34px',
+                    color: '#f8fafc', fontSize: '13px', width: '100%', fontFamily: "'Plus Jakarta Sans',sans-serif"
+                  }}
                 />
               </div>
 
               <button
                 onClick={handleAnalyze}
                 disabled={analyzing || !lookupVal.trim()}
-                className="flex items-center gap-2 px-5 rounded-xl text-sm font-semibold whitespace-nowrap"
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap"
                 style={{
                   background: (analyzing || !lookupVal.trim()) ? '#1e293b' : 'linear-gradient(135deg,#06b6d4,#3b82f6)',
                   color: (analyzing || !lookupVal.trim()) ? '#475569' : '#f8fafc',
@@ -633,22 +637,22 @@ export default function ThreatIntelPage() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-52">
-              <Search size={13} style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', color:'#475569' }} />
+              <Search size={13} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
               <input type="text" placeholder="Search IOC value..." value={search}
                 onChange={(e) => setSearch(e.target.value)} className="soc-input" style={{ paddingLeft: '34px' }} />
             </div>
             <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="soc-input" style={{ width: '140px' }}>
               <option value="">All Types</option>
-              {['ip-src','ip-dst','domain','sha256','md5','url','email'].map(t => <option key={t} value={t}>{t}</option>)}
+              {['ip-src', 'ip-dst', 'domain', 'sha256', 'md5', 'url', 'email'].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 
           <div className="soc-card overflow-hidden">
             {loading ? <PageLoader /> : (
-              <div className="overflow-x-auto">
-                <table className="soc-table">
+              <div className="w-full overflow-x-auto">
+                <table className="soc-table w-full min-w-[900px]">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -678,7 +682,7 @@ export default function ThreatIntelPage() {
                         <td>
                           {ind.mitre_tactic && (
                             <span className="text-xs px-2 py-0.5 rounded-md"
-                              style={{ background:'rgba(59,130,246,0.1)', color:'#60a5fa', border:'1px solid rgba(59,130,246,0.2)' }}>
+                              style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
                               {ind.mitre_tactic}
                             </span>
                           )}
@@ -700,9 +704,9 @@ export default function ThreatIntelPage() {
                             <button
                               onClick={() => { setLookupVal(ind.value); setLookupType(ind.type); }}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                              style={{ background:'rgba(6,182,212,0.08)', color:'#06b6d4', border:'1px solid rgba(6,182,212,0.15)' }}
-                              onMouseEnter={e => { e.currentTarget.style.background='rgba(6,182,212,0.2)'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background='rgba(6,182,212,0.08)'; }}
+                              style={{ background: 'rgba(6,182,212,0.08)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.15)' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(6,182,212,0.2)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(6,182,212,0.08)'; }}
                             >
                               <Zap size={11} />
                               Enrich
@@ -710,7 +714,7 @@ export default function ThreatIntelPage() {
                             <button
                               onClick={() => { setEditingIndicator(ind); setShowAddModal(true); }}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                              style={{ background:'rgba(59,130,246,0.08)', color:'#60a5fa', border:'1px solid rgba(59,130,246,0.15)' }}
+                              style={{ background: 'rgba(59,130,246,0.08)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.15)' }}
                             >
                               <Edit3 size={11} />
                               Edit
@@ -718,7 +722,7 @@ export default function ThreatIntelPage() {
                             <button
                               onClick={() => handleDeleteIndicator(ind)}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                              style={{ background:'rgba(239,68,68,0.08)', color:'#f87171', border:'1px solid rgba(239,68,68,0.15)' }}
+                              style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.15)' }}
                             >
                               <Trash2 size={11} />
                               Del

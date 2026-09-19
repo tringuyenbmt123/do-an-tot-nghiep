@@ -24,8 +24,8 @@ import { blockIP, getAgents, killProcess } from '../services/api';
 const OSBadge = ({ os }) => {
   const map = {
     windows: { label: 'Windows', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.2)', Icon: Monitor },
-    linux:   { label: 'Linux',   color: '#ff9900', bg: 'rgba(255,153,0,0.08)',  border: 'rgba(255,153,0,0.2)',  Icon: Terminal },
-    macos:   { label: 'macOS',   color: '#a855f7', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.2)', Icon: HardDrive },
+    linux: { label: 'Linux', color: '#ff9900', bg: 'rgba(255,153,0,0.08)', border: 'rgba(255,153,0,0.2)', Icon: Terminal },
+    macos: { label: 'macOS', color: '#a855f7', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.2)', Icon: HardDrive },
   };
   const cfg = map[os?.toLowerCase()] || { label: os || '?', color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.2)', Icon: Cpu };
   const { Icon } = cfg;
@@ -40,8 +40,8 @@ const OSBadge = ({ os }) => {
 
 // ─── Kill Process Modal ────────────────────────────────────────────────────────
 function KillProcessModal({ agent, isOpen, onClose }) {
-  const { addToast }    = useApp();
-  const [pid,  setPid]  = useState('');
+  const { addToast } = useApp();
+  const [pid, setPid] = useState('');
   const [busy, setBusy] = useState(false);
 
   const handleSubmit = async () => {
@@ -72,7 +72,7 @@ function KillProcessModal({ agent, isOpen, onClose }) {
         </button>
       </>}>
       <div className="flex flex-col gap-4">
-        <div className="p-3.5 rounded-xl text-sm" style={{ background:'rgba(255,51,102,0.07)', border:'1px solid rgba(255,51,102,0.2)', color:'#fda4af' }}>
+        <div className="p-3.5 rounded-xl text-sm" style={{ background: 'rgba(255,51,102,0.07)', border: '1px solid rgba(255,51,102,0.2)', color: '#fda4af' }}>
           ⚠ This will forcefully terminate the specified process on the remote endpoint via Active Response.
         </div>
         <div>
@@ -93,8 +93,8 @@ function KillProcessModal({ agent, isOpen, onClose }) {
 
 // ─── Block IP Modal ────────────────────────────────────────────────────────────
 function BlockIPModal({ agent, isOpen, onClose }) {
-  const { addToast }  = useApp();
-  const [ip,   setIp] = useState('');
+  const { addToast } = useApp();
+  const [ip, setIp] = useState('');
   const [busy, setBusy] = useState(false);
 
   const handleSubmit = async () => {
@@ -125,7 +125,7 @@ function BlockIPModal({ agent, isOpen, onClose }) {
         </button>
       </>}>
       <div className="flex flex-col gap-4">
-        <div className="p-3.5 rounded-xl text-sm" style={{ background:'rgba(255,153,0,0.07)', border:'1px solid rgba(255,153,0,0.2)', color:'#fdba74' }}>
+        <div className="p-3.5 rounded-xl text-sm" style={{ background: 'rgba(255,153,0,0.07)', border: '1px solid rgba(255,153,0,0.2)', color: '#fdba74' }}>
           ⚠ This will add a firewall DENY rule for the specified IP on the target endpoint.
         </div>
         <div>
@@ -146,7 +146,7 @@ function BlockIPModal({ agent, isOpen, onClose }) {
 
 // ─── Agent Row ─────────────────────────────────────────────────────────────────
 function AgentRow({ agent }) {
-  const [killOpen,  setKillOpen]  = useState(false);
+  const [killOpen, setKillOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const isOnline = agent.status === 'online';
 
@@ -155,7 +155,7 @@ function AgentRow({ agent }) {
       <tr>
         <td>
           <span className="font-mono text-xs px-2 py-0.5 rounded-md"
-            style={{ background:'#0a0e17', color:'#64748b', border:'1px solid #1e293b', letterSpacing:'0.05em' }}>
+            style={{ background: '#0a0e17', color: '#64748b', border: '1px solid #1e293b', letterSpacing: '0.05em' }}>
             #{agent.id?.substring(0, 8).toUpperCase()}
           </span>
         </td>
@@ -201,8 +201,8 @@ function AgentRow({ agent }) {
         </td>
       </tr>
 
-      <KillProcessModal  agent={agent} isOpen={killOpen}  onClose={() => setKillOpen(false)} />
-      <BlockIPModal      agent={agent} isOpen={blockOpen} onClose={() => setBlockOpen(false)} />
+      <KillProcessModal agent={agent} isOpen={killOpen} onClose={() => setKillOpen(false)} />
+      <BlockIPModal agent={agent} isOpen={blockOpen} onClose={() => setBlockOpen(false)} />
     </>
   );
 }
@@ -211,7 +211,7 @@ function AgentRow({ agent }) {
 // Main Component
 // =============================================================================
 export default function AgentControlPage() {
-  const [agents,  setAgents]  = useState([]);
+  const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -226,16 +226,16 @@ export default function AgentControlPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const online  = agents.filter(a => a.status === 'online').length;
+  const online = agents.filter(a => a.status === 'online').length;
   const offline = agents.length - online;
 
   return (
-    <div className="flex flex-col gap-6 p-6 animate-fade-in">
+    <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-6 flex flex-col gap-6 min-w-0 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2.5" style={{ color: '#f8fafc' }}>
-            <span style={{ background:'linear-gradient(135deg,rgba(16,185,129,0.2),rgba(16,185,129,0.05))', border:'1px solid rgba(16,185,129,0.25)', borderRadius:'10px', padding:'6px 8px', display:'inline-flex' }}>
+            <span style={{ background: 'linear-gradient(135deg,rgba(16,185,129,0.2),rgba(16,185,129,0.05))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '10px', padding: '6px 8px', display: 'inline-flex' }}>
               <Cpu size={18} style={{ color: '#10b981' }} />
             </span>
             Agent &amp; Endpoint Control
@@ -249,18 +249,18 @@ export default function AgentControlPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Online', value: online,         color: '#10b981', icon: Wifi },
-          { label: 'Offline', value: offline,        color: '#ff3366', icon: WifiOff },
-          { label: 'Total',  value: agents.length,  color: '#3b82f6', icon: Cpu },
+          { label: 'Online', value: online, color: '#10b981', icon: Wifi },
+          { label: 'Offline', value: offline, color: '#ff3366', icon: WifiOff },
+          { label: 'Total', value: agents.length, color: '#3b82f6', icon: Cpu },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className="soc-card p-4 flex items-center gap-4">
+          <div key={label} className="soc-card p-4 flex items-center gap-4 min-w-0">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ background: `rgba(${color === '#10b981' ? '16,185,129' : color === '#ff3366' ? '255,51,102' : '59,130,246'},0.1)`, border: `1px solid rgba(${color === '#10b981' ? '16,185,129' : color === '#ff3366' ? '255,51,102' : '59,130,246'},0.2)` }}>
               <Icon size={18} style={{ color }} />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-2xl font-bold" style={{ color }}>{value}</p>
               <p className="text-xs" style={{ color: '#64748b' }}>Agents {label}</p>
             </div>
@@ -271,8 +271,8 @@ export default function AgentControlPage() {
       {/* Agents Table */}
       <div className="soc-card overflow-hidden">
         {loading ? <PageLoader /> : (
-          <div className="overflow-x-auto">
-            <table className="soc-table">
+          <div className="w-full overflow-x-auto">
+            <table className="soc-table w-full min-w-[850px]">
               <thead>
                 <tr>
                   <th>Agent ID</th>
@@ -297,7 +297,7 @@ export default function AgentControlPage() {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-6 text-xs" style={{ color: '#475569' }}>
+      <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs" style={{ color: '#475569' }}>
         <span className="flex items-center gap-1.5"><span className="status-dot-online" />Online — Agent active &amp; accepting commands</span>
         <span className="flex items-center gap-1.5"><span className="status-dot-offline" />Offline — No heartbeat for &gt;5 minutes</span>
         <span style={{ color: '#334155' }}>|</span>

@@ -1,9 +1,9 @@
 // src/components/layout/TopBar.jsx
-import { Bell, ChevronDown, LogOut, RefreshCw, User, WifiOff } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Menu, RefreshCw, User, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 
-export default function TopBar() {
+export default function TopBar({ onOpenMobileMenu }) {
   const { wsConnected, liveAlerts, reconnectAttempts, user, logoutContext } = useApp();
   const [time, setTime] = useState(new Date());
   const [pulse, setPulse] = useState(false);
@@ -49,16 +49,24 @@ export default function TopBar() {
 
   return (
     <header
-      className="flex items-center justify-between px-6 py-4 shrink-0 z-10"
+      className="flex items-center justify-between px-4 sm:px-6 py-3.5 shrink-0 z-10 w-full min-w-0"
       style={{ background: 'rgba(10, 14, 23, 0.75)', borderBottom: '1px solid #1e293b', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
     >
-      {/* Left: Page title / Breadcrumb */}
-      <div className="flex items-center gap-4">
-        <h1 className="text-base font-semibold text-gray-200 tracking-wide">
+      {/* Left: Mobile hamburger + Page title / Breadcrumb */}
+      <div className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={onOpenMobileMenu}
+          className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+          title="Toggle navigation drawer"
+        >
+          <Menu size={20} />
+        </button>
+
+        <h1 className="text-sm sm:text-base p-4 font-semibold text-gray-200 tracking-wide truncate">
           Unified SOC / EDR Console
         </h1>
-        <span className="text-xs text-gray-600 font-mono">|</span>
-        <span className="text-xs text-gray-500 font-mono">
+        <span className="hidden sm:inline text-xs text-gray-600 font-mono">|</span>
+        <span className="hidden sm:inline text-xs text-gray-500 font-mono truncate">
           {formatDate(time)} &nbsp;—&nbsp;
           <span className="text-cyan-400 font-semibold">{formatTime(time)}</span>
         </span>

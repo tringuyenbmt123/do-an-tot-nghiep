@@ -385,7 +385,7 @@ export default function DetectionRulesPage() {
   }
 
   return (
-    <div className="p-6 space-y-7 max-w-[1600px] mx-auto text-slate-100">
+    <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-6 space-y-6 min-w-0 text-slate-100 animate-fade-in">
       {/* ─── Header ───────────────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
@@ -428,7 +428,7 @@ export default function DetectionRulesPage() {
       </div>
 
       {/* ─── KPI Stats Cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-slate-400">Tổng Số Rules</p>
@@ -471,7 +471,7 @@ export default function DetectionRulesPage() {
       </div>
 
       {/* ─── Search & Filter Bar ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/80 border border-slate-800 w-full">
         <div className="relative w-full sm:w-80">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -505,125 +505,127 @@ export default function DetectionRulesPage() {
 
       {/* ─── Rules Table (Fits 100% Window Width) ────────────────────────────── */}
       <div className="soc-card overflow-hidden w-full">
-        <table className="soc-table w-full table-fixed">
-          <thead>
-            <tr>
-              <th className="w-[24%] px-4 py-4 text-left font-bold" style={{ padding: '16px 16px' }}>Rule ID & Tên</th>
-              <th className="w-[11%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>Mức Độ</th>
-              <th className="w-[15%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>Event Type</th>
-              <th className="w-[13%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>MITRE ATT&CK</th>
-              <th className="w-[25%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>Điều Kiện Match</th>
-              <th className="w-[6%] px-2 py-4 text-center font-bold" style={{ padding: '16px 6px' }}>Trạng Thái</th>
-              <th className="w-[6%] px-2 py-4 text-right font-bold" style={{ padding: '16px 6px' }}>Thao Tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRules.length === 0 ? (
+        <div className="w-full overflow-x-auto">
+          <table className="soc-table w-full min-w-[950px]">
+            <thead>
               <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                  Không tìm thấy Rule nào phù hợp với bộ lọc
-                </td>
+                <th className="w-[24%] px-4 py-4 text-left font-bold" style={{ padding: '16px 16px' }}>Rule ID & Tên</th>
+                <th className="w-[11%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>Mức Độ</th>
+                <th className="w-[15%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>Event Type</th>
+                <th className="w-[13%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>MITRE ATT&CK</th>
+                <th className="w-[25%] px-3 py-4 text-left font-bold" style={{ padding: '16px 12px' }}>Điều Kiện Match</th>
+                <th className="w-[6%] px-2 py-4 text-center font-bold" style={{ padding: '16px 6px' }}>Trạng Thái</th>
+                <th className="w-[6%] px-2 py-4 text-right font-bold" style={{ padding: '16px 6px' }}>Thao Tác</th>
               </tr>
-            ) : (
-              filteredRules.map((rule) => {
-                const conds = parseConditionsList(rule.conditions);
-                const isActive = rule.is_active !== false;
+            </thead>
+            <tbody>
+              {filteredRules.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                    Không tìm thấy Rule nào phù hợp với bộ lọc
+                  </td>
+                </tr>
+              ) : (
+                filteredRules.map((rule) => {
+                  const conds = parseConditionsList(rule.conditions);
+                  const isActive = rule.is_active !== false;
 
-                return (
-                  <tr key={rule.id} className="hover:bg-slate-800/40 transition-colors">
-                    {/* ID & Name */}
-                    <td className="px-4 py-4 align-middle" style={{ padding: '18px 16px' }}>
-                      <div className="flex flex-col gap-1.5 overflow-hidden">
-                        <span className="font-mono text-xs font-bold text-cyan-400 tracking-wider truncate block">{rule.id}</span>
-                        <span className="text-sm font-semibold text-slate-100 leading-snug block truncate" title={rule.name}>
-                          {rule.name}
+                  return (
+                    <tr key={rule.id} className="hover:bg-slate-800/40 transition-colors">
+                      {/* ID & Name */}
+                      <td className="px-4 py-4 align-middle" style={{ padding: '18px 16px' }}>
+                        <div className="flex flex-col gap-1.5 overflow-hidden">
+                          <span className="font-mono text-xs font-bold text-cyan-400 tracking-wider truncate block">{rule.id}</span>
+                          <span className="text-sm font-semibold text-slate-100 leading-snug block truncate" title={rule.name}>
+                            {rule.name}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Severity */}
+                      <td className="px-3 py-4 align-middle" style={{ padding: '18px 12px' }}>
+                        <SeverityBadge severity={rule.severity} />
+                      </td>
+
+                      {/* Event Type */}
+                      <td className="px-3 py-4 font-mono text-xs text-slate-300 align-middle" style={{ padding: '18px 12px' }}>
+                        <span className="px-2.5 py-1 rounded-md bg-slate-800/90 border border-slate-700/80 shadow-sm inline-block font-mono truncate max-w-full" title={rule.event_type}>
+                          {rule.event_type || 'sysmon_process_create'}
                         </span>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Severity */}
-                    <td className="px-3 py-4 align-middle" style={{ padding: '18px 12px' }}>
-                      <SeverityBadge severity={rule.severity} />
-                    </td>
+                      {/* MITRE ATT&CK */}
+                      <td className="px-3 py-4 align-middle" style={{ padding: '18px 12px' }}>
+                        {rule.mitre_technique_id ? (
+                          <div className="flex flex-col gap-1 font-mono text-xs overflow-hidden">
+                            <span className="text-orange-400 font-bold block truncate">{rule.mitre_technique_id}</span>
+                            {rule.mitre_tactic && (
+                              <span className="text-slate-400 block text-xs leading-normal truncate" title={rule.mitre_tactic}>{rule.mitre_tactic}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-600 text-xs">-</span>
+                        )}
+                      </td>
 
-                    {/* Event Type */}
-                    <td className="px-3 py-4 font-mono text-xs text-slate-300 align-middle" style={{ padding: '18px 12px' }}>
-                      <span className="px-2.5 py-1 rounded-md bg-slate-800/90 border border-slate-700/80 shadow-sm inline-block font-mono truncate max-w-full" title={rule.event_type}>
-                        {rule.event_type || 'sysmon_process_create'}
-                      </span>
-                    </td>
-
-                    {/* MITRE ATT&CK */}
-                    <td className="px-3 py-4 align-middle" style={{ padding: '18px 12px' }}>
-                      {rule.mitre_technique_id ? (
-                        <div className="flex flex-col gap-1 font-mono text-xs overflow-hidden">
-                          <span className="text-orange-400 font-bold block truncate">{rule.mitre_technique_id}</span>
-                          {rule.mitre_tactic && (
-                            <span className="text-slate-400 block text-xs leading-normal truncate" title={rule.mitre_tactic}>{rule.mitre_tactic}</span>
+                      {/* Conditions Summary */}
+                      <td className="px-3 py-4 align-middle max-w-xs" style={{ padding: '18px 12px' }}>
+                        <div className="flex flex-col gap-1.5 overflow-hidden">
+                          {conds.slice(0, 2).map((c, i) => (
+                            <div key={i} className="text-xs font-mono text-slate-300 truncate leading-snug block" title={`${c.field} ${c.operator} ${c.value}`}>
+                              <span className="text-blue-400 font-semibold">{c.field}</span>{' '}
+                              <span className="text-amber-400 font-medium">{c.operator}</span>{' '}
+                              <span className="text-emerald-300 font-normal">{c.value}</span>
+                            </div>
+                          ))}
+                          {conds.length > 2 && (
+                            <div className="text-xs text-slate-500 font-mono">+{conds.length - 2} điều kiện nữa...</div>
                           )}
                         </div>
-                      ) : (
-                        <span className="text-slate-600 text-xs">-</span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Conditions Summary */}
-                    <td className="px-3 py-4 align-middle" style={{ padding: '18px 12px' }}>
-                      <div className="flex flex-col gap-1.5 overflow-hidden">
-                        {conds.slice(0, 2).map((c, i) => (
-                          <div key={i} className="text-xs font-mono text-slate-300 truncate leading-snug block" title={`${c.field} ${c.operator} ${c.value}`}>
-                            <span className="text-blue-400 font-semibold">{c.field}</span>{' '}
-                            <span className="text-amber-400 font-medium">{c.operator}</span>{' '}
-                            <span className="text-emerald-300 font-normal">{c.value}</span>
-                          </div>
-                        ))}
-                        {conds.length > 2 && (
-                          <div className="text-xs text-slate-500 font-mono">+{conds.length - 2} điều kiện nữa...</div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Active Status Toggle */}
-                    <td className="px-2 py-4 text-center align-middle" style={{ padding: '18px 6px' }}>
-                      <button
-                        onClick={() => handleToggleRule(rule.id, isActive)}
-                        className="inline-flex items-center justify-center cursor-pointer transition-transform active:scale-95"
-                        title={isActive ? 'Nhấn để tắt Rule' : 'Nhấn để bật Rule'}
-                      >
-                        {isActive ? (
-                          <ToggleRight size={30} className="text-emerald-400 hover:text-emerald-300 drop-shadow" />
-                        ) : (
-                          <ToggleLeft size={30} className="text-slate-600 hover:text-slate-500" />
-                        )}
-                      </button>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-2 py-4 text-right align-middle" style={{ padding: '18px 6px' }}>
-                      <div className="flex items-center justify-end gap-1.5">
+                      {/* Active Status Toggle */}
+                      <td className="px-2 py-4 text-center align-middle" style={{ padding: '18px 6px' }}>
                         <button
-                          onClick={() => openEditModal(rule)}
-                          className="p-1.5 rounded-lg text-slate-300 hover:text-cyan-300 hover:bg-cyan-500/15 transition-colors cursor-pointer"
-                          title="Chỉnh sửa Rule (Form / YAML)"
+                          onClick={() => handleToggleRule(rule.id, isActive)}
+                          className="inline-flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+                          title={isActive ? 'Nhấn để tắt Rule' : 'Nhấn để bật Rule'}
                         >
-                          <Edit3 size={17} />
+                          {isActive ? (
+                            <ToggleRight size={30} className="text-emerald-400 hover:text-emerald-300 drop-shadow" />
+                          ) : (
+                            <ToggleLeft size={30} className="text-slate-600 hover:text-slate-500" />
+                          )}
                         </button>
+                      </td>
 
-                        <button
-                          onClick={() => handleDeleteRule(rule.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
-                          title="Xóa Rule"
-                        >
-                          <Trash2 size={17} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      {/* Actions */}
+                      <td className="px-2 py-4 text-right align-middle" style={{ padding: '18px 6px' }}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openEditModal(rule)}
+                            className="p-1.5 rounded-lg text-slate-300 hover:text-cyan-300 hover:bg-cyan-500/15 transition-colors cursor-pointer"
+                            title="Chỉnh sửa Rule (Form / YAML)"
+                          >
+                            <Edit3 size={17} />
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteRule(rule.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                            title="Xóa Rule"
+                          >
+                            <Trash2 size={17} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ─── Add / Edit Rule Modal ───────────────────────────────────────────── */}
@@ -659,11 +661,10 @@ export default function DetectionRulesPage() {
               <button
                 type="button"
                 onClick={() => handleTabSwitch('form')}
-                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  editorTab === 'form'
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${editorTab === 'form'
                     ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-md shadow-cyan-500/10'
                     : 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
+                  }`}
               >
                 <Edit3 size={16} className={editorTab === 'form' ? 'text-cyan-400' : 'text-slate-400'} />
                 Form Giao Diện (UI)
@@ -672,11 +673,10 @@ export default function DetectionRulesPage() {
               <button
                 type="button"
                 onClick={() => handleTabSwitch('yaml')}
-                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                  editorTab === 'yaml'
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${editorTab === 'yaml'
                     ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-md shadow-purple-500/10'
                     : 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
+                  }`}
               >
                 <Code size={16} className={editorTab === 'yaml' ? 'text-purple-400' : 'text-slate-400'} />
                 Trình Chỉnh Sửa YAML

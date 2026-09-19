@@ -36,7 +36,7 @@ class WebSocketHub:
         event = {
             "type": event_type,
             "payload": payload,
-            "time": datetime.utcnow().isoformat(),
+            "time": datetime.utcnow().isoformat() + "Z",
         }
         message_str = json.dumps(event)
 

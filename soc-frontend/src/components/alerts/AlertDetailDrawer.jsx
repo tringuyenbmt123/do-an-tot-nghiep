@@ -31,6 +31,7 @@ import { blockIP, dispatchAlertToSOAR, escalateAlertToCase, killProcess, updateA
 import JsonViewer from '../common/JsonViewer';
 import SeverityBadge from '../common/SeverityBadge';
 import StatusBadge from '../common/StatusBadge';
+import { formatDateTime } from '../../utils/date';
 
 export default function AlertDetailDrawer({ alert, onClose, onUpdated, onNavigateToCases }) {
   const { addToast } = useApp();
@@ -360,7 +361,7 @@ export default function AlertDetailDrawer({ alert, onClose, onUpdated, onNavigat
                   <div className="flex flex-col gap-1.5">
                     <p className="text-xs text-slate-400 font-medium">Detection Time</p>
                     <p className="text-sm font-bold text-slate-100 font-mono leading-relaxed">
-                      {new Date(alert.created_at).toLocaleString('en-GB')}
+                      {formatDateTime(alert.created_at)}
                     </p>
                     <p className="text-xs text-slate-400 leading-relaxed">Event Type: <span className="font-mono text-cyan-300 font-semibold">{alert.event_type}</span></p>
                   </div>

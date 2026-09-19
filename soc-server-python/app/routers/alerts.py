@@ -15,6 +15,7 @@ from app.services.case_service import CaseService
 from app.services.soar_service import SOARService
 from app.middleware.auth import get_current_user
 from app.websocket.hub import ws_hub
+from app.grpc_server.connection_manager import global_conn_manager
 
 router = APIRouter(prefix="/api/v1/alerts", tags=["Alerts"])
 
@@ -81,14 +82,32 @@ async def create_alert(
     alert = await alert_service.create_alert(alert_data)
 
     # Broadcast qua WebSocket
+    agent_info = None
+    if alert.agent:
+        agent_info = {
+            "id": alert.agent.id,
+            "hostname": alert.agent.hostname,
+            "ip_address": alert.agent.ip_address,
+        }
+    else:
+        conn = await global_conn_manager.get_connection(alert.agent_id)
+        agent_info = {
+            "id": alert.agent_id,
+            "hostname": conn.hostname if conn else alert.agent_id,
+            "ip_address": conn.ip_address if conn else "",
+        }
+
     await ws_hub.broadcast_alert({
         "id": alert.id,
         "agent_id": alert.agent_id,
+        "agent": agent_info,
+        "hostname": agent_info.get("hostname"),
         "event_type": alert.event_type,
         "severity": alert.severity,
         "title": alert.title,
         "status": alert.status,
-        "created_at": alert.created_at.isoformat() if alert.created_at else None,
+        "mitre_tactic": alert.mitre_tactic,
+        "created_at": (alert.created_at.isoformat() + "Z") if alert.created_at else None,
     })
 
     # Dispatch to SOAR nếu cần

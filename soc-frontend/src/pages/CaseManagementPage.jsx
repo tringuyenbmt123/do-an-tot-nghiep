@@ -424,7 +424,20 @@ export default function CaseManagementPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={9} className="text-center py-12 text-gray-600">No cases found.</td></tr>
+                  <tr>
+                    <td colSpan={9} style={{ padding: 0, border: 'none' }}>
+                      <div className="empty-state">
+                        <div className="empty-state-icon">
+                          <BookOpen size={22} />
+                        </div>
+                        <p className="empty-state-title">No cases found</p>
+                        <p className="empty-state-desc">
+                          Không có case nào phù hợp với bộ lọc hiện tại.
+                          Hãy thử tìm kiếm hoặc điều chỉnh các bộ lọc.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
                 ) : filtered.map((c) => {
                   const tags = (() => { try { return JSON.parse(c.tags || '[]'); } catch { return []; } })();
                   return (

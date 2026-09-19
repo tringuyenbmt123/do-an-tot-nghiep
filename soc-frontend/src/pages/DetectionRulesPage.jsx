@@ -428,43 +428,43 @@ export default function DetectionRulesPage() {
       </div>
 
       {/* ─── KPI Stats Cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
+        <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
           <div>
-            <p className="text-xs font-medium text-slate-400">Tổng Số Rules</p>
-            <p className="text-2xl font-bold font-mono text-white mt-1">{stats.total}</p>
+            <p className="text-xs font-medium" style={{ color: '#9CA3AF', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Tổng Số Rules</p>
+            <p className="text-3xl font-extrabold font-mono text-white mt-2" style={{ letterSpacing: '-0.02em', fontFamily: "'Inter', monospace" }}>{stats.total}</p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+          <div className="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
             <Shield size={20} />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+        <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
           <div>
-            <p className="text-xs font-medium text-slate-400">Rules Đang Active</p>
-            <p className="text-2xl font-bold font-mono text-emerald-400 mt-1">{stats.active}</p>
+            <p className="text-xs font-medium" style={{ color: '#9CA3AF', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Rules Đang Active</p>
+            <p className="text-3xl font-extrabold font-mono text-emerald-400 mt-2" style={{ letterSpacing: '-0.02em', fontFamily: "'Inter', monospace" }}>{stats.active}</p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
             <CheckCircle2 size={20} />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+        <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
           <div>
-            <p className="text-xs font-medium text-slate-400">Mức Độ Critical / High</p>
-            <p className="text-2xl font-bold font-mono text-rose-400 mt-1">{stats.criticalOrHigh}</p>
+            <p className="text-xs font-medium" style={{ color: '#9CA3AF', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Mức Critical / High</p>
+            <p className="text-3xl font-extrabold font-mono text-rose-400 mt-2" style={{ letterSpacing: '-0.02em', fontFamily: "'Inter', monospace" }}>{stats.criticalOrHigh}</p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+          <div className="w-11 h-11 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
             <AlertTriangle size={20} />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+        <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
           <div>
-            <p className="text-xs font-medium text-slate-400">Rules Đang Đóng (Disabled)</p>
-            <p className="text-2xl font-bold font-mono text-slate-400 mt-1">{stats.inactive}</p>
+            <p className="text-xs font-medium" style={{ color: '#9CA3AF', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Disabled Rules</p>
+            <p className="text-3xl font-extrabold font-mono text-slate-400 mt-2" style={{ letterSpacing: '-0.02em', fontFamily: "'Inter', monospace" }}>{stats.inactive}</p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
+          <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
             <ToggleLeft size={20} />
           </div>
         </div>
@@ -521,8 +521,17 @@ export default function DetectionRulesPage() {
             <tbody>
               {filteredRules.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                    Không tìm thấy Rule nào phù hợp với bộ lọc
+                  <td colSpan={7} style={{ padding: 0, border: 'none' }}>
+                    <div className="empty-state">
+                      <div className="empty-state-icon">
+                        <Sliders size={22} />
+                      </div>
+                      <p className="empty-state-title">Không tìm thấy Rule nào</p>
+                      <p className="empty-state-desc">
+                        Không có Detection Rule nào phù hợp với bộ lọc hiện tại.
+                        Hãy thử thay đổi từ khóa hoặc mức độ severity.
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -662,8 +671,8 @@ export default function DetectionRulesPage() {
                 type="button"
                 onClick={() => handleTabSwitch('form')}
                 className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${editorTab === 'form'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-md shadow-cyan-500/10'
-                    : 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-md shadow-cyan-500/10'
+                  : 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
               >
                 <Edit3 size={16} className={editorTab === 'form' ? 'text-cyan-400' : 'text-slate-400'} />
@@ -674,8 +683,8 @@ export default function DetectionRulesPage() {
                 type="button"
                 onClick={() => handleTabSwitch('yaml')}
                 className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${editorTab === 'yaml'
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-md shadow-purple-500/10'
-                    : 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-md shadow-purple-500/10'
+                  : 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
               >
                 <Code size={16} className={editorTab === 'yaml' ? 'text-purple-400' : 'text-slate-400'} />

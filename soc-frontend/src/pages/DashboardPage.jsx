@@ -466,12 +466,24 @@ export default function DashboardPage() {
             <tbody>
               {filteredAlerts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16" style={{ color: '#475569' }}>
-                    {loading
-                      ? 'Loading alerts...'
-                      : severityFilter !== 'all'
-                        ? `Không có alert nào thuộc mức độ ${severityFilter.toUpperCase()}`
-                        : '⚡ No alerts yet — Waiting for incoming security events...'}
+                  <td colSpan={7} style={{ padding: 0, border: 'none' }}>
+                    <div className="empty-state">
+                      <div className="empty-state-icon">
+                        <Zap size={22} />
+                      </div>
+                      <p className="empty-state-title">
+                        {loading
+                          ? 'Đang tải dữ liệu...'
+                          : severityFilter !== 'all'
+                            ? `Không có alert mức ${severityFilter.toUpperCase()}`
+                            : 'Chưa có alert nào'}
+                      </p>
+                      <p className="empty-state-desc">
+                        {loading
+                          ? 'Hệ thống đang kết nối và tải dữ liệu...'
+                          : '⚡ Đang chờ các sự kiện bảo mật mới từ hệ thống...'}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (

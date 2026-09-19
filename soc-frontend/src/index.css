@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @import "tailwindcss";
 
@@ -38,8 +38,16 @@
   --color-text-dim: #475569;
 
   /* === Fonts === */
-  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-sans: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+  /* === Typography scale === */
+  --text-stat: 700;
+  /* Bold weight for stat numbers */
+  --text-label: 300;
+  /* Light weight for sub-labels */
+  --color-text-sub: #9CA3AF;
+  /* Sub-label color per spec */
 }
 
 /* ============================================================
@@ -77,13 +85,14 @@ html {
 }
 
 body {
-  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
   background-color: #0a0e17;
   color: #f8fafc;
   line-height: 1.6;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
 /* ============================================================
@@ -263,7 +272,8 @@ body {
   transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
   position: relative;
   overflow: hidden;
-  padding: 20px;
+  /* +20% padding từ 20px → 24px */
+  padding: 24px;
 }
 
 .soc-card::before {
@@ -366,23 +376,26 @@ body {
 
 .soc-table th {
   background: rgba(10, 14, 23, 0.95);
-  color: #94a3b8;
+  color: #9CA3AF;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  padding: 18px 24px;
+  /* +20% padding từ 18px 24px → 22px 28px */
+  padding: 22px 28px;
   border-bottom: 1px solid #1e293b;
   white-space: nowrap;
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
 .soc-table td {
-  padding: 20px 24px !important;
+  /* +20% padding từ 20px 24px → 24px 28px */
+  padding: 24px 28px !important;
   border-bottom: 1px solid rgba(30, 41, 59, 0.6);
   font-size: 13px;
   line-height: 1.6;
   color: #e2e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
   vertical-align: middle;
   transition: background 0.15s ease;
 }
@@ -668,4 +681,132 @@ select.soc-input {
   height: 100%;
   border-radius: 999px;
   transition: width 0.4s ease;
+}
+
+/* ============================================================
+   TYPOGRAPHY UTILITIES — Stat Numbers & Sub-labels
+   ============================================================ */
+
+/* Số liệu thống kê: to, đậm, nổi bật */
+.stat-number {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Chữ mô tả phụ: mỏng, xám sáng, dễ đọc */
+.text-sub {
+  color: #9CA3AF;
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.5;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.text-sub-sm {
+  color: #9CA3AF;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* ============================================================
+   EMPTY STATE — Centered, Spacious, Modern
+   ============================================================ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 32px;
+  text-align: center;
+  gap: 12px;
+}
+
+.empty-state-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  color: #475569;
+}
+
+.empty-state-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.empty-state-desc {
+  font-size: 12px;
+  font-weight: 400;
+  color: #475569;
+  max-width: 320px;
+  line-height: 1.6;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* ============================================================
+   CHART SECTION SPACING
+   ============================================================ */
+.chart-section {
+  margin-bottom: 8px;
+}
+
+.chart-section+.chart-section {
+  margin-top: 8px;
+}
+
+/* ============================================================
+   SIDEBAR NAV ENHANCEMENTS (supplementary)
+   ============================================================ */
+.sidebar-nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* 12px gap giữa icon và chữ theo spec */
+  padding: 10px 14px;
+  border-radius: 8px;
+  /* bo góc 8px theo spec */
+  text-align: left;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+  border: none;
+  background: transparent;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #9CA3AF;
+  border-left: 4px solid transparent;
+  /* placeholder for active indicator */
+  margin-left: -4px;
+  /* compensate for border to keep alignment */
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+.sidebar-nav-item.active {
+  background: rgba(0, 191, 255, 0.15);
+  color: #ffffff;
+  font-weight: 600;
+  border-left-color: #00BFFF;
+}
+
+.sidebar-nav-item.active .sidebar-icon {
+  opacity: 1;
+  filter: brightness(1.3);
 }

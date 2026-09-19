@@ -26,7 +26,7 @@ export default function MetricCard({
   return (
     <div
       className="soc-card min-w-0"
-      style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}
+      style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}
     >
       {/* hàng trên: nhãn + icon */}
       <div className="flex items-start justify-between gap-3 min-w-0">
@@ -35,10 +35,12 @@ export default function MetricCard({
           style={{
             fontSize: '11px',
             fontWeight: 600,
-            letterSpacing: '0.06em',
+            letterSpacing: '0.07em',
             textTransform: 'uppercase',
-            color: '#64748b',
+            /* #9CA3AF theo spec — tăng tương phản so với nền đen */
+            color: '#9CA3AF',
             lineHeight: 1.45,
+            fontFamily: "'Inter', system-ui, sans-serif",
           }}
           title={title}
         >
@@ -77,12 +79,14 @@ export default function MetricCard({
         <p
           className="truncate"
           style={{
-            fontSize: '30px',
-            lineHeight: '36px',
-            fontWeight: 700,
+            /* số to và đậm hơn theo spec: 34px, font-weight 800 */
+            fontSize: '34px',
+            lineHeight: '40px',
+            fontWeight: 800,
             color: c.text,
             fontVariantNumeric: 'tabular-nums',
-            letterSpacing: '-0.01em',
+            letterSpacing: '-0.02em',
+            fontFamily: "'Inter', system-ui, sans-serif",
           }}
         >
           {value ?? '—'}
@@ -93,7 +97,14 @@ export default function MetricCard({
       {subtitle && (
         <p
           className="truncate"
-          style={{ fontSize: '12px', lineHeight: '18px', color: '#64748b' }}
+          style={{
+            fontSize: '12px',
+            lineHeight: '18px',
+            /* mỏng hơn (300) và dùng #9CA3AF theo spec */
+            fontWeight: 300,
+            color: '#9CA3AF',
+            fontFamily: "'Inter', system-ui, sans-serif",
+          }}
           title={subtitle}
         >
           {subtitle}

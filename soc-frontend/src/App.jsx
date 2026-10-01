@@ -1,101 +1,79 @@
-// =============================================================================
+// ==============================================================
 // src/App.jsx
-// Root application component
-// Renders: LoginPage (if unauthenticated) OR Sidebar + TopBar + Active Page
-// =============================================================================
+// Main application router and context providers
+// ==============================================================
+import React, { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { ThemeProvider } from './contexts/ThemeContext'
+import { ToastProvider } from './contexts/ToastContext'
 
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { PageLoader } from './components/common/LoadingSpinner';
-import ToastContainer from './components/layout/ToastContainer';
-import Sidebar from './components/layout/Sidebar';
-import TopBar from './components/layout/TopBar';
-import LoginPage from './pages/LoginPage';
-import { useApp } from './context/AppContext';
 
-// Lazy-load pages for performance
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const DetectionRulesPage = lazy(() => import('./pages/DetectionRulesPage'));
-const CaseManagementPage = lazy(() => import('./pages/CaseManagementPage'));
-const ThreatIntelPage = lazy(() => import('./pages/ThreatIntelPage'));
-const AgentControlPage = lazy(() => import('./pages/AgentControlPage'));
-const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
+// Pages
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import Alerts from './pages/Alerts'
+import Cases from './pages/Cases'
+import Agents from './pages/Agents'
+import ThreatIntel from './pages/ThreatIntel'
+import DetectionRules from './pages/DetectionRules'
+import AuditSettings from './pages/AuditSettings'
+import SIEM from './pages/SIEM'
+import MITRE from './pages/MITRE'
+import Vulns from './pages/Vulns'
+import Assets from './pages/Assets'
+import Firewall from './pages/Firewall'
+import Playbooks from './pages/Playbooks'
+import Reports from './pages/Reports'
 
-const PAGE_MAP = {
-  dashboard: DashboardPage,
-  rules: DetectionRulesPage,
-  cases: CaseManagementPage,
-  threats: ThreatIntelPage,
-  agents: AgentControlPage,
-  audit: AuditLogsPage,
-};
+// Route Guard
+function PrivateRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth()
+  const location = useLocation()
 
-function ActivePage() {
-  const { activeTab } = useApp();
-  const Page = PAGE_MAP[activeTab] || DashboardPage;
+  if (loading) {
+    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Đang kiểm tra phiên đăng nhập...</div>
+  }
 
-  return (
-    <Suspense fallback={<PageLoader />}>
-      <Page />
-    </Suspense>
-  );
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  return children
 }
 
 export default function App() {
-  const { isAuthenticated } = useApp();
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Auto handle collapse state based on window breakpoint
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setCollapsed(false);
-      } else if (window.innerWidth < 1280) {
-        setCollapsed(true);
-      } else {
-        setCollapsed(false);
-      }
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // If unauthenticated -> render Login Page
-  if (!isAuthenticated) {
-    return (
-      <>
-        <LoginPage />
-        <ToastContainer />
-      </>
-    );
-  }
-
   return (
-    <div
-      className="flex h-screen w-full bg-[#0a0e17] text-[#f8fafc] overflow-hidden"
-    >
-      {/* Left Sidebar */}
-      <Sidebar
-        collapsed={collapsed}
-        setCollapsed={setCollapsed}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-      />
+    <ThemeProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public Route */}
+              <Route path="/login" element={<Login />} />
 
-      {/* Main content area */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Top navigation bar */}
-        <TopBar onOpenMobileMenu={() => setMobileOpen(true)} />
+              {/* Private Routes */}
+              <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/alerts" element={<PrivateRoute><Alerts /></PrivateRoute>} />
+              <Route path="/cases" element={<PrivateRoute><Cases /></PrivateRoute>} />
+              <Route path="/agents" element={<PrivateRoute><Agents /></PrivateRoute>} />
+              <Route path="/intel" element={<PrivateRoute><ThreatIntel /></PrivateRoute>} />
+              <Route path="/rules" element={<PrivateRoute><DetectionRules /></PrivateRoute>} />
+              <Route path="/audit" element={<PrivateRoute><AuditSettings /></PrivateRoute>} />
+              <Route path="/siem" element={<PrivateRoute><SIEM /></PrivateRoute>} />
+              <Route path="/mitre" element={<PrivateRoute><MITRE /></PrivateRoute>} />
+              <Route path="/vulns" element={<PrivateRoute><Vulns /></PrivateRoute>} />
+              <Route path="/assets" element={<PrivateRoute><Assets /></PrivateRoute>} />
+              <Route path="/firewall" element={<PrivateRoute><Firewall /></PrivateRoute>} />
+              <Route path="/playbooks" element={<PrivateRoute><Playbooks /></PrivateRoute>} />
+              <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
 
-        {/* Scrollable page content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
-          <ActivePage />
-        </main>
-      </div>
-
-      {/* Toast notification system (fixed bottom-right) */}
-      <ToastContainer />
-    </div>
-  );
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </ToastProvider>
+    </ThemeProvider>
+  )
 }

@@ -1,0 +1,335 @@
+// ==============================================================
+// src/pages/Cases.jsx
+// ==============================================================
+import React, { useState, useEffect, useCallback } from 'react'
+import { FolderOpen, Plus, RefreshCw, Search } from 'lucide-react'
+import Layout from '../components/layout/Layout'
+import SeverityBadge from '../components/ui/SeverityBadge'
+import StatusBadge from '../components/ui/StatusBadge'
+import SkeletonTable from '../components/ui/SkeletonTable'
+import EmptyState from '../components/ui/EmptyState'
+import Pagination from '../components/ui/Pagination'
+import Modal from '../components/ui/Modal'
+import { getCases, createCase, updateCaseStatus, assignCase, addCaseNote } from '../api/cases'
+import { useDebounce } from '../hooks/useDebounce'
+import { useToast } from '../contexts/ToastContext'
+import { useAuth } from '../contexts/AuthContext'
+
+const PAGE_SIZE = 20
+
+const ago = (ts) => {
+  if (!ts) return '—'
+  const sec = Math.floor((Date.now() - new Date(ts)) / 1000)
+  if (sec < 60) return `${sec}s trước`
+  if (sec < 3600) return `${Math.floor(sec/60)}p trước`
+  if (sec < 86400) return `${Math.floor(sec/3600)}h trước`
+  return new Date(ts).toLocaleDateString('vi-VN')
+}
+
+export default function Cases() {
+  const [cases, setCases]           = useState([])
+  const [total, setTotal]           = useState(0)
+  const [page, setPage]             = useState(1)
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState('')
+  const [search, setSearch]         = useState('')
+  const [statusFilter, setStatus]   = useState('')
+  const [showCreate, setShowCreate] = useState(false)
+  const [selected, setSelected]     = useState(null)
+  const [noteText, setNoteText]     = useState('')
+  const [createForm, setCreateForm] = useState({ title: '', description: '', assigned_to: '' })
+  const [createErrors, setCreateErrors] = useState({})
+  const dSearch = useDebounce(search, 400)
+  const toast = useToast()
+  const { user } = useAuth()
+
+  const load = useCallback(async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const params = { page, limit: PAGE_SIZE }
+      if (statusFilter) params.status = statusFilter
+      const res = await getCases(params)
+      setCases(res.data?.data || [])
+      setTotal(res.data?.total || 0)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [page, statusFilter])
+
+  useEffect(() => { load() }, [load])
+  useEffect(() => { setPage(1) }, [statusFilter])
+
+  const filtered = dSearch
+    ? cases.filter(c =>
+        (c.title || '').toLowerCase().includes(dSearch.toLowerCase()) ||
+        (c.id || '').toLowerCase().includes(dSearch.toLowerCase()) ||
+        (c.assigned_to || '').toLowerCase().includes(dSearch.toLowerCase())
+      )
+    : cases
+
+  const handleCreate = async () => {
+    const e = {}
+    if (!createForm.title.trim()) e.title = 'Vui lòng nhập tiêu đề'
+    if (Object.keys(e).length > 0) { setCreateErrors(e); return }
+
+    try {
+      await createCase({
+        title: createForm.title,
+        description: createForm.description,
+        assigned_to: createForm.assigned_to || user?.username,
+      })
+      toast.success('Đã tạo Case mới')
+      setShowCreate(false)
+      setCreateForm({ title: '', description: '', assigned_to: '' })
+      setCreateErrors({})
+      load()
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
+
+  const handleStatusChange = async (caseId, status) => {
+    const labels = { new: 'Mới', progress: 'Đang xử lý', pending: 'Chờ', closed: 'Đóng' }
+    if (!window.confirm(`Đổi trạng thái thành "${labels[status] || status}"?`)) return
+    try {
+      await updateCaseStatus(caseId, status)
+      toast.success('Đã cập nhật trạng thái')
+      load()
+      if (selected?.id === caseId) setSelected(s => ({ ...s, status }))
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
+
+  const handleAddNote = async () => {
+    if (!noteText.trim()) { toast.warn('Vui lòng nhập nội dung ghi chú'); return }
+    try {
+      await addCaseNote(selected.id, noteText)
+      toast.success('Đã thêm ghi chú')
+      setNoteText('')
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
+
+  return (
+    <Layout title="Sự cố">
+      <div className="ph">
+        <div className="ph-left">
+          <div className="ic"><FolderOpen size={20} /></div>
+          <div>
+            <h1>Quản lý Sự cố</h1>
+            <p>Theo dõi, điều tra và đóng các case bảo mật · {total} tổng cộng</p>
+          </div>
+        </div>
+        <div className="act">
+          <button className="b1" onClick={() => setShowCreate(true)}><Plus size={15} /> Tạo Case</button>
+          <button className="b2" onClick={load} disabled={loading}>
+            <RefreshCw size={15} style={loading ? { animation: 'spin .7s linear infinite' } : {}} />
+            Làm mới
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ background: 'rgba(248,81,73,.1)', border: '1px solid var(--crit)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, color: 'var(--crit)', fontSize: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>⚠ {error}</span>
+          <button className="b2" style={{ padding: '4px 10px', fontSize: 12 }} onClick={load}>Thử lại</button>
+        </div>
+      )}
+
+      {/* Toolbar */}
+      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+        <div className="bar2">
+          <div className="q-wrap">
+            <span className="q-icon"><Search size={16} /></span>
+            <input
+              className="q"
+              placeholder="Tìm theo tiêu đề, ID, người phụ trách…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="tools">
+            {['', 'new', 'progress', 'pending', 'closed'].map(v => (
+              <button
+                key={v}
+                className={`chip${statusFilter === v ? ' on' : ''}`}
+                onClick={() => setStatus(v)}
+              >
+                {v === '' ? 'Tất cả' : { new: 'Mới', progress: 'Đang xử lý', pending: 'Chờ', closed: 'Đóng' }[v]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="card" style={{ padding: 0 }}>
+        {loading ? (
+          <div style={{ padding: 16 }}>
+            <SkeletonTable cols={6} rows={8} />
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState message="Không có sự cố" sub={dSearch ? `Không tìm thấy "${dSearch}"` : 'Tạo case mới để bắt đầu điều tra'} />
+        ) : (
+          <>
+            <div className="tw">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Tiêu đề</th>
+                    <th>Mức độ</th>
+                    <th>Trạng thái</th>
+                    <th>Người phụ trách</th>
+                    <th>Cập nhật</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(c => (
+                    <tr key={c.id} className="cl" onClick={() => setSelected(c)}>
+                      <td className="mono" style={{ fontSize: 11 }}>{c.id}</td>
+                      <td style={{ fontWeight: 500, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.title}
+                      </td>
+                      <td><SeverityBadge value={c.severity} /></td>
+                      <td><StatusBadge value={c.status} /></td>
+                      <td style={{ fontSize: 13 }}>{c.assigned_to || '—'}</td>
+                      <td style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{ago(c.updated_at)}</td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <select
+                          className="soc-select"
+                          style={{ fontSize: 12, padding: '3px 24px 3px 8px' }}
+                          value={c.status}
+                          onChange={e => handleStatusChange(c.id, e.target.value)}
+                          aria-label="Đổi trạng thái"
+                        >
+                          <option value="new">Mới</option>
+                          <option value="progress">Đang xử lý</option>
+                          <option value="pending">Chờ</option>
+                          <option value="closed">Đóng</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ padding: '12px 16px' }}>
+              <Pagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Create Case Modal */}
+      <Modal
+        open={showCreate}
+        onClose={() => { setShowCreate(false); setCreateErrors({}) }}
+        title="Tạo Case mới"
+        footer={
+          <>
+            <button className="b2" onClick={() => setShowCreate(false)}>Hủy</button>
+            <button className="b1" onClick={handleCreate}>Tạo Case</button>
+          </>
+        }
+      >
+        <div className="form-group">
+          <label htmlFor="case-title">Tiêu đề *</label>
+          <input
+            id="case-title"
+            className="soc-input"
+            placeholder="Điều tra sự kiện bất thường…"
+            value={createForm.title}
+            onChange={e => { setCreateForm(f => ({ ...f, title: e.target.value })); setCreateErrors(v => ({ ...v, title: '' })) }}
+            style={createErrors.title ? { borderColor: 'var(--crit)' } : {}}
+          />
+          {createErrors.title && <p style={{ color: 'var(--crit)', fontSize: 12, marginTop: 4 }}>{createErrors.title}</p>}
+        </div>
+        <div className="form-group">
+          <label htmlFor="case-desc">Mô tả</label>
+          <textarea
+            id="case-desc"
+            className="soc-input"
+            placeholder="Mô tả chi tiết về sự cố…"
+            value={createForm.description}
+            onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="case-assign">Phụ trách</label>
+          <input
+            id="case-assign"
+            className="soc-input"
+            placeholder={user?.username || 'analyst'}
+            value={createForm.assigned_to}
+            onChange={e => setCreateForm(f => ({ ...f, assigned_to: e.target.value }))}
+          />
+        </div>
+      </Modal>
+
+      {/* Case Detail / Note Modal */}
+      <Modal
+        open={!!selected}
+        onClose={() => { setSelected(null); setNoteText('') }}
+        title={`Case – ${selected?.id || ''}`}
+        size="lg"
+        footer={
+          <>
+            <button className="b2" onClick={() => { setSelected(null); setNoteText('') }}>Đóng</button>
+          </>
+        }
+      >
+        {selected && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>TIÊU ĐỀ</div>
+                <div style={{ fontWeight: 600 }}>{selected.title}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>MỨC ĐỘ</div>
+                <SeverityBadge value={selected.severity} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>TRẠNG THÁI</div>
+                <StatusBadge value={selected.status} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>PHỤTRÁCH</div>
+                <span style={{ fontSize: 13 }}>{selected.assigned_to || '—'}</span>
+              </div>
+            </div>
+
+            {selected.description && (
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>MÔ TẢ</div>
+                <p style={{ fontSize: 14, lineHeight: 1.6 }}>{selected.description}</p>
+              </div>
+            )}
+
+            {/* Add Note */}
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>THÊM GHI CHÚ ĐIỀU TRA</div>
+              <textarea
+                className="soc-input"
+                placeholder="Ghi lại các phát hiện, hành động đã thực hiện…"
+                value={noteText}
+                onChange={e => setNoteText(e.target.value)}
+                style={{ marginBottom: 8 }}
+              />
+              <button className="b1" onClick={handleAddNote} style={{ fontSize: 13 }}>
+                Thêm ghi chú
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </Layout>
+  )
+}

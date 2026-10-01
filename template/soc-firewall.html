@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firewall / IDS – SOC Console</title>
+<style>
+:root{
+  --bg:#f2f5f9;--panel:#ffffff;--panel2:#eef2f7;--line:#dce4ed;
+  --text:#1b2a3b;--muted:#5f7288;--accent:#0a7f9c;
+  --crit:#d92d3f;--high:#e8770e;--med:#e0b000;--low:#2a7de1;--ok:#1f9d5c;
+  --r:6px;
+  --font:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.5 var(--font);display:grid;grid-template-columns:220px 1fr;grid-template-rows:56px 1fr}
+a{color:inherit;text-decoration:none}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Sidebar */
+.side{grid-row:1/3;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 10px;overflow:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px;font-weight:600;font-size:16px}
+.brand i{width:28px;height:28px;border-radius:6px;background:var(--accent);display:grid;place-items:center;color:#fff;font-style:normal;font-weight:700}
+.nav a{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:var(--r);color:var(--muted);margin-bottom:2px}
+.nav a:hover{background:var(--panel2);color:var(--text)}
+.nav a.on{background:var(--panel2);color:var(--text);box-shadow:inset 3px 0 var(--accent)}
+.nav small{color:var(--muted);padding:12px 10px 4px;display:block;font-size:12px}
+.badge{background:var(--crit);color:#fff;border-radius:10px;padding:0 7px;font-size:12px}
+.shift{margin-top:auto;border-top:1px solid var(--line);padding:12px 8px;color:var(--muted);font-size:13px}
+.shift b{color:var(--text);display:block}
+
+/* Nhóm menu thu gọn */
+.grp{margin-top:6px}
+.grp-btn{width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:0;cursor:pointer;padding:8px 10px;border-radius:var(--r);color:var(--muted);text-align:left}
+.grp-btn:hover{background:var(--panel2);color:var(--text)}
+.chev{width:14px;height:14px;transition:transform .25s ease;flex:none}
+.grp-btn[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.sub{display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s ease,opacity .25s ease;opacity:1}
+.sub.closed{grid-template-rows:0fr;opacity:0}
+.sub>div{overflow:hidden;margin-left:16px;border-left:1px solid var(--line)}
+.sub a{margin:2px 0 2px 6px}
+@media(prefers-reduced-motion:reduce){.chev,.sub{transition:none}}
+
+/* Topbar */
+.top{display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+.search{flex:1;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:7px 12px;width:100%}
+.search::placeholder{color:var(--muted)}
+.threat{display:flex;align-items:center;gap:8px;padding:5px 12px;border:1px solid var(--high);border-radius:var(--r);color:var(--high)}
+.threat span{width:8px;height:8px;border-radius:50%;background:currentColor}
+.clock{font-family:var(--mono);color:var(--muted);margin-left:auto;font-size:13px}
+.user{width:32px;height:32px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;font-size:12px}
+
+/* Main */
+main{padding:18px 20px 30px;overflow:auto;display:grid;gap:16px;align-content:start}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.g2{grid-template-columns:2fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g2b{grid-template-columns:3fr 2fr}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;min-width:0;box-shadow:0 1px 2px rgba(27,42,59,.06)}
+.card h2{font-size:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.card h2 span{color:var(--muted);font-weight:400;font-size:12px}
+.kpi .v{font-size:28px;font-weight:600;font-family:var(--mono);line-height:1.2}
+.kpi .l{color:var(--muted);font-size:13px}
+.kpi .d{font-size:12px;margin-top:4px}
+.up{color:var(--crit)}.down{color:var(--ok)}
+.kpi.k-crit{border-left:3px solid var(--crit)}
+.kpi.k-high{border-left:3px solid var(--high)}
+.kpi.k-ok{border-left:3px solid var(--ok)}
+.kpi.k-info{border-left:3px solid var(--accent)}
+
+/* Chart */
+.chart{width:100%;height:190px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.donutwrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.donut{width:150px;height:150px;flex:none}
+.donutlist{flex:1;min-width:120px;display:grid;gap:6px}
+.donutlist div{display:flex;justify-content:space-between;font-size:13px}
+.donutlist i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+
+/* Tables */
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:3px 12px;cursor:pointer;font-size:13px;color:var(--muted)}
+.chip.on{border-color:var(--accent);color:var(--accent);background:#e3f3f7}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr:hover{background:var(--panel2)}
+td.m{font-family:var(--mono);font-size:12px}
+.sev{display:inline-block;min-width:66px;text-align:center;border-radius:4px;padding:1px 8px;font-size:12px;font-weight:600;color:#fff}
+.s-crit{background:var(--crit)}.s-high{background:var(--high)}.s-med{background:var(--med);color:#2a2100}.s-low{background:var(--low)}
+.st{color:var(--muted)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:2px 10px;cursor:pointer;font-size:12px}
+.btn:hover{border-color:var(--accent)}
+
+/* Bars & lists */
+.bars{display:grid;gap:9px}
+.bar{display:grid;grid-template-columns:110px 1fr 46px;gap:10px;align-items:center;font-size:13px}
+.bar .t{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden}
+.bar .t b{display:block;height:100%;background:var(--accent);border-radius:4px}
+.bar em{font-style:normal;color:var(--muted);text-align:right;font-family:var(--mono);font-size:12px}
+.mitre{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
+.mitre div{padding:8px 6px;border-radius:4px;font-size:11px;line-height:1.3;min-height:52px}
+.mitre b{display:block;font-size:14px}
+.log{font-family:var(--mono);font-size:12px;height:250px;overflow:auto;display:flex;flex-direction:column-reverse}
+.log p{padding:3px 0;border-bottom:1px dashed var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log .ts{color:var(--muted)}
+.feed{display:grid;gap:10px}
+.feed div{border-left:3px solid var(--line);padding-left:10px;font-size:13px}
+.feed small{color:var(--muted);display:block}
+.assets{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.assets div{background:var(--panel2);border-radius:var(--r);padding:10px}
+.assets b{font-size:20px;font-family:var(--mono);display:block}
+.assets small{color:var(--muted)}
+.pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+@media(max-width:1100px){.g2,.g3,.g2b{grid-template-columns:1fr}}
+@media(max-width:760px){
+  body{grid-template-columns:1fr;grid-template-rows:56px 1fr}
+  .side{display:none}.threat{display:none}
+}
+@media(prefers-reduced-motion:reduce){.pulse{animation:none}}
+
+/* ===== Trang Detection Rules ===== */
+.ph{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ph .ic{width:44px;height:44px;border-radius:8px;background:#e3f3f7;color:var(--accent);display:grid;place-items:center;flex:none}
+.ph h1{font-size:20px;font-weight:600;line-height:1.3}
+.ph p{color:var(--muted);font-size:13px}
+.ph .act{margin-left:auto;display:flex;gap:8px}
+.pill{font-size:12px;border-radius:10px;padding:1px 9px;background:#e3f6ec;color:var(--ok);margin-left:8px;vertical-align:2px;font-weight:500}
+.b1,.b2{border-radius:var(--r);padding:7px 14px;cursor:pointer;border:1px solid var(--line);background:var(--panel)}
+.b2:hover{border-color:var(--accent)}
+.b1{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+.b1:hover{filter:brightness(1.1)}
+.bar2{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.bar2 .q{flex:1;min-width:220px}
+.q,select,.fi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:7px 10px;color:var(--text)}
+.rid{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600}
+.rname{font-weight:500}
+.tag{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 8px}
+.tech{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600}
+td small{display:block;color:var(--muted);font-size:12px}
+.cond{font-family:var(--mono);font-size:12px;max-width:380px;overflow:hidden;text-overflow:ellipsis}
+.cond b{color:var(--accent);font-weight:500}.cond i{color:var(--high);font-style:normal}
+.sw{width:38px;height:22px;border-radius:11px;border:0;background:#c5d0dc;position:relative;cursor:pointer;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw[aria-checked="true"]{background:var(--ok)}
+.sw[aria-checked="true"]::after{transform:translateX(16px)}
+.ico{background:none;border:0;cursor:pointer;color:var(--muted);padding:5px 6px;border-radius:4px;vertical-align:middle}
+.ico:hover{background:var(--panel2);color:var(--text)}
+.ico.del:hover{color:var(--crit)}
+.foot{color:var(--muted);font-size:12px;padding-top:10px}
+dialog{margin:auto;border:1px solid var(--line);border-radius:8px;padding:0;width:min(640px,94vw);background:var(--panel);color:var(--text);box-shadow:0 20px 50px rgba(27,42,59,.25)}
+dialog::backdrop{background:rgba(27,42,59,.45)}
+.dh{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:600}
+.db{padding:14px 18px;display:grid;gap:12px}
+.df{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+label .fi{width:100%;font-size:14px}
+textarea.fi{font-family:var(--mono);font-size:12px;resize:vertical}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;padding:6px 12px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent}
+.tab.on{color:var(--accent);border-color:var(--accent)}
+pre{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:12px;font-family:var(--mono);font-size:12px;overflow:auto;max-height:300px}
+.hide{display:none}
+.toast{position:fixed;right:20px;bottom:20px;background:var(--text);color:#fff;padding:9px 16px;border-radius:var(--r);opacity:0;transform:translateY(8px);transition:.25s;pointer-events:none}
+.toast.on{opacity:1;transform:none}
+@media(max-width:600px){.fg{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.sw,.sw::after,.toast{transition:none}}
+
+.lnk{background:none;border:1px solid var(--line);border-radius:4px;padding:2px 9px;font-size:12px;cursor:pointer;margin-right:4px;color:var(--text)}
+.lnk:hover{border-color:var(--accent);color:var(--accent)}
+.lnk.d:hover{border-color:var(--crit);color:var(--crit)}
+.empty{text-align:center;padding:40px 16px;color:var(--muted);white-space:normal}
+.empty b{display:block;color:var(--text);margin-bottom:4px}
+.mono{font-family:var(--mono);font-size:12px}
+.stt{display:inline-block;border-radius:10px;padding:1px 10px;font-size:12px;font-weight:500;background:var(--panel2);color:var(--muted)}
+.stt.a{background:#e5effc;color:var(--low)}.stt.b{background:#fff1e0;color:var(--high)}.stt.c{background:#e3f6ec;color:var(--ok)}.stt.d{background:#fdeaec;color:var(--crit)}
+tr.cl{cursor:pointer}
+.tl{display:grid;gap:10px;max-height:200px;overflow:auto}
+.tl div{border-left:2px solid var(--line);padding-left:12px;font-size:13px}
+.tl small{color:var(--muted);display:block}
+.bar3{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;min-width:70px}
+.bar3 b{display:block;height:100%;border-radius:3px}
+</style>
+</head>
+<body>
+<!-- SIDEBAR -->
+<aside class="side">
+  <div class="brand"><i>S</i> SOC Center</div>
+  <nav class="nav" aria-label="Điều hướng chính">
+    <a href="soc-dashboard-light.html">Tổng quan</a>
+    <a href="soc-dashboard-light.html#alerts">Cảnh báo <span class="badge" id="navAlerts">0</span></a>
+    <a href="soc-cases.html">Sự cố</a>
+    <a href="soc-dashboard-light.html#logs">Nhật ký (SIEM)</a>
+    <div class="grp">
+      <button class="grp-btn" aria-expanded="true" aria-controls="analysisSub">
+        <span>Phân tích</span>
+        <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="sub" id="analysisSub">
+        <div>
+          <a href="soc-threat-intel.html">Threat Intelligence</a>
+          <a href="soc-detection-rules.html">Detection Rules</a>
+          <a href="soc-dashboard-light.html#mitre">MITRE ATT&amp;CK</a>
+          <a href="soc-vulns.html">Lỗ hổng</a>
+        </div>
+      </div>
+    </div>
+    <div class="grp">
+      <button class="grp-btn" aria-expanded="true" aria-controls="infraSub">
+        <span>Hạ tầng</span>
+        <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="sub" id="infraSub">
+        <div>
+          <a href="soc-dashboard-light.html#assets">Tài sản &amp; Endpoint</a>
+          <a href="soc-agents.html">Agents &amp; EDR</a>
+          <a href="soc-firewall.html" class="on">Firewall / IDS</a>
+        </div>
+      </div>
+    </div>
+    <div class="grp">
+      <button class="grp-btn" aria-expanded="true" aria-controls="adminSub">
+        <span>Quản trị</span>
+        <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="sub" id="adminSub">
+        <div>
+          <a href="soc-audit-settings.html">Audit &amp; Settings</a>
+          <a href="soc-reports.html">Báo cáo</a>
+          <a href="soc-playbooks.html">Playbook</a>
+          <a href="soc-audit-settings.html#settings">Cài đặt</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <div class="shift"><small>Ca trực hiện tại</small><b>Ca 2 · 14:00 – 22:00</b>Trưởng ca: Nguyễn Minh Anh</div>
+</aside>
+
+<!-- TOPBAR -->
+<header class="top">
+  <input class="search" type="search" placeholder="Tìm IP, hash, hostname, user, mã sự cố…" aria-label="Tìm kiếm">
+  <div class="threat" title="Mức độ đe dọa toàn hệ thống"><span class="pulse"></span>Mức đe dọa: Cao</div>
+  <div class="clock" id="clock">--:--:--</div>
+  <div class="user" title="Tài khoản">MA</div>
+</header>
+
+<main><div class="ph"><div class="ic" style="background:#e5effc;color:var(--low)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><div><h1>Firewall / IDS</h1><p>Quy tắc tường lửa, cảnh báo IDS/IPS và danh sách chặn IP</p></div><div class="act"><button class="b1" id="newRule">Thêm rule</button></div></div>
+<section class="grid kpis"><div class="card kpi k-crit"><div class="l">Gói bị chặn (24 giờ)</div><div class="v" id="kBlk">0</div></div><div class="card kpi k-high"><div class="l">Lượt IDS kích hoạt</div><div class="v" id="kIds">0</div></div><div class="card kpi k-ok"><div class="l">Rule đang bật</div><div class="v" id="kRules">0</div></div><div class="card kpi k-info"><div class="l">IP trong blocklist</div><div class="v" id="kBl">0</div></div></section>
+<div class="tabs" id="mainTabs" role="tablist"><button class="tab on" data-p="pFw" role="tab">Quy tắc Firewall</button><button class="tab" data-p="pIds" role="tab">Cảnh báo IDS/IPS</button><button class="tab" data-p="pBl" role="tab">IP Blocklist</button></div>
+<div id="pFw"><section class="card"><div class="tw"><table><thead><tr><th>Tên rule</th><th>Hành động</th><th>Nguồn</th><th>Đích</th><th>Cổng/giao thức</th><th>Lượt khớp</th><th>Bật</th><th></th></tr></thead><tbody id="fwRows"></tbody></table></div></section></div>
+<div id="pIds" class="hide"><section class="card"><div class="bar2"><select id="idsSev" aria-label="Lọc mức độ"><option value="all">Mọi mức độ</option><option value="crit">Nghiêm trọng</option><option value="high">Cao</option><option value="med">Trung bình</option><option value="low">Thấp</option></select></div>
+<div class="tw"><table><thead><tr><th>SID</th><th>Chữ ký</th><th>Mức độ</th><th>Số lần</th><th>IP nguồn gần nhất</th><th>Chế độ</th><th></th></tr></thead><tbody id="idsRows"></tbody></table></div></section></div>
+<div id="pBl" class="hide"><section class="card"><div class="bar2"><input class="q" id="blIp" placeholder="IP hoặc CIDR, ví dụ 185.220.101.4 hay 45.155.205.0/24" aria-label="IP cần chặn" style="font-family:var(--mono)"><input class="q" id="blWhy" placeholder="Lý do chặn" aria-label="Lý do" style="max-width:260px"><select id="blDur" aria-label="Thời hạn"><option>1 giờ</option><option>24 giờ</option><option selected>Vĩnh viễn</option></select><button class="b1" id="blAdd">Thêm vào blocklist</button></div>
+<div id="blMsg" class="msg" style="font-size:12px;min-height:18px;color:var(--muted)"></div>
+<div class="tw"><table><thead><tr><th>IP / CIDR</th><th>Lý do</th><th>Thêm lúc</th><th>Hết hạn</th><th></th></tr></thead><tbody id="blRows"></tbody></table></div></section></div>
+<dialog id="dlg" aria-labelledby="dH"><div class="dh"><span id="dH">Thêm rule firewall</span><button class="ico" data-close aria-label="Đóng">✕</button></div>
+<div class="db"><label>Tên rule<input class="fi" id="rN" placeholder="VD: Chặn Telnet từ Internet"></label>
+<div class="fg"><label>Hành động<select class="fi" id="rA"><option>ALLOW</option><option selected>DENY</option><option>DROP</option></select></label><label>Cổng/giao thức<input class="fi" id="rP" placeholder="23/tcp"></label></div>
+<div class="fg"><label>Nguồn<input class="fi" id="rS" placeholder="any hoặc 10.10.0.0/16"></label><label>Đích<input class="fi" id="rD" placeholder="any hoặc 10.10.1.5"></label></div></div>
+<div class="df"><button class="b2" data-close>Hủy</button><button class="b1" id="rSave">Lưu rule</button></div></dialog><div class="toast" id="toast" role="status"></div></main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const p2=n=>String(n).padStart(2,'0');
+const fmt=d=>p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes());
+const ago=m=>new Date(Date.now()-m*60000);
+const SEV={crit:'Nghiêm trọng',high:'Cao',med:'Trung bình',low:'Thấp'};
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2200)}
+function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+text],{type:type||'text/plain;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-close]');if(b)b.closest('dialog').close()});
+document.querySelectorAll('.grp-btn').forEach(btn=>{
+  const sub=$(btn.getAttribute('aria-controls'));
+  btn.addEventListener('click',()=>{const o=btn.getAttribute('aria-expanded')!=='true';btn.setAttribute('aria-expanded',o);sub.classList.toggle('closed',!o);sub.inert=!o});
+});
+function tick(){const t=new Date();$('clock').textContent=t.toLocaleTimeString('vi-VN',{hour12:false})+' · '+t.toLocaleDateString('vi-VN')}
+tick();setInterval(tick,1000);
+
+/* ===== DỮ LIỆU MẪU – thay bằng API firewall / IDS ===== */
+let rules=[
+ {n:'Cho phép HTTPS ra ngoài',act:'ALLOW',src:'10.10.0.0/16',dst:'any',port:'443/tcp',hits:184220,on:true},
+ {n:'Chặn SSH từ Internet',act:'DENY',src:'any',dst:'10.10.1.0/24',port:'22/tcp',hits:9312,on:true},
+ {n:'Chặn danh sách botnet',act:'DROP',src:'blocklist',dst:'any',port:'any',hits:2140,on:true},
+ {n:'Cho phép DNS nội bộ',act:'ALLOW',src:'10.10.0.0/16',dst:'10.10.0.2',port:'53/udp',hits:55120,on:true},
+ {n:'Chặn RDP từ Internet',act:'DENY',src:'any',dst:'any',port:'3389/tcp',hits:1877,on:false}
+];
+let ids=[
+ {sid:'2027865',sig:'ET SCAN Nmap Scripting Engine',sev:'med',cnt:412,src:'45.155.205.9',mode:'alert'},
+ {sid:'2024897',sig:'ET MALWARE Ransomware C2 Beacon',sev:'crit',cnt:37,src:'185.220.101.4',mode:'drop'},
+ {sid:'2010935',sig:'ET POLICY SSH Brute Force',sev:'high',cnt:1240,src:'45.155.205.9',mode:'drop'},
+ {sid:'2100498',sig:'GPL ATTACK_RESPONSE id check',sev:'high',cnt:18,src:'91.132.147.2',mode:'alert'},
+ {sid:'2013028',sig:'ET POLICY curl User-Agent',sev:'low',cnt:96,src:'10.10.6.15',mode:'alert'}
+];
+let bl=[{ip:'185.220.101.4',why:'C2 – ALT-4819',t:ago(60),exp:'Vĩnh viễn'},{ip:'45.155.205.0/24',why:'Botnet brute-force',t:ago(300),exp:'Vĩnh viễn'},{ip:'91.132.147.2',why:'Đăng nhập lạ – VPN',t:ago(20),exp:'24 giờ'}];
+const AC={ALLOW:'c',DENY:'d',DROP:'b'};
+const okIp=v=>/^(\d{1,3}\.){3}\d{1,3}(\/(\d|[12]\d|3[0-2]))?$/.test(v)&&v.split('/')[0].split('.').every(o=>+o<=255);
+function kpis(){$('kBlk').textContent=(12480+rules.reduce((a,r)=>a+(r.on&&r.act!=='ALLOW'?0:0),0)).toLocaleString('vi-VN');$('kIds').textContent=ids.reduce((a,i)=>a+i.cnt,0).toLocaleString('vi-VN');$('kRules').textContent=rules.filter(r=>r.on).length+' / '+rules.length;$('kBl').textContent=bl.length}
+function renderFw(){$('fwRows').innerHTML=rules.map((r,i)=>`<tr><td>${esc(r.n)}</td><td><span class="stt ${AC[r.act]}">${r.act}</span></td><td class="mono">${esc(r.src)}</td><td class="mono">${esc(r.dst)}</td><td class="mono">${esc(r.port)}</td><td class="mono">${r.hits.toLocaleString('vi-VN')}</td><td><button class="sw" role="switch" aria-checked="${r.on}" aria-label="Bật/tắt ${esc(r.n)}" data-t="${i}"></button></td><td><button class="lnk d" data-d="${i}">Xóa</button></td></tr>`).join('');kpis()}
+function renderIds(){const s=$('idsSev').value;const l=ids.filter(i=>s==='all'||i.sev===s);
+  $('idsRows').innerHTML=l.map(i=>`<tr><td class="mono">${i.sid}</td><td>${esc(i.sig)}</td><td><span class="sev s-${i.sev}">${SEV[i.sev]}</span></td><td class="mono">${i.cnt}</td><td class="mono">${i.src}</td><td><span class="stt ${i.mode==='drop'?'d':''}">${i.mode.toUpperCase()}</span></td><td><button class="lnk" data-b="${i.src}">Chặn IP nguồn</button></td></tr>`).join('')||'<tr><td colspan="7"><div class="empty"><b>Không có cảnh báo ở mức này</b></div></td></tr>';kpis()}
+function renderBl(){$('blRows').innerHTML=bl.map((b,i)=>`<tr><td class="mono">${esc(b.ip)}</td><td>${esc(b.why)}</td><td class="st">${fmt(b.t)}</td><td>${b.exp}</td><td><button class="lnk d" data-r="${i}">Gỡ chặn</button></td></tr>`).join('')||'<tr><td colspan="5"><div class="empty"><b>Blocklist đang trống</b>Thêm IP ở ô phía trên hoặc chặn từ tab IDS/IPS.</div></td></tr>';kpis()}
+function addBl(ip,why,exp){if(bl.some(b=>b.ip===ip)){toast(ip+' đã có trong blocklist');return false}bl.unshift({ip,why,t:new Date(),exp});renderBl();return true}
+$('fwRows').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.t!==undefined){const r=rules[+b.dataset.t];r.on=!r.on;renderFw();toast((r.on?'Đã bật: ':'Đã tắt: ')+r.n)}
+  if(b.dataset.d!==undefined&&confirm('Xóa rule "'+rules[+b.dataset.d].n+'"?')){rules.splice(+b.dataset.d,1);renderFw();toast('Đã xóa rule')}});
+$('idsRows').addEventListener('click',e=>{const b=e.target.closest('[data-b]');if(b&&addBl(b.dataset.b,'Chặn từ cảnh báo IDS','24 giờ'))toast('Đã thêm '+b.dataset.b+' vào blocklist')});
+$('blRows').addEventListener('click',e=>{const b=e.target.closest('[data-r]');if(!b)return;const x=bl.splice(+b.dataset.r,1)[0];renderBl();toast('Đã gỡ chặn '+x.ip)});
+$('idsSev').addEventListener('change',renderIds);
+$('blAdd').addEventListener('click',()=>{const v=$('blIp').value.trim(),m=$('blMsg');
+  if(!okIp(v)){m.style.color='var(--crit)';m.textContent='IP hoặc CIDR không hợp lệ, ví dụ 185.220.101.4 hoặc 45.155.205.0/24.';return}
+  m.textContent='';if(addBl(v,$('blWhy').value.trim()||'Thêm thủ công',$('blDur').value)){$('blIp').value='';$('blWhy').value='';toast('Đã thêm '+v)}});
+$('newRule').addEventListener('click',()=>{['rN','rP','rS','rD'].forEach(i=>$(i).value='');$('dlg').showModal()});
+$('rSave').addEventListener('click',()=>{const n=$('rN').value.trim(),s=$('rS').value.trim(),d=$('rD').value.trim();
+  if(!n||!s||!d){toast('Nhập tên rule, nguồn và đích');return}
+  rules.unshift({n,act:$('rA').value,src:s,dst:d,port:$('rP').value.trim()||'any',hits:0,on:true});$('dlg').close();renderFw();toast('Đã thêm rule');});
+document.querySelectorAll('#mainTabs .tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#mainTabs .tab').forEach(t=>t.classList.toggle('on',t===b));['pFw','pIds','pBl'].forEach(p=>$(p).classList.toggle('hide',p!==b.dataset.p))}));
+renderFw();renderIds();renderBl();
+</script>
+</body>
+</html>

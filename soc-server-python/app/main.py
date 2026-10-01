@@ -39,6 +39,13 @@ from app.routers.rules import router as rules_router
 from app.routers.audit_logs import router as audit_logs_router
 from app.routers.settings import router as settings_router
 from app.routers.soar import router as soar_router
+from app.routers.assets import router as assets_router
+from app.routers.vulns import router as vulns_router
+from app.routers.firewall import router as firewall_router
+from app.routers.siem import router as siem_router
+from app.routers.mitre import router as mitre_router
+from app.routers.playbooks import router as playbooks_router
+from app.routers.reports import router as reports_router
 
 # Setup Logging
 logging.basicConfig(
@@ -233,6 +240,13 @@ app.include_router(rules_router)
 app.include_router(audit_logs_router)
 app.include_router(settings_router)
 app.include_router(soar_router)
+app.include_router(assets_router)
+app.include_router(vulns_router)
+app.include_router(firewall_router)
+app.include_router(siem_router)
+app.include_router(mitre_router)
+app.include_router(playbooks_router)
+app.include_router(reports_router)
 
 
 if __name__ == "__main__":

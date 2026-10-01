@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detection Rules – SOC Console</title>
+<style>
+:root{
+  --bg:#f2f5f9;--panel:#ffffff;--panel2:#eef2f7;--line:#dce4ed;
+  --text:#1b2a3b;--muted:#5f7288;--accent:#0a7f9c;
+  --crit:#d92d3f;--high:#e8770e;--med:#e0b000;--low:#2a7de1;--ok:#1f9d5c;
+  --r:6px;
+  --font:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.5 var(--font);display:grid;grid-template-columns:220px 1fr;grid-template-rows:56px 1fr}
+a{color:inherit;text-decoration:none}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Sidebar */
+.side{grid-row:1/3;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 10px;overflow:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px;font-weight:600;font-size:16px}
+.brand i{width:28px;height:28px;border-radius:6px;background:var(--accent);display:grid;place-items:center;color:#fff;font-style:normal;font-weight:700}
+.nav a{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:var(--r);color:var(--muted);margin-bottom:2px}
+.nav a:hover{background:var(--panel2);color:var(--text)}
+.nav a.on{background:var(--panel2);color:var(--text);box-shadow:inset 3px 0 var(--accent)}
+.nav small{color:var(--muted);padding:12px 10px 4px;display:block;font-size:12px}
+.badge{background:var(--crit);color:#fff;border-radius:10px;padding:0 7px;font-size:12px}
+.shift{margin-top:auto;border-top:1px solid var(--line);padding:12px 8px;color:var(--muted);font-size:13px}
+.shift b{color:var(--text);display:block}
+
+/* Nhóm menu thu gọn */
+.grp{margin-top:6px}
+.grp-btn{width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:0;cursor:pointer;padding:8px 10px;border-radius:var(--r);color:var(--muted);text-align:left}
+.grp-btn:hover{background:var(--panel2);color:var(--text)}
+.chev{width:14px;height:14px;transition:transform .25s ease;flex:none}
+.grp-btn[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.sub{display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s ease,opacity .25s ease;opacity:1}
+.sub.closed{grid-template-rows:0fr;opacity:0}
+.sub>div{overflow:hidden;margin-left:16px;border-left:1px solid var(--line)}
+.sub a{margin:2px 0 2px 6px}
+@media(prefers-reduced-motion:reduce){.chev,.sub{transition:none}}
+
+/* Topbar */
+.top{display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+.search{flex:1;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:7px 12px;width:100%}
+.search::placeholder{color:var(--muted)}
+.threat{display:flex;align-items:center;gap:8px;padding:5px 12px;border:1px solid var(--high);border-radius:var(--r);color:var(--high)}
+.threat span{width:8px;height:8px;border-radius:50%;background:currentColor}
+.clock{font-family:var(--mono);color:var(--muted);margin-left:auto;font-size:13px}
+.user{width:32px;height:32px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;font-size:12px}
+
+/* Main */
+main{padding:18px 20px 30px;overflow:auto;display:grid;gap:16px;align-content:start}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.g2{grid-template-columns:2fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g2b{grid-template-columns:3fr 2fr}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;min-width:0;box-shadow:0 1px 2px rgba(27,42,59,.06)}
+.card h2{font-size:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.card h2 span{color:var(--muted);font-weight:400;font-size:12px}
+.kpi .v{font-size:28px;font-weight:600;font-family:var(--mono);line-height:1.2}
+.kpi .l{color:var(--muted);font-size:13px}
+.kpi .d{font-size:12px;margin-top:4px}
+.up{color:var(--crit)}.down{color:var(--ok)}
+.kpi.k-crit{border-left:3px solid var(--crit)}
+.kpi.k-high{border-left:3px solid var(--high)}
+.kpi.k-ok{border-left:3px solid var(--ok)}
+.kpi.k-info{border-left:3px solid var(--accent)}
+
+/* Chart */
+.chart{width:100%;height:190px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.donutwrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.donut{width:150px;height:150px;flex:none}
+.donutlist{flex:1;min-width:120px;display:grid;gap:6px}
+.donutlist div{display:flex;justify-content:space-between;font-size:13px}
+.donutlist i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+
+/* Tables */
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:3px 12px;cursor:pointer;font-size:13px;color:var(--muted)}
+.chip.on{border-color:var(--accent);color:var(--accent);background:#e3f3f7}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr:hover{background:var(--panel2)}
+td.m{font-family:var(--mono);font-size:12px}
+.sev{display:inline-block;min-width:66px;text-align:center;border-radius:4px;padding:1px 8px;font-size:12px;font-weight:600;color:#fff}
+.s-crit{background:var(--crit)}.s-high{background:var(--high)}.s-med{background:var(--med);color:#2a2100}.s-low{background:var(--low)}
+.st{color:var(--muted)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:2px 10px;cursor:pointer;font-size:12px}
+.btn:hover{border-color:var(--accent)}
+
+/* Bars & lists */
+.bars{display:grid;gap:9px}
+.bar{display:grid;grid-template-columns:110px 1fr 46px;gap:10px;align-items:center;font-size:13px}
+.bar .t{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden}
+.bar .t b{display:block;height:100%;background:var(--accent);border-radius:4px}
+.bar em{font-style:normal;color:var(--muted);text-align:right;font-family:var(--mono);font-size:12px}
+.mitre{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
+.mitre div{padding:8px 6px;border-radius:4px;font-size:11px;line-height:1.3;min-height:52px}
+.mitre b{display:block;font-size:14px}
+.log{font-family:var(--mono);font-size:12px;height:250px;overflow:auto;display:flex;flex-direction:column-reverse}
+.log p{padding:3px 0;border-bottom:1px dashed var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log .ts{color:var(--muted)}
+.feed{display:grid;gap:10px}
+.feed div{border-left:3px solid var(--line);padding-left:10px;font-size:13px}
+.feed small{color:var(--muted);display:block}
+.assets{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.assets div{background:var(--panel2);border-radius:var(--r);padding:10px}
+.assets b{font-size:20px;font-family:var(--mono);display:block}
+.assets small{color:var(--muted)}
+.pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+@media(max-width:1100px){.g2,.g3,.g2b{grid-template-columns:1fr}}
+@media(max-width:760px){
+  body{grid-template-columns:1fr;grid-template-rows:56px 1fr}
+  .side{display:none}.threat{display:none}
+}
+@media(prefers-reduced-motion:reduce){.pulse{animation:none}}
+
+/* ===== Trang Detection Rules ===== */
+.ph{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ph .ic{width:44px;height:44px;border-radius:8px;background:#e3f3f7;color:var(--accent);display:grid;place-items:center;flex:none}
+.ph h1{font-size:20px;font-weight:600;line-height:1.3}
+.ph p{color:var(--muted);font-size:13px}
+.ph .act{margin-left:auto;display:flex;gap:8px}
+.pill{font-size:12px;border-radius:10px;padding:1px 9px;background:#e3f6ec;color:var(--ok);margin-left:8px;vertical-align:2px;font-weight:500}
+.b1,.b2{border-radius:var(--r);padding:7px 14px;cursor:pointer;border:1px solid var(--line);background:var(--panel)}
+.b2:hover{border-color:var(--accent)}
+.b1{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+.b1:hover{filter:brightness(1.1)}
+.bar2{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.bar2 .q{flex:1;min-width:220px}
+.q,select,.fi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:7px 10px;color:var(--text)}
+.rid{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600}
+.rname{font-weight:500}
+.tag{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 8px}
+.tech{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600}
+td small{display:block;color:var(--muted);font-size:12px}
+.cond{font-family:var(--mono);font-size:12px;max-width:380px;overflow:hidden;text-overflow:ellipsis}
+.cond b{color:var(--accent);font-weight:500}.cond i{color:var(--high);font-style:normal}
+.sw{width:38px;height:22px;border-radius:11px;border:0;background:#c5d0dc;position:relative;cursor:pointer;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw[aria-checked="true"]{background:var(--ok)}
+.sw[aria-checked="true"]::after{transform:translateX(16px)}
+.ico{background:none;border:0;cursor:pointer;color:var(--muted);padding:5px 6px;border-radius:4px;vertical-align:middle}
+.ico:hover{background:var(--panel2);color:var(--text)}
+.ico.del:hover{color:var(--crit)}
+.foot{color:var(--muted);font-size:12px;padding-top:10px}
+dialog{margin:auto;border:1px solid var(--line);border-radius:8px;padding:0;width:min(640px,94vw);background:var(--panel);color:var(--text);box-shadow:0 20px 50px rgba(27,42,59,.25)}
+dialog::backdrop{background:rgba(27,42,59,.45)}
+.dh{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:600}
+.db{padding:14px 18px;display:grid;gap:12px}
+.df{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+label .fi{width:100%;font-size:14px}
+textarea.fi{font-family:var(--mono);font-size:12px;resize:vertical}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;padding:6px 12px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent}
+.tab.on{color:var(--accent);border-color:var(--accent)}
+pre{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:12px;font-family:var(--mono);font-size:12px;overflow:auto;max-height:300px}
+.hide{display:none}
+.toast{position:fixed;right:20px;bottom:20px;background:var(--text);color:#fff;padding:9px 16px;border-radius:var(--r);opacity:0;transform:translateY(8px);transition:.25s;pointer-events:none}
+.toast.on{opacity:1;transform:none}
+@media(max-width:600px){.fg{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.sw,.sw::after,.toast{transition:none}}
+</style>
+</head>
+<body>
+<!-- SIDEBAR -->
+<aside class="side">
+  <div class="brand"><i>S</i> SOC Center</div>
+  <nav class="nav" aria-label="Điều hướng chính">
+    <a href="soc-dashboard-light.html">Tổng quan</a>
+    <a href="soc-dashboard-light.html#alerts">Cảnh báo <span class="badge" id="navAlerts">0</span></a>
+    <a href="soc-dashboard-light.html#incidents">Sự cố</a>
+    <a href="soc-dashboard-light.html#logs">Nhật ký (SIEM)</a>
+    <div class="grp">
+      <button class="grp-btn" aria-expanded="true" aria-controls="analysisSub">
+        <span>Phân tích</span>
+        <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="sub" id="analysisSub">
+        <div>
+          <a href="#">Threat Intelligence</a>
+          <a href="soc-detection-rules.html" class="on">Detection Rules</a>
+          <a href="soc-dashboard-light.html#mitre">MITRE ATT&amp;CK</a>
+          <a href="#">Lỗ hổng</a>
+        </div>
+      </div>
+    </div>
+    <div class="grp">
+      <button class="grp-btn" aria-expanded="true" aria-controls="infraSub">
+        <span>Hạ tầng</span>
+        <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="sub" id="infraSub">
+        <div>
+          <a href="soc-dashboard-light.html#assets">Tài sản &amp; Endpoint</a>
+          <a href="#">Firewall / IDS</a>
+        </div>
+      </div>
+    </div>
+    <div class="grp">
+      <button class="grp-btn" aria-expanded="true" aria-controls="adminSub">
+        <span>Quản trị</span>
+        <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="sub" id="adminSub">
+        <div>
+          <a href="#">Báo cáo</a>
+          <a href="#">Playbook</a>
+          <a href="#">Cài đặt</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <div class="shift"><small>Ca trực hiện tại</small><b>Ca 2 · 14:00 – 22:00</b>Trưởng ca: Nguyễn Minh Anh</div>
+</aside>
+
+<!-- TOPBAR -->
+<header class="top">
+  <input class="search" type="search" placeholder="Tìm IP, hash, hostname, user, mã sự cố…" aria-label="Tìm kiếm">
+  <div class="threat" title="Mức độ đe dọa toàn hệ thống"><span class="pulse"></span>Mức đe dọa: Cao</div>
+  <div class="clock" id="clock">--:--:--</div>
+  <div class="user" title="Tài khoản">MA</div>
+</header>
+
+<main>
+  <div class="ph">
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></div>
+    <div>
+      <h1>Quản lý luật phát hiện <span class="pill">Engine sẵn sàng</span></h1>
+      <p>Quản lý và tinh chỉnh luật phát hiện mối đe dọa. Hỗ trợ xem và sao chép mã YAML.</p>
+    </div>
+    <div class="act">
+      <button class="b2" id="refresh">Làm mới</button>
+      <button class="b1" id="newRule">Tạo rule mới</button>
+    </div>
+  </div>
+
+  <section class="grid kpis" aria-label="Thống kê rules">
+    <div class="card kpi k-info"><div class="l">Tổng số rules</div><div class="v" id="kTotal">0</div></div>
+    <div class="card kpi k-ok"><div class="l">Rules đang bật</div><div class="v" id="kOn">0</div></div>
+    <div class="card kpi k-crit"><div class="l">Mức Critical / High</div><div class="v" id="kHi">0</div></div>
+    <div class="card kpi k-high"><div class="l">Rules đã tắt</div><div class="v" id="kOff">0</div></div>
+  </section>
+
+  <section class="card">
+    <div class="bar2">
+      <input class="q" id="q" type="search" placeholder="Tìm theo ID, tên, MITRE T1059…" aria-label="Tìm rule">
+      <label style="display:flex;align-items:center;gap:8px">Mức độ
+        <select id="fSevF">
+          <option value="all">Tất cả mức độ</option>
+          <option value="crit">Critical</option><option value="high">High</option>
+          <option value="med">Medium</option><option value="low">Low</option>
+        </select>
+      </label>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Rule ID &amp; tên</th><th>Mức độ</th><th>Event type</th><th>MITRE ATT&amp;CK</th><th>Điều kiện match</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="foot" id="cnt"></div>
+  </section>
+
+  <dialog id="dlg" aria-labelledby="dTitle">
+    <div class="dh"><span id="dTitle">Tạo rule mới</span><button class="ico" id="dClose" aria-label="Đóng">✕</button></div>
+    <div class="db">
+      <div class="tabs"><button class="tab on" data-t="form">Biểu mẫu</button><button class="tab" data-t="yaml">YAML</button></div>
+      <div id="pForm" class="db" style="padding:0">
+        <div class="fg">
+          <label>Mã rule<input class="fi" id="fId" placeholder="VD: PS-SUSPICIOUS-002"></label>
+          <label>Mức độ<select class="fi" id="fSev"><option value="crit">Critical</option><option value="high">High</option><option value="med">Medium</option><option value="low">Low</option></select></label>
+        </div>
+        <label>Tên rule<input class="fi" id="fName" placeholder="Mô tả ngắn hành vi cần phát hiện"></label>
+        <div class="fg">
+          <label>Event type<input class="fi" id="fEvt" placeholder="sysmon_process_create"></label>
+          <label>MITRE technique<input class="fi" id="fTech" placeholder="T1059.001"></label>
+        </div>
+        <label>MITRE tactic<input class="fi" id="fTac" placeholder="Execution"></label>
+        <label>Điều kiện match (mỗi dòng: trường toán_tử giá_trị)
+          <textarea class="fi" id="fCond" rows="4" placeholder="process_name in powershell.exe,pwsh.exe&#10;command_line contains -EncodedCommand"></textarea>
+        </label>
+      </div>
+      <div id="pYaml" class="hide"><pre id="yamlOut"></pre></div>
+    </div>
+    <div class="df">
+      <button class="b2 hide" id="copy">Sao chép YAML</button>
+      <button class="b2" id="cancel">Hủy</button>
+      <button class="b1" id="save">Lưu rule</button>
+    </div>
+  </dialog>
+  <div class="toast" id="toast" role="status"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const SEV={crit:'CRITICAL',high:'HIGH',med:'MEDIUM',low:'LOW'};
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const svg=p=>'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';
+const IC={
+  code:svg('<path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/>'),
+  edit:svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>'),
+  del:svg('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>')
+};
+
+/* ===== DỮ LIỆU MẪU – thay bằng API của bạn ===== */
+let rules=[
+ {id:'RANSOMWARE-VSS-001',name:'Phát hiện xóa Volume Shadow Copy - Dấu hiệu Ransomware',sev:'crit',evt:'sysmon_process_create',tech:'T1490',tac:'Impact',on:true,conds:[['process_name','in','vssadmin.exe,wmic.exe,bcdedit.exe'],['command_line','contains_any','delete shadows,shadowcopy delete,recoveryenabled No,resize shadowstorage']]},
+ {id:'PS-SUSPICIOUS-001',name:'Phát hiện PowerShell thực thi lệnh mã hóa/tải file đáng ngờ',sev:'high',evt:'sysmon_process_create',tech:'T1059.001',tac:'Execution',on:true,conds:[['process_name','in','powershell.exe,pwsh.exe,powershell_ise.exe'],['command_line','contains_any','-EncodedCommand,-enc ,Invoke-Expression,IEX,DownloadString,DownloadFile']]},
+ {id:'FIM-001',name:'Phát hiện thay đổi file hoặc thư mục',sev:'high',evt:'file_integrity',tech:'T1564',tac:'Defense Evasion',on:true,conds:[['action','in','created,modified,deleted,renamed']]},
+ {id:'RULE-NETWORK-C2',name:'Outbound C2 Communication Pattern',sev:'med',evt:'network_connection',tech:'T1071',tac:'Command and Control',on:true,conds:[['dst_ip','not_equals','10.0.0.0/8'],['protocol','equals','tcp']]},
+ {id:'RULE-RANSOMWARE-VSS',name:'Ransomware VSS Shadow Delete Activity',sev:'crit',evt:'command_execution',tech:'T1490',tac:'Impact',on:true,conds:[['process_name','in','vssadmin.exe'],['command_line','contains','shadow delete']]},
+ {id:'RULE-POWERSHELL-ENCODED',name:'PowerShell Encoded Command Execution',sev:'high',evt:'process_creation',tech:'T1059.001',tac:'Execution',on:true,conds:[['process_name','equals','powershell.exe'],['command_line','contains','-EncodedCommand']]}
+];
+let editing=null;
+
+/* ===== BẢNG ===== */
+function render(){
+  const q=$('q').value.trim().toLowerCase(),fs=$('fSevF').value;
+  const list=rules.filter(r=>(fs==='all'||r.sev===fs)&&(!q||[r.id,r.name,r.tech,r.tac,r.evt].join(' ').toLowerCase().includes(q)));
+  $('rows').innerHTML=list.map(r=>`<tr>
+    <td><span class="rid">${esc(r.id)}</span><div class="rname">${esc(r.name)}</div></td>
+    <td><span class="sev s-${r.sev}">${SEV[r.sev]}</span></td>
+    <td><span class="tag">${esc(r.evt)}</span></td>
+    <td><span class="tech">${esc(r.tech)}</span><small>${esc(r.tac)}</small></td>
+    <td>${r.conds.map(c=>`<div class="cond" title="${esc(c[2])}"><b>${esc(c[0])}</b> <i>${esc(c[1])}</i> ${esc(c[2])}</div>`).join('')}</td>
+    <td><button class="sw" role="switch" aria-checked="${r.on}" aria-label="Bật/tắt ${esc(r.id)}" data-a="toggle" data-id="${esc(r.id)}"></button></td>
+    <td><button class="ico" title="Xem YAML" data-a="yaml" data-id="${esc(r.id)}">${IC.code}</button><button class="ico" title="Sửa" data-a="edit" data-id="${esc(r.id)}">${IC.edit}</button><button class="ico del" title="Xóa" data-a="del" data-id="${esc(r.id)}">${IC.del}</button></td>
+  </tr>`).join('')||'<tr><td colspan="7" class="st">Không có rule khớp bộ lọc. Hãy đổi từ khóa hoặc chọn "Tất cả mức độ".</td></tr>';
+  $('kTotal').textContent=rules.length;
+  $('kOn').textContent=rules.filter(r=>r.on).length;
+  $('kOff').textContent=rules.filter(r=>!r.on).length;
+  $('kHi').textContent=rules.filter(r=>r.sev==='crit'||r.sev==='high').length;
+  $('cnt').textContent='Hiển thị '+list.length+' / '+rules.length+' rules';
+}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2200)}
+
+$('rows').addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  const r=rules.find(x=>x.id===b.dataset.id);if(!r)return;
+  if(b.dataset.a==='toggle'){r.on=!r.on;render();toast((r.on?'Đã bật ':'Đã tắt ')+r.id)}
+  if(b.dataset.a==='edit')openDlg(r,'form');
+  if(b.dataset.a==='yaml')openDlg(r,'yaml');
+  if(b.dataset.a==='del'&&confirm('Xóa rule '+r.id+'? Hành động này không thể hoàn tác.')){rules=rules.filter(x=>x!==r);render();toast('Đã xóa rule '+r.id)}
+});
+$('q').addEventListener('input',render);
+$('fSevF').addEventListener('change',render);
+$('refresh').addEventListener('click',()=>{render();toast('Đã làm mới danh sách rules')});
+
+/* ===== HỘP THOẠI ===== */
+function readForm(){
+  return {id:$('fId').value.trim(),name:$('fName').value.trim(),sev:$('fSev').value,evt:$('fEvt').value.trim(),
+    tech:$('fTech').value.trim(),tac:$('fTac').value.trim(),on:editing?editing.on:true,
+    conds:$('fCond').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const p=l.split(/\s+/);return [p[0],p[1]||'equals',p.slice(2).join(' ')]})};
+}
+function toYaml(r){
+  return ['id: '+r.id,'name: '+r.name,'severity: '+SEV[r.sev].toLowerCase(),'event_type: '+r.evt,'mitre:','  technique: '+r.tech,'  tactic: '+r.tac,'enabled: '+r.on,'conditions:']
+    .concat(r.conds.flatMap(c=>['  - field: '+c[0],'    operator: '+c[1],'    value: '+c[2]])).join('\n');
+}
+function setTab(t){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  $('pForm').classList.toggle('hide',t!=='form');
+  $('pYaml').classList.toggle('hide',t!=='yaml');
+  $('copy').classList.toggle('hide',t!=='yaml');
+  if(t==='yaml')$('yamlOut').textContent=toYaml(readForm());
+}
+function openDlg(r,tab){
+  editing=r||null;
+  $('dTitle').textContent=r?'Sửa rule '+r.id:'Tạo rule mới';
+  $('fId').value=r?r.id:'';$('fId').readOnly=!!r;
+  $('fName').value=r?r.name:'';$('fSev').value=r?r.sev:'med';
+  $('fEvt').value=r?r.evt:'';$('fTech').value=r?r.tech:'';$('fTac').value=r?r.tac:'';
+  $('fCond').value=r?r.conds.map(c=>c.join(' ')).join('\n'):'';
+  setTab(tab||'form');$('dlg').showModal();
+}
+$('newRule').addEventListener('click',()=>openDlg(null,'form'));
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.t)));
+$('dClose').addEventListener('click',()=>$('dlg').close());
+$('cancel').addEventListener('click',()=>$('dlg').close());
+$('copy').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText($('yamlOut').textContent);toast('Đã sao chép YAML')}
+  catch(e){toast('Không sao chép được, hãy chọn và copy thủ công')}
+});
+$('save').addEventListener('click',()=>{
+  const r=readForm();
+  if(!r.id||!r.name){toast('Nhập mã rule và tên rule trước khi lưu');return}
+  if(!editing&&rules.some(x=>x.id===r.id)){toast('Mã rule đã tồn tại, hãy dùng mã khác');return}
+  if(editing)Object.assign(editing,r);else rules.unshift(r);
+  $('dlg').close();render();toast('Đã lưu rule '+r.id);
+});
+
+/* ===== SIDEBAR + ĐỒNG HỒ ===== */
+document.querySelectorAll('.grp-btn').forEach(btn=>{
+  const sub=$(btn.getAttribute('aria-controls'));
+  btn.addEventListener('click',()=>{
+    const open=btn.getAttribute('aria-expanded')!=='true';
+    btn.setAttribute('aria-expanded',open);sub.classList.toggle('closed',!open);sub.inert=!open;
+  });
+});
+function tick(){const t=new Date();$('clock').textContent=t.toLocaleTimeString('vi-VN',{hour12:false})+' · '+t.toLocaleDateString('vi-VN')}
+render();tick();setInterval(tick,1000);
+</script>
+</body>
+</html>

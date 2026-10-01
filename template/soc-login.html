@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đăng nhập – SOC Console</title>
+<style>
+:root{--bg:#f2f5f9;--panel:#fff;--line:#dce4ed;--text:#1b2a3b;--muted:#5f7288;--accent:#0a7f9c;--crit:#d92d3f;--ok:#1f9d5c;--font:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--text);font:16px/1.55 var(--font);padding:20px}
+.box{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:32px 28px;box-shadow:0 8px 30px rgba(27,42,59,.08)}
+.brand{display:flex;align-items:center;gap:12px;font-weight:600;font-size:21px;margin-bottom:6px}
+.brand i{width:38px;height:38px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:#fff;font-style:normal;font-weight:700}
+.sub{color:var(--muted);font-size:15px;margin-bottom:22px}
+label{display:block;font-size:14px;color:var(--muted);margin-bottom:14px}
+input{display:block;width:100%;margin-top:5px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font:inherit;color:var(--text);background:#fff}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:16px;color:var(--muted)}
+.row label{display:flex;align-items:center;gap:8px;margin:0}.row input{width:auto;margin:0}
+button.go{width:100%;padding:11px;border:0;border-radius:6px;background:var(--accent);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button.go:hover{filter:brightness(1.1)}button.go:disabled{opacity:.6;cursor:wait}
+.err{color:var(--crit);font-size:14px;min-height:20px;margin-bottom:10px}
+.pw{position:relative}.pw button{position:absolute;right:8px;top:36px;background:none;border:0;color:var(--muted);cursor:pointer;font-size:14px}
+.note{margin-top:18px;font-size:13px;color:var(--muted);text-align:center}
+</style>
+<!-- data-scaled -->
+</head>
+<body>
+<form class="box" id="f" novalidate>
+  <div class="brand"><i>S</i> SOC Console</div>
+  <p class="sub">Đăng nhập để vào trung tâm giám sát an ninh</p>
+  <label>Tên đăng nhập<input id="u" autocomplete="username" autofocus></label>
+  <label class="pw">Mật khẩu<input id="p" type="password" autocomplete="current-password"><button type="button" id="eye" aria-label="Hiện mật khẩu">Hiện</button></label>
+  <label>Mã 2FA (nếu đã bật)<input id="o" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="6 chữ số"></label>
+  <div class="row"><label><input type="checkbox" id="r"> Ghi nhớ đăng nhập</label><a href="#" style="color:var(--accent)" id="fg">Quên mật khẩu?</a></div>
+  <div class="err" id="err" role="alert"></div>
+  <button class="go" id="go" type="submit">Đăng nhập</button>
+  <p class="note">Bản mẫu giao diện: chưa kết nối xác thực thật.</p>
+</form>
+<script>
+const $=id=>document.getElementById(id);
+$('eye').addEventListener('click',()=>{const s=$('p').type==='password';$('p').type=s?'text':'password';$('eye').textContent=s?'Ẩn':'Hiện'});
+$('fg').addEventListener('click',e=>{e.preventDefault();$('err').style.color='var(--muted)';$('err').textContent='Liên hệ quản trị viên để đặt lại mật khẩu.'});
+$('f').addEventListener('submit',async e=>{
+  e.preventDefault();const err=$('err');err.style.color='var(--crit)';
+  if(!$('u').value.trim()||!$('p').value){err.textContent='Nhập tên đăng nhập và mật khẩu.';return}
+  if($('o').value&&!/^\d{6}$/.test($('o').value)){err.textContent='Mã 2FA gồm đúng 6 chữ số.';return}
+  $('go').disabled=true;$('go').textContent='Đang đăng nhập…';err.textContent='';
+  /* TODO: thay bằng lời gọi thật, ví dụ:
+     const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',
+       body:JSON.stringify({username:$('u').value,password:$('p').value,otp:$('o').value,remember:$('r').checked})});
+     if(!r.ok){...hiện lỗi...;return} */
+  await new Promise(r=>setTimeout(r,600));
+  location.href='soc-dashboard-light.html';
+});
+</script>
+</body>
+</html>

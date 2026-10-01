@@ -3,6 +3,7 @@
 # ==============================================================================
 
 from typing import Optional
+from urllib.parse import quote_plus
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -108,8 +109,10 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        user = quote_plus(self.DB_USER)
+        password = quote_plus(self.DB_PASSWORD)
         return (
-            f"mysql+aiomysql://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"mysql+aiomysql://{user}:{password}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
             f"?charset=utf8mb4"
         )
@@ -117,8 +120,10 @@ class Settings(BaseSettings):
     @property
     def database_url_sync(self) -> str:
         """Sync URL dùng cho PyMySQL"""
+        user = quote_plus(self.DB_USER)
+        password = quote_plus(self.DB_PASSWORD)
         return (
-            f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"mysql+pymysql://{user}:{password}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
             f"?charset=utf8mb4"
         )

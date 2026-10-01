@@ -1,6 +1,6 @@
 from sqlalchemy import Column, BigInteger, String, Enum, DateTime, Integer, Boolean
 from app.database import Base
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 class FwRule(Base):
     __tablename__ = "fw_rules"
@@ -20,7 +20,7 @@ class IdsEvent(Base):
     signature = Column(String(255), nullable=False)
     severity = Column(Enum("crit", "high", "med", "low", name="ids_severity"), nullable=False)
     count = Column(Integer, nullable=False, default=1)
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 class IpBlocklist(Base):
     __tablename__ = "ip_blocklist"
@@ -28,4 +28,4 @@ class IpBlocklist(Base):
     cidr = Column(String(50), unique=True, nullable=False)
     reason = Column(String(255), nullable=True)
     expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

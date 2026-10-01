@@ -1,6 +1,6 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, Boolean
 from app.database import Base
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 class Report(Base):
     __tablename__ = "reports"
@@ -9,7 +9,7 @@ class Report(Base):
     range = Column(String(64), nullable=False)
     format = Column(String(16), nullable=False) # csv, pdf
     file_path = Column(String(255), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 class ReportSchedule(Base):
     __tablename__ = "report_schedules"

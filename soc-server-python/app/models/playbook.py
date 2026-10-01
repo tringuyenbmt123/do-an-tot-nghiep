@@ -1,6 +1,6 @@
 from sqlalchemy import Column, BigInteger, String, Enum, DateTime, Boolean, JSON, Integer
 from app.database import Base
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 class Playbook(Base):
     __tablename__ = "playbooks"
@@ -23,6 +23,6 @@ class PlaybookRun(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     playbook_id = Column(BigInteger, nullable=False, index=True)
     status = Column(Enum("running", "success", "failed", name="pb_status"), nullable=False)
-    started_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    started_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
     logs = Column(JSON, nullable=True)

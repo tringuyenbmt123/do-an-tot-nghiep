@@ -1,6 +1,6 @@
 from sqlalchemy import Column, BigInteger, String, Enum, DateTime
 from app.database import Base
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 class Asset(Base):
     __tablename__ = "assets"

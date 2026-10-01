@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ToastProvider } from './contexts/ToastContext'
+import { WebSocketProvider } from './contexts/WebSocketContext'
 
 
 // Pages
@@ -47,31 +48,33 @@ export default function App() {
     <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              {/* Public Route */}
-              <Route path="/login" element={<Login />} />
+          <WebSocketProvider>
+            <BrowserRouter>
+              <Routes>
+                {/* Public Route */}
+                <Route path="/login" element={<Login />} />
 
-              {/* Private Routes */}
-              <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-              <Route path="/alerts" element={<PrivateRoute><Alerts /></PrivateRoute>} />
-              <Route path="/cases" element={<PrivateRoute><Cases /></PrivateRoute>} />
-              <Route path="/agents" element={<PrivateRoute><Agents /></PrivateRoute>} />
-              <Route path="/intel" element={<PrivateRoute><ThreatIntel /></PrivateRoute>} />
-              <Route path="/rules" element={<PrivateRoute><DetectionRules /></PrivateRoute>} />
-              <Route path="/audit" element={<PrivateRoute><AuditSettings /></PrivateRoute>} />
-              <Route path="/siem" element={<PrivateRoute><SIEM /></PrivateRoute>} />
-              <Route path="/mitre" element={<PrivateRoute><MITRE /></PrivateRoute>} />
-              <Route path="/vulns" element={<PrivateRoute><Vulns /></PrivateRoute>} />
-              <Route path="/assets" element={<PrivateRoute><Assets /></PrivateRoute>} />
-              <Route path="/firewall" element={<PrivateRoute><Firewall /></PrivateRoute>} />
-              <Route path="/playbooks" element={<PrivateRoute><Playbooks /></PrivateRoute>} />
-              <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
+                {/* Private Routes */}
+                <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                <Route path="/alerts" element={<PrivateRoute><Alerts /></PrivateRoute>} />
+                <Route path="/cases" element={<PrivateRoute><Cases /></PrivateRoute>} />
+                <Route path="/agents" element={<PrivateRoute><Agents /></PrivateRoute>} />
+                <Route path="/intel" element={<PrivateRoute><ThreatIntel /></PrivateRoute>} />
+                <Route path="/rules" element={<PrivateRoute><DetectionRules /></PrivateRoute>} />
+                <Route path="/audit" element={<PrivateRoute><AuditSettings /></PrivateRoute>} />
+                <Route path="/siem" element={<PrivateRoute><SIEM /></PrivateRoute>} />
+                <Route path="/mitre" element={<PrivateRoute><MITRE /></PrivateRoute>} />
+                <Route path="/vulns" element={<PrivateRoute><Vulns /></PrivateRoute>} />
+                <Route path="/assets" element={<PrivateRoute><Assets /></PrivateRoute>} />
+                <Route path="/firewall" element={<PrivateRoute><Firewall /></PrivateRoute>} />
+                <Route path="/playbooks" element={<PrivateRoute><Playbooks /></PrivateRoute>} />
+                <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
 
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </WebSocketProvider>
         </AuthProvider>
       </ToastProvider>
     </ThemeProvider>

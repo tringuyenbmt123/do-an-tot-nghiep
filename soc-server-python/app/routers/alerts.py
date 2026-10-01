@@ -81,35 +81,6 @@ async def create_alert(
     alert_service = AlertService(db)
     alert = await alert_service.create_alert(alert_data)
 
-    # Broadcast qua WebSocket
-    agent_info = None
-    if alert.agent:
-        agent_info = {
-            "id": alert.agent.id,
-            "hostname": alert.agent.hostname,
-            "ip_address": alert.agent.ip_address,
-        }
-    else:
-        conn = await global_conn_manager.get_connection(alert.agent_id)
-        agent_info = {
-            "id": alert.agent_id,
-            "hostname": conn.hostname if conn else alert.agent_id,
-            "ip_address": conn.ip_address if conn else "",
-        }
-
-    await ws_hub.broadcast_alert({
-        "id": alert.id,
-        "agent_id": alert.agent_id,
-        "agent": agent_info,
-        "hostname": agent_info.get("hostname"),
-        "event_type": alert.event_type,
-        "severity": alert.severity,
-        "title": alert.title,
-        "status": alert.status,
-        "mitre_tactic": alert.mitre_tactic,
-        "created_at": (alert.created_at.isoformat() + "Z") if alert.created_at else None,
-    })
-
     # Dispatch to SOAR nếu cần
     soar_service = SOARService(db)
     soar_service.dispatch_to_n8n(alert)

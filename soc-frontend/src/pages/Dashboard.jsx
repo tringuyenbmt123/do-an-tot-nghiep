@@ -1,7 +1,7 @@
 // ==============================================================
 // src/pages/Dashboard.jsx
 // ==============================================================
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   LayoutDashboard, AlertTriangle, FolderOpen, Activity,
   Server, TrendingUp, RefreshCw
@@ -18,17 +18,10 @@ import { getAlerts } from '../api/alerts'
 import { getAgents } from '../api/agents'
 import { useToast } from '../contexts/ToastContext'
 
+import { ago, formatDateTime } from '../utils/date'
+
 const SEV_COLORS = { critical: '#f85149', high: '#e36209', medium: '#d29922', low: '#3fb950' }
 const PIE_COLORS = ['#f85149','#e36209','#d29922','#3fb950','#58a6ff']
-
-const ago = (ts) => {
-  if (!ts) return '—'
-  const sec = Math.floor((Date.now() - new Date(ts)) / 1000)
-  if (sec < 60) return `${sec}s trước`
-  if (sec < 3600) return `${Math.floor(sec/60)}p trước`
-  if (sec < 86400) return `${Math.floor(sec/3600)}h trước`
-  return new Date(ts).toLocaleDateString('vi-VN')
-}
 
 export default function Dashboard() {
   const [stats, setStats]     = useState(null)
@@ -38,10 +31,14 @@ export default function Dashboard() {
   const [error, setError]     = useState('')
   const [lastRefresh, setLastRefresh] = useState(null)
   const toast = useToast()
+  // Dùng ref để tránh toast object làm invalidate useCallback và gây vòng lặp vô hạn
+  const toastRef = useRef(toast)
+  toastRef.current = toast
 
-  const load = useCallback(async () => {
+  // load KHÔNG phụ thuộc vào toast object → sẽ không bị recreate mỗi lần toast state thay đổi
+  const load = useCallback(async (silent = false) => {
     setError('')
-    setLoading(true)
+    if (!silent) setLoading(true)
     try {
       const [sRes, aRes, agRes] = await Promise.all([
         getDashboardStats(),
@@ -54,42 +51,68 @@ export default function Dashboard() {
       setLastRefresh(new Date())
     } catch (e) {
       setError(e.message)
-      toast.error('Không tải được dữ liệu tổng quan')
+      if (!silent) toastRef.current.error('Không tải được dữ liệu tổng quan')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [toast])
+  }, []) // deps rỗng – hàm này ổn định suốt vòng đời component
 
+  // Chỉ chạy 1 lần khi mount
   useEffect(() => { load() }, [load])
 
-  // Auto-refresh every 30s
+  // Auto-refresh ngầm mỗi 30s + lắng nghe event WebSocket alert mới
+  // Dùng ref chứa load để tránh effect bị re-register mỗi lần render
+  const loadRef = useRef(load)
+  loadRef.current = load
+
   useEffect(() => {
-    const t = setInterval(load, 30000)
-    return () => clearInterval(t)
-  }, [load])
+    const handleNewAlert = () => loadRef.current(true)
+    window.addEventListener('soc:new_alert', handleNewAlert)
+    const t = setInterval(() => loadRef.current(true), 30000)
+    return () => {
+      window.removeEventListener('soc:new_alert', handleNewAlert)
+      clearInterval(t)
+    }
+  }, []) // deps rỗng – chỉ register 1 lần
 
   const KPI = [
-    { label: 'Cảnh báo mới',   value: stats?.total_alerts_new     ?? '—', cls: 'k-crit', icon: AlertTriangle },
+    { label: 'Cảnh báo mới',   value: stats?.total_alerts_new ?? stats?.by_status?.new ?? '—', cls: 'k-crit', icon: AlertTriangle },
     { label: 'Cảnh báo hôm nay',value: stats?.total_alerts_today  ?? '—', cls: 'k-high', icon: TrendingUp },
-    { label: 'Sự cố mở',       value: stats?.total_cases_open     ?? '—', cls: 'k-med',  icon: FolderOpen },
+    { label: 'Sự cố mở',       value: stats?.total_cases_open ?? stats?.active_cases ?? '—', cls: 'k-med',  icon: FolderOpen },
     { label: 'Agent online',    value: stats?.agents_online        ?? '—', cls: 'k-ok',   icon: Server },
-    { label: 'Agent offline',   value: stats?.agents_offline       ?? '—', cls: 'k-info', icon: Activity },
+    { label: 'Agent offline',   value: stats?.agents_offline ?? (stats?.agents_total != null ? Math.max(0, stats.agents_total - (stats.agents_online || 0)) : '—'), cls: 'k-info', icon: Activity },
   ]
 
   // Build chart data from stats
-  const barData = stats?.alerts_by_hour?.map(h => ({
-    time: `${h.hour}:00`,
+  const rawTrend = stats?.alerts_by_hour || stats?.alert_trend || []
+  const barData = rawTrend.map(h => ({
+    // Lưu giá trị giờ dạng số để format đẹp
+    time: h.time || (h.hour ? (h.hour.includes(':') ? h.hour : `${h.hour}:00`) : ''),
+    hour: h.hour || (h.time ? h.time.split(':')[0] : '0'),
     critical: h.critical || 0,
     high:     h.high     || 0,
     medium:   h.medium   || 0,
     low:      h.low      || 0,
-  })) || []
+  }))
+
+  // Formatter trục X: "08h", "14h" – ngắn gọn, dễ đọc
+  const xTickFormatter = (val) => {
+    const h = val?.split(':')?.[0] ?? val
+    return `${String(h).padStart(2, '0')}h`
+  }
+
+  // Tooltip label: "14:00 – 15:00"
+  const tooltipLabel = (val) => {
+    const h = parseInt(val?.split(':')?.[0] ?? val, 10)
+    const next = (h + 1) % 24
+    return `${String(h).padStart(2,'0')}:00 – ${String(next).padStart(2,'0')}:00`
+  }
 
   const pieData = [
-    { name: 'Nghiêm trọng', value: stats?.severity_critical ?? 0, color: SEV_COLORS.critical },
-    { name: 'Cao',           value: stats?.severity_high     ?? 0, color: SEV_COLORS.high },
-    { name: 'Trung bình',   value: stats?.severity_medium   ?? 0, color: SEV_COLORS.medium },
-    { name: 'Thấp',         value: stats?.severity_low      ?? 0, color: SEV_COLORS.low },
+    { name: 'Nghiêm trọng', value: stats?.severity_critical ?? stats?.critical_alerts ?? stats?.by_severity?.critical ?? 0, color: SEV_COLORS.critical },
+    { name: 'Cao',           value: stats?.severity_high     ?? stats?.by_severity?.high ?? 0,     color: SEV_COLORS.high },
+    { name: 'Trung bình',   value: stats?.severity_medium   ?? stats?.by_severity?.medium ?? 0,   color: SEV_COLORS.medium },
+    { name: 'Thấp',         value: stats?.severity_low      ?? stats?.by_severity?.low ?? 0,      color: SEV_COLORS.low },
   ].filter(d => d.value > 0)
 
   return (
@@ -148,17 +171,34 @@ export default function Dashboard() {
           {loading ? (
             <div className="skeleton" style={{ height: 180, borderRadius: 8 }} />
           ) : barData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={barData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                <XAxis dataKey="time" tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--text)' }}
+            <ResponsiveContainer width="100%" height={210}>
+              <BarChart data={barData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }} barCategoryGap="30%">
+                <XAxis
+                  dataKey="time"
+                  tickFormatter={xTickFormatter}
+                  tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                  tickLine={false}
+                  axisLine={{ stroke: 'var(--line, #30363d)' }}
+                  interval={2}
                 />
-                <Bar dataKey="critical" stackId="a" fill={SEV_COLORS.critical} name="Nghiêm trọng" />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                  width={28}
+                />
+                <Tooltip
+                  labelFormatter={tooltipLabel}
+                  contentStyle={{ background: 'var(--panel, #161b22)', border: '1px solid var(--line, #30363d)', borderRadius: 8, fontSize: 12, color: '#ffffff', padding: '8px 12px' }}
+                  itemStyle={{ color: '#c9d1d9', padding: '2px 0' }}
+                  labelStyle={{ color: '#58a6ff', fontWeight: 600, marginBottom: 4 }}
+                  cursor={{ fill: 'rgba(88,166,255,0.06)' }}
+                />
+                <Bar dataKey="low"      stackId="a" fill={SEV_COLORS.low}      name="Thấp" />
+                <Bar dataKey="medium"   stackId="a" fill={SEV_COLORS.medium}   name="Trung bình" />
                 <Bar dataKey="high"     stackId="a" fill={SEV_COLORS.high}     name="Cao" />
-                <Bar dataKey="medium"   stackId="a" fill={SEV_COLORS.medium}   name="Trung bình" radius={[4,4,0,0]} />
+                <Bar dataKey="critical" stackId="a" fill={SEV_COLORS.critical} name="Nghiêm trọng" radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -182,7 +222,9 @@ export default function Dashboard() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12 }}
+                  contentStyle={{ background: 'var(--panel, #161b22)', border: '1px solid var(--line, #30363d)', borderRadius: 8, fontSize: 12, color: '#ffffff' }}
+                  itemStyle={{ color: '#ffffff' }}
+                  labelStyle={{ color: '#ffffff' }}
                 />
                 <Legend iconType="circle" iconSize={10} formatter={(v) => <span style={{ color: 'var(--muted)', fontSize: 12 }}>{v}</span>} />
               </PieChart>

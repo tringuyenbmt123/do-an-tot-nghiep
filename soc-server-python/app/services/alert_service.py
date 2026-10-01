@@ -154,6 +154,23 @@ class AlertService:
         self.db.add(alert)
         await self.db.commit()
         await self.db.refresh(alert)
+
+        # Broadcast WebSocket realtime đến toàn bộ frontend
+        try:
+            from app.websocket.hub import ws_hub
+            await ws_hub.broadcast_alert({
+                "id": alert.id,
+                "agent_id": alert.agent_id,
+                "event_type": alert.event_type,
+                "severity": alert.severity,
+                "title": alert.title,
+                "status": alert.status,
+                "mitre_tactic": alert.mitre_tactic,
+                "created_at": (alert.created_at.isoformat() + "Z") if alert.created_at else None,
+            })
+        except Exception as e:
+            logger.warning(f"[ALERT SERVICE] Khong the broadcast alert qua WS: {e}")
+
         return alert
 
     async def update_alert_status(self, alert_id: str, status: str) -> bool:
@@ -212,6 +229,10 @@ class AlertService:
             severity_map[sev] = cnt_res.scalar() or 0
 
         stats["critical_alerts"] = severity_map["critical"]
+        stats["severity_critical"] = severity_map["critical"]
+        stats["severity_high"] = severity_map["high"]
+        stats["severity_medium"] = severity_map["medium"]
+        stats["severity_low"] = severity_map["low"]
         stats["severity_distribution"] = [
             {"name": "Critical", "value": severity_map["critical"], "color": "#ff3366"},
             {"name": "High", "value": severity_map["high"], "color": "#ff9900"},
@@ -219,49 +240,66 @@ class AlertService:
             {"name": "Low", "value": severity_map["low"], "color": "#60a5fa"},
         ]
 
-        # 3. Agents total & online
+        # 3. Agents total, online & offline
         cnt_agents = await self.db.execute(select(func.count(Agent.id)))
-        stats["agents_total"] = cnt_agents.scalar() or 0
+        total_agents = cnt_agents.scalar() or 0
+        stats["agents_total"] = total_agents
 
         cnt_online = await self.db.execute(select(func.count(Agent.id)).where(Agent.status == "online"))
-        stats["agents_online"] = cnt_online.scalar() or 0
+        online_agents = cnt_online.scalar() or 0
+        stats["agents_online"] = online_agents
+        stats["agents_offline"] = max(0, total_agents - online_agents)
 
-        # 4. Active cases
+        # 4. Alerts new & Cases open
+        cnt_new = await self.db.execute(select(func.count(Alert.id)).where(Alert.status == "new"))
+        stats["total_alerts_new"] = cnt_new.scalar() or 0
+
         cnt_cases = await self.db.execute(
             select(func.count(Case.id)).where(Case.status.not_in(["Closed", "Rejected"]))
         )
-        stats["active_cases"] = cnt_cases.scalar() or 0
+        active_cases = cnt_cases.scalar() or 0
+        stats["active_cases"] = active_cases
+        stats["total_cases_open"] = active_cases
 
-        # 5. Alert trend last 24h
+        # 5. Alert trend last 24h quy theo giờ Việt Nam (UTC+7)
+        # Group theo datetime đầy đủ (năm-tháng-ngày-giờ) để tránh merge cùng số giờ
+        # của 2 ngày khác nhau vào 1 bucket (bug khi start24h trải qua 2 ngày)
+        now_vn = now + timedelta(hours=7)
         trend_query = text("""
-            SELECT DATE_FORMAT(created_at, '%H:00') AS hour,
+            SELECT DATE_FORMAT(DATE_ADD(created_at, INTERVAL 7 HOUR), '%Y-%m-%d %H') AS hour_slot,
                    severity,
                    COUNT(*) AS count
             FROM alerts
             WHERE created_at >= :start24h
-              AND severity IN ('critical', 'high', 'medium')
-            GROUP BY hour, severity
-            ORDER BY hour ASC
+              AND severity IN ('critical', 'high', 'medium', 'low')
+            GROUP BY hour_slot, severity
+            ORDER BY hour_slot ASC
         """)
         trend_rows = await self.db.execute(trend_query, {"start24h": start24h})
+        # hour_map key = "YYYY-MM-DD HH" (VN time)
         hour_map = {}
         for row in trend_rows.fetchall():
-            hour_str, sev, count = row[0], row[1], row[2]
-            if hour_str not in hour_map:
-                hour_map[hour_str] = {"critical": 0, "high": 0, "medium": 0}
-            hour_map[hour_str][sev] = count
+            slot, sev, count = str(row[0]), str(row[1]).lower(), int(row[2])
+            if slot not in hour_map:
+                hour_map[slot] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+            hour_map[slot][sev] = count
 
         alert_trend = []
         for i in range(23, -1, -1):
-            target_hour = (now - timedelta(hours=i)).strftime("%H:00")
-            counts = hour_map.get(target_hour, {"critical": 0, "high": 0, "medium": 0})
+            slot_dt  = now_vn - timedelta(hours=i)
+            slot_key = slot_dt.strftime("%Y-%m-%d %H")   # khóa khớp với query
+            hour_label = slot_dt.strftime("%H")           # nhãn hiển thị "10", "14"...
+            counts = hour_map.get(slot_key, {"critical": 0, "high": 0, "medium": 0, "low": 0})
             alert_trend.append({
-                "hour": target_hour,
+                "hour": hour_label,
+                "time": f"{hour_label}:00",
                 "critical": counts.get("critical", 0),
-                "high": counts.get("high", 0),
-                "medium": counts.get("medium", 0),
+                "high":     counts.get("high", 0),
+                "medium":   counts.get("medium", 0),
+                "low":      counts.get("low", 0),
             })
         stats["alert_trend"] = alert_trend
+        stats["alerts_by_hour"] = alert_trend
 
         # 6. Top affected agents
         top_agents_query = text("""
@@ -282,7 +320,7 @@ class AlertService:
         # Legacy keys
         stats["total"] = total_alerts_today
         stats["by_severity"] = severity_map
-        stats["by_status"] = {"new": 0, "in_progress": 0, "resolved": 0}
+        stats["by_status"] = {"new": stats["total_alerts_new"], "in_progress": 0, "resolved": 0}
 
         return stats
 

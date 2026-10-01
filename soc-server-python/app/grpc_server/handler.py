@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import uuid
 from datetime import datetime
 from typing import Optional, Callable, AsyncIterator
@@ -54,6 +55,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
         self.conn_manager = conn_manager
         self.on_new_alert = on_new_alert
         self.redis = redis_client
+        self._recent_fim_events: dict = {}  # {(agent_id, path): last_timestamp}
 
     # ==========================================================================
     # StreamEvents - Bidirectional Streaming RPC
@@ -182,26 +184,38 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
         if event.event_type == "system_metric":
             return
 
-        # Lọc bỏ sự kiện FIM 'modified' trên thư mục (tránh trùng lặp cảnh báo do NTFS cập nhật timestamp thư mục cha khi file con thay đổi)
+        # Lọc bỏ sự kiện FIM trên thư mục và debounce chống bão cảnh báo khi thao tác 1 file
         if event.event_type == "file_integrity":
+            path_str = str(raw_log.get("path", "")).strip()
             action = str(raw_log.get("action", "")).lower()
-            if action == "modified":
-                path_str = str(raw_log.get("path", "")).strip()
-                # 1. Payload có trường is_dir = True
-                if raw_log.get("is_dir") is True:
+
+            # 1. Bỏ qua sự kiện trên thư mục cha (tránh Windows đổi timestamp thư mục cha khi file con thay đổi)
+            if raw_log.get("is_dir") is True:
+                return
+            try:
+                if os.path.exists(path_str) and os.path.isdir(path_str):
+                    logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục: {path_str}")
                     return
-                # 2. Kiểm tra nếu path là thư mục thực tế trên filesystem
-                try:
-                    if os.path.exists(path_str) and os.path.isdir(path_str):
-                        logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục: {path_str}")
-                        return
-                except Exception:
-                    pass
-                # 3. Heuristic: nếu basename không có file extension (thư mục)
-                base = os.path.basename(path_str.replace("\\", "/").rstrip("/"))
-                if "." not in base:
-                    logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục (không có extension): {path_str}")
-                    return
+            except Exception:
+                pass
+            base = os.path.basename(path_str.replace("\\", "/").rstrip("/"))
+            if "." not in base and action == "modified":
+                logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục (không có extension): {path_str}")
+                return
+
+            # 2. Debounce: Cùng 1 file nếu nhận liên tiếp các event (created, modified, modified...) trong 3 giây thì chỉ tạo 1 alert
+            now_ts = time.time()
+            norm_path = path_str.replace("/", "\\").lower()
+            key = (agent_id, norm_path)
+            last_ts = self._recent_fim_events.get(key, 0)
+            if now_ts - last_ts < 3.0:
+                logger.info(f"[STREAM] ⏳ Đã gộp/bỏ qua FIM event '{action}' trùng lặp trên file: {path_str}")
+                return
+            self._recent_fim_events[key] = now_ts
+
+            # Dọn dẹp cache nếu quá 1000 phần tử
+            if len(self._recent_fim_events) > 1000:
+                self._recent_fim_events = {k: v for k, v in self._recent_fim_events.items() if now_ts - v < 60}
 
         # ===== Gọi Rule Engine đánh giá event =====
         alerts_data, matched = self.rule_engine.evaluate_log(raw_log, agent_id)

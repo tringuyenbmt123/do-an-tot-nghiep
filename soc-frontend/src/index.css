@@ -689,30 +689,66 @@ textarea.soc-input { min-height: 80px; resize: vertical; }
    ============================================================ */
 .toast-container {
   position: fixed;
-  bottom: 24px;
+  top: 24px;
   right: 24px;
-  z-index: 9999;
+  z-index: 99999;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-width: 420px;
+  /* Giới hạn chiều cao: tránh tràn màn hình khi có nhiều alert */
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  pointer-events: none;
 }
 .toast {
-  padding: 12px 16px;
+  pointer-events: auto;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-md);
-  font-size: 14px;
-  max-width: 340px;
-  animation: slideUp .2s;
+  background: var(--panel, #161b22);
+  border: 1px solid var(--line, #30363d);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  animation: toastSlideIn .22s cubic-bezier(.2,.8,.4,1);
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--text, #ffffff);
+  min-width: 260px;
 }
-.toast.success { border-left: 3px solid var(--ok); }
-.toast.error   { border-left: 3px solid var(--crit); }
-.toast.info    { border-left: 3px solid var(--info); }
-.toast.warn    { border-left: 3px solid var(--med); }
+.toast-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  margin-top: 1px;
+}
+.toast-msg {
+  flex: 1;
+  word-break: break-word;
+}
+.toast-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--muted, #8b949e);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  margin-top: -1px;
+  opacity: 0.6;
+  transition: opacity .15s;
+}
+.toast-close:hover { opacity: 1; }
+@keyframes toastSlideIn {
+  from { transform: translateX(24px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.toast.success { border-left: 4px solid var(--ok); }
+.toast.error   { border-left: 4px solid var(--crit); background: #201314; }
+.toast.info    { border-left: 4px solid var(--info); }
+.toast.warn    { border-left: 4px solid var(--med); background: #241c10; }
 
 /* ============================================================
    LOADING / SKELETON

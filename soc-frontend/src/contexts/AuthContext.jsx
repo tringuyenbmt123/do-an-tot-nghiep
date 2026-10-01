@@ -9,7 +9,14 @@ import * as authApi from '../api/auth'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('soc_user')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
   const [loading, setLoading] = useState(false)
 
   const login = useCallback(async (username, password) => {
@@ -18,6 +25,7 @@ export function AuthProvider({ children }) {
       const res = await authApi.login(username, password)
       const { token, user: userData } = res.data
       setToken(token)
+      localStorage.setItem('soc_user', JSON.stringify(userData))
       setUser(userData)
       return { ok: true }
     } catch (err) {
@@ -29,6 +37,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     clearToken()
+    localStorage.removeItem('soc_user')
     setUser(null)
   }, [])
 

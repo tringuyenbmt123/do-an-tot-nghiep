@@ -13,17 +13,9 @@ import Modal from '../components/ui/Modal'
 import { getAlerts, getAlertById, updateAlertStatus, escalateAlert } from '../api/alerts'
 import { useDebounce } from '../hooks/useDebounce'
 import { useToast } from '../contexts/ToastContext'
+import { ago, formatDateTime } from '../utils/date'
 
 const PAGE_SIZE = 50
-
-const ago = (ts) => {
-  if (!ts) return '—'
-  const sec = Math.floor((Date.now() - new Date(ts)) / 1000)
-  if (sec < 60) return `${sec}s trước`
-  if (sec < 3600) return `${Math.floor(sec/60)}p trước`
-  if (sec < 86400) return `${Math.floor(sec/3600)}h trước`
-  return new Date(ts).toLocaleDateString('vi-VN')
-}
 
 export default function Alerts() {
   const [alerts, setAlerts]       = useState([])
@@ -40,9 +32,9 @@ export default function Alerts() {
   const dSearch = useDebounce(search, 400)
   const toast = useToast()
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     setError('')
-    setLoading(true)
+    if (!silent) setLoading(true)
     try {
       const params = { page, limit: PAGE_SIZE }
       if (sevFilter)    params.severity = sevFilter
@@ -53,12 +45,39 @@ export default function Alerts() {
     } catch (e) {
       setError(e.message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [page, sevFilter, statusFilter])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { setPage(1) }, [sevFilter, statusFilter])
+
+  // Lắng nghe sự kiện Alert mới qua WebSocket theo thời gian thực (không cần F5)
+  useEffect(() => {
+    const handleRealtimeAlert = (e) => {
+      const incoming = e.detail
+      if (!incoming) return
+      
+      setAlerts(prev => {
+        // Tránh trùng lặp nếu alert đã có trong list
+        if (incoming.id && prev.some(a => a.id === incoming.id)) return prev
+        return [incoming, ...prev]
+      })
+      setTotal(t => t + 1)
+    }
+
+    window.addEventListener('soc:new_alert', handleRealtimeAlert)
+    
+    // Auto-refresh nền mỗi 30 giây để đồng bộ ngầm mà không nháy màn hình
+    const timer = setInterval(() => {
+      load(true)
+    }, 30000)
+
+    return () => {
+      window.removeEventListener('soc:new_alert', handleRealtimeAlert)
+      clearInterval(timer)
+    }
+  }, [load])
 
   const filtered = dSearch
     ? alerts.filter(a =>
@@ -235,7 +254,9 @@ export default function Alerts() {
                       <td><SeverityBadge value={a.severity} /></td>
                       <td className="mono" style={{ fontSize: 12 }}>{a.event_type}</td>
                       <td><StatusBadge value={a.status} /></td>
-                      <td style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{ago(a.created_at)}</td>
+                      <td style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }} title={formatDateTime(a.created_at)}>
+                        {ago(a.created_at)}
+                      </td>
                       <td onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button className="lnk" onClick={() => openDetail(a.id)} aria-label="Chi tiết"><Eye size={13} /></button>
@@ -307,6 +328,12 @@ export default function Alerts() {
                   <span className="tag">{detail.mitre_technique_id}</span>
                 </div>
               )}
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>THỜI GIAN PHÁT HIỆN</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>
+                  {formatDateTime(detail.created_at)} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({ago(detail.created_at)})</span>
+                </div>
+              </div>
             </div>
             {detail.description && (
               <div>

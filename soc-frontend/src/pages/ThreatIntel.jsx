@@ -13,20 +13,13 @@ import { getIndicators, createIndicator, deleteIndicator, analyzeIOC } from '../
 import { useDebounce } from '../hooks/useDebounce'
 import { useToast } from '../contexts/ToastContext'
 
+import { ago, formatDateTime } from '../utils/date'
+
 const PAGE_SIZE = 50
 
 const TYPE_ICONS = {
   'ip-src': Server, 'ip-dst': Server, 'domain': Globe, 'url': Globe,
   'md5': Hash, 'sha1': FileDigit, 'sha256': FileDigit, 'email': Mail
-}
-
-const ago = (ts) => {
-  if (!ts) return '—'
-  const sec = Math.floor((Date.now() - new Date(ts)) / 1000)
-  if (sec < 60) return `${sec}s trước`
-  if (sec < 3600) return `${Math.floor(sec/60)}p trước`
-  if (sec < 86400) return `${Math.floor(sec/3600)}h trước`
-  return new Date(ts).toLocaleDateString('vi-VN')
 }
 
 export default function ThreatIntel() {

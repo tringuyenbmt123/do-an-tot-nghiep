@@ -106,6 +106,19 @@ export default function Alerts() {
     load()
   }
 
+  const handleSingleStatus = async (id, status) => {
+    const label = { ack: 'Nhận xử lý', closed: 'Đóng', fp: 'False Positive' }[status] || status
+    try {
+      await updateAlertStatus(id, { status })
+      toast.success(`Đã chuyển cảnh báo sang "${label}"`)
+      load(true)
+      return true
+    } catch (e) {
+      toast.error(e.message || 'Cập nhật trạng thái thất bại')
+      return false
+    }
+  }
+
   const openDetail = async (id) => {
     setDetailLoading(true)
     setDetail({ id, loading: true })
@@ -285,9 +298,19 @@ export default function Alerts() {
         size="lg"
         footer={
           <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-            <button className="b2" onClick={() => { if (detail?.id) handleStatusBulk('ack'); setDetail(null) }}>
-              <CheckCircle size={14} /> Nhận xử lý
-            </button>
+            {detail?.status !== 'ack' && (
+              <button
+                className="b2"
+                onClick={async () => {
+                  if (detail?.id) {
+                    const ok = await handleSingleStatus(detail.id, 'ack')
+                    if (ok) setDetail(null)
+                  }
+                }}
+              >
+                <CheckCircle size={14} /> Nhận xử lý
+              </button>
+            )}
             <button className="b2" onClick={() => { if (detail?.id) handleEscalate(detail.id); setDetail(null) }}>
               <ArrowUp size={14} /> Tạo Case
             </button>

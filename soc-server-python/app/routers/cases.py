@@ -21,6 +21,7 @@ class CreateCaseRequest(BaseModel):
     title: str
     description: Optional[str] = ""
     assigned_to: Optional[str] = ""
+    severity: Optional[str] = "medium"
 
 
 class AssignCaseRequest(BaseModel):
@@ -33,6 +34,32 @@ class AddNoteRequest(BaseModel):
 
 class UpdateStatusRequest(BaseModel):
     status: str
+
+
+def serialize_case(c) -> dict:
+    if not c:
+        return {}
+    num_to_sev = {1: "critical", 2: "high", 3: "medium", 4: "low"}
+    sev = num_to_sev.get(c.severity_num, "medium")
+    if hasattr(c, "alert") and c.alert and getattr(c.alert, "severity", None):
+        sev = str(c.alert.severity).lower()
+
+    return {
+        "id": c.id,
+        "alert_id": c.alert_id,
+        "title": c.title,
+        "description": c.description,
+        "severity": sev,
+        "severity_num": c.severity_num,
+        "status": c.status,
+        "assigned_to": c.assigned_to,
+        "tags": c.tags,
+        "soar_status": getattr(c, "soar_status", "pending"),
+        "ai_reason": getattr(c, "ai_reason", None),
+        "confidence": getattr(c, "confidence", 0.0),
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+        "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+    }
 
 
 @router.get("")
@@ -54,7 +81,7 @@ async def get_cases(
     cases, total = await case_service.get_all_cases(page=page, page_size=limit, filters=filters)
 
     return {
-        "data": cases,
+        "data": [serialize_case(c) for c in cases],
         "total": total,
         "page": page,
         "limit": limit,
@@ -74,7 +101,7 @@ async def get_case_by_id(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy Case '{case_id}'",
         )
-    return case_item
+    return serialize_case(case_item)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -85,6 +112,9 @@ async def create_case(
 ):
     assigned_to = req.assigned_to or current_user.get("username", "soc_analyst")
     case_service = CaseService(db)
+
+    sev_to_num = {"critical": 1, "high": 2, "medium": 3, "low": 4}
+    sev_num = sev_to_num.get((req.severity or "medium").lower(), 3)
 
     if req.alert_id:
         try:
@@ -101,6 +131,7 @@ async def create_case(
             title=req.title,
             description=req.description or "",
             assigned_to=assigned_to,
+            severity_num=sev_num,
         )
 
     await ws_hub.broadcast_case_update({
@@ -110,7 +141,7 @@ async def create_case(
         "assigned_to": new_case.assigned_to,
     })
 
-    return new_case
+    return serialize_case(new_case)
 
 
 @router.patch("/{case_id}/assign")

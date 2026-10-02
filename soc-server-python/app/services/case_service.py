@@ -5,7 +5,7 @@
 
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Tuple, List, Dict, Any
 
 from sqlalchemy import select, func, desc
@@ -124,13 +124,14 @@ class CaseService:
         title: str,
         description: str,
         assigned_to: str,
+        severity_num: int = 3,
     ) -> Case:
         """Tạo Case thủ công không cần Alert gốc"""
         new_case = Case(
             id=str(uuid.uuid4()),
             title=title,
             description=description,
-            severity_num=3,
+            severity_num=severity_num,
             status=CaseStatus.NEW.value,
             assigned_to=assigned_to,
             tags='["manual"]',
@@ -181,7 +182,7 @@ class CaseService:
         if not c:
             return False
 
-        ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        ts = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S")
         new_note = f"\n\n---\n**[{ts}] {actor}**: {note}"
         c.description = (c.description or "") + new_note
         c.updated_at = datetime.utcnow()

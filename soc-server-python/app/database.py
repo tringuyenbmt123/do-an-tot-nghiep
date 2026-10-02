@@ -41,7 +41,7 @@ async def init_db():
     async with engine.begin() as conn:
         # Import all models để SQLAlchemy nhận diện
         from app.models import (  # noqa: F401
-            agent, alert, case, rule, indicator, audit_log, user, setting
+            agent, alert, case, rule, indicator, audit_log, user, setting, siem
         )
         await conn.run_sync(Base.metadata.create_all)
     logger.info("[DATABASE] ✅ AutoMigrate hoàn tất - Tất cả bảng đã sẵn sàng!")

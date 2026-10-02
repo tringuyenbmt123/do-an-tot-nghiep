@@ -2,7 +2,7 @@
 // src/pages/Cases.jsx
 // ==============================================================
 import React, { useState, useEffect, useCallback } from 'react'
-import { FolderOpen, Plus, RefreshCw, Search } from 'lucide-react'
+import { FolderOpen, Plus, RefreshCw, Search, MessageSquare, Clock, Send, FileText } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import SeverityBadge from '../components/ui/SeverityBadge'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -10,13 +10,63 @@ import SkeletonTable from '../components/ui/SkeletonTable'
 import EmptyState from '../components/ui/EmptyState'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
-import { getCases, createCase, updateCaseStatus, assignCase, addCaseNote } from '../api/cases'
+import { getCases, getCaseById, createCase, updateCaseStatus, assignCase, addCaseNote } from '../api/cases'
 import { useDebounce } from '../hooks/useDebounce'
 import { useToast } from '../contexts/ToastContext'
 import { useAuth } from '../contexts/AuthContext'
 import { ago, formatDateTime } from '../utils/date'
 
 const PAGE_SIZE = 20
+
+const resolveSeverity = (item) => {
+  if (!item) return 'medium'
+  if (item.severity && item.severity !== '—') return item.severity
+  if (item.severity_num) {
+    const map = { 1: 'critical', 2: 'high', 3: 'medium', 4: 'low' }
+    if (map[item.severity_num]) return map[item.severity_num]
+  }
+  const text = `${item.title || ''} ${item.description || ''}`.toUpperCase()
+  if (text.includes('[CRITICAL]') || text.includes('CRITICAL')) return 'critical'
+  if (text.includes('[HIGH]') || text.includes('HIGH')) return 'high'
+  if (text.includes('[MEDIUM]') || text.includes('MEDIUM')) return 'medium'
+  if (text.includes('[LOW]') || text.includes('LOW')) return 'low'
+  return 'medium'
+}
+
+const parseCaseDescription = (desc) => {
+  if (!desc) return { initialDesc: '', notes: [] }
+
+  const parts = desc.split(/\n*---\n*/).map(p => p.trim()).filter(Boolean)
+  if (parts.length === 0) return { initialDesc: '', notes: [] }
+
+  let initialDesc = ''
+  const notes = []
+
+  parts.forEach((part, idx) => {
+    const match = part.match(/^\*{0,2}\[([^\]]+)\]\s*([^:*]+)\*{0,2}:\s*([\s\S]*)$/)
+    if (match) {
+      notes.push({
+        id: idx,
+        timestamp: match[1].trim(),
+        author: match[2].trim(),
+        content: match[3].trim(),
+      })
+    } else {
+      if (idx === 0) {
+        initialDesc = part
+      } else {
+        notes.push({
+          id: idx,
+          timestamp: '',
+          author: '',
+          content: part,
+        })
+      }
+    }
+  })
+
+  return { initialDesc, notes }
+}
 
 export default function Cases() {
   const [cases, setCases]           = useState([])
@@ -29,7 +79,8 @@ export default function Cases() {
   const [showCreate, setShowCreate] = useState(false)
   const [selected, setSelected]     = useState(null)
   const [noteText, setNoteText]     = useState('')
-  const [createForm, setCreateForm] = useState({ title: '', description: '', assigned_to: '' })
+  const [addingNote, setAddingNote] = useState(false)
+  const [createForm, setCreateForm] = useState({ title: '', description: '', assigned_to: '', severity: 'high' })
   const [createErrors, setCreateErrors] = useState({})
   const dSearch = useDebounce(search, 400)
   const toast = useToast()
@@ -72,10 +123,11 @@ export default function Cases() {
         title: createForm.title,
         description: createForm.description,
         assigned_to: createForm.assigned_to || user?.username,
+        severity: createForm.severity || 'high',
       })
       toast.success('Đã tạo Case mới')
       setShowCreate(false)
-      setCreateForm({ title: '', description: '', assigned_to: '' })
+      setCreateForm({ title: '', description: '', assigned_to: '', severity: 'high' })
       setCreateErrors({})
       load()
     } catch (e) {
@@ -98,12 +150,25 @@ export default function Cases() {
 
   const handleAddNote = async () => {
     if (!noteText.trim()) { toast.warn('Vui lòng nhập nội dung ghi chú'); return }
+    setAddingNote(true)
     try {
       await addCaseNote(selected.id, noteText)
-      toast.success('Đã thêm ghi chú')
+      toast.success('Đã thêm ghi chú điều tra')
       setNoteText('')
+      try {
+        const res = await getCaseById(selected.id)
+        if (res.data) setSelected(res.data)
+      } catch {
+        const now = new Date()
+        const timeStr = now.toISOString().replace('T', ' ').substring(0, 19)
+        const appendNote = `\n\n---\n**[${timeStr}] ${user?.username || 'admin'}**: ${noteText}`
+        setSelected(s => ({ ...s, description: (s.description || '') + appendNote }))
+      }
+      load()
     } catch (e) {
       toast.error(e.message)
+    } finally {
+      setAddingNote(false)
     }
   }
 
@@ -189,7 +254,7 @@ export default function Cases() {
                       <td style={{ fontWeight: 500, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {c.title}
                       </td>
-                      <td><SeverityBadge value={c.severity} /></td>
+                      <td><SeverityBadge value={resolveSeverity(c)} /></td>
                       <td><StatusBadge value={c.status} /></td>
                       <td style={{ fontSize: 13 }}>{c.assigned_to || '—'}</td>
                       <td style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{ago(c.updated_at)}</td>
@@ -244,6 +309,21 @@ export default function Cases() {
           {createErrors.title && <p style={{ color: 'var(--crit)', fontSize: 12, marginTop: 4 }}>{createErrors.title}</p>}
         </div>
         <div className="form-group">
+          <label htmlFor="case-sev">Mức độ</label>
+          <select
+            id="case-sev"
+            className="soc-select"
+            value={createForm.severity}
+            onChange={e => setCreateForm(f => ({ ...f, severity: e.target.value }))}
+            style={{ width: '100%' }}
+          >
+            <option value="critical">Nghiêm trọng (Critical)</option>
+            <option value="high">Cao (High)</option>
+            <option value="medium">Trung bình (Medium)</option>
+            <option value="low">Thấp (Low)</option>
+          </select>
+        </div>
+        <div className="form-group">
           <label htmlFor="case-desc">Mô tả</label>
           <textarea
             id="case-desc"
@@ -277,50 +357,149 @@ export default function Cases() {
           </>
         }
       >
-        {selected && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>TIÊU ĐỀ</div>
-                <div style={{ fontWeight: 600 }}>{selected.title}</div>
+        {selected && (() => {
+          const { initialDesc, notes } = parseCaseDescription(selected.description)
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>TIÊU ĐỀ</div>
+                  <div style={{ fontWeight: 600 }}>{selected.title}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>MỨC ĐỘ</div>
+                  <SeverityBadge value={resolveSeverity(selected)} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>TRẠNG THÁI</div>
+                  <StatusBadge value={selected.status} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>PHỤ TRÁCH</div>
+                  <span style={{ fontSize: 13 }}>{selected.assigned_to || '—'}</span>
+                </div>
               </div>
+
+              {/* Mô tả ban đầu */}
+              {initialDesc && (
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <FileText size={13} /> THÔNG TIN MÔ TẢ BAN ĐẦU
+                  </div>
+                  <div style={{
+                    padding: '12px 14px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--bdr)',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    color: 'var(--text)',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}>
+                    {initialDesc}
+                  </div>
+                </div>
+              )}
+
+              {/* Nhật ký ghi chú điều tra */}
               <div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>MỨC ĐỘ</div>
-                <SeverityBadge value={selected.severity} />
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <MessageSquare size={13} /> NHẬT KÝ GHI CHÚ ĐIỀU TRA {notes.length > 0 && `(${notes.length})`}
+                </div>
+                {notes.length === 0 ? (
+                  <div style={{
+                    padding: '14px',
+                    textAlign: 'center',
+                    color: 'var(--muted)',
+                    fontSize: 13,
+                    background: 'rgba(255, 255, 255, 0.01)',
+                    border: '1px dashed var(--bdr)',
+                    borderRadius: 8,
+                  }}>
+                    Chưa có ghi chú điều tra nào.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
+                    {notes.map(n => (
+                      <div
+                        key={n.id}
+                        style={{
+                          padding: '10px 14px',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid var(--bdr)',
+                          borderRadius: 8,
+                          borderLeft: '3px solid var(--primary, #3b82f6)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: '50%',
+                              background: 'rgba(59, 130, 246, 0.15)',
+                              color: 'var(--primary, #3b82f6)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 11,
+                              fontWeight: 700,
+                            }}>
+                              {(n.author || 'A').charAt(0).toUpperCase()}
+                            </span>
+                            <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
+                              {n.author || 'Analyst'}
+                            </span>
+                          </div>
+                          {n.timestamp && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)' }}>
+                              <Clock size={12} />
+                              <span>{n.timestamp}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{
+                          fontSize: 13.5,
+                          color: 'var(--text)',
+                          lineHeight: 1.5,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}>
+                          {n.content}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>TRẠNG THÁI</div>
-                <StatusBadge value={selected.status} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>PHỤTRÁCH</div>
-                <span style={{ fontSize: 13 }}>{selected.assigned_to || '—'}</span>
+
+              {/* Thêm ghi chú mới */}
+              <div style={{ marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Plus size={13} /> THÊM GHI CHÚ MỚI
+                </div>
+                <textarea
+                  className="soc-input"
+                  placeholder="Ghi lại các phát hiện, hành động ngăn chặn hoặc cập nhật mới nhất…"
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  rows={3}
+                  style={{ marginBottom: 8, resize: 'vertical' }}
+                />
+                <button
+                  className="b1"
+                  onClick={handleAddNote}
+                  disabled={addingNote || !noteText.trim()}
+                  style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Send size={13} />
+                  {addingNote ? 'Đang lưu…' : 'Gửi ghi chú'}
+                </button>
               </div>
             </div>
-
-            {selected.description && (
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>MÔ TẢ</div>
-                <p style={{ fontSize: 14, lineHeight: 1.6 }}>{selected.description}</p>
-              </div>
-            )}
-
-            {/* Add Note */}
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>THÊM GHI CHÚ ĐIỀU TRA</div>
-              <textarea
-                className="soc-input"
-                placeholder="Ghi lại các phát hiện, hành động đã thực hiện…"
-                value={noteText}
-                onChange={e => setNoteText(e.target.value)}
-                style={{ marginBottom: 8 }}
-              />
-              <button className="b1" onClick={handleAddNote} style={{ fontSize: 13 }}>
-                Thêm ghi chú
-              </button>
-            </div>
-          </div>
-        )}
+          )
+        })()}
       </Modal>
     </Layout>
   )

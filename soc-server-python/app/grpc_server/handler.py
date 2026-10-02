@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from datetime import datetime
@@ -30,6 +31,7 @@ from app.database import AsyncSessionLocal
 from app.models.agent import Agent
 from app.models.alert import Alert
 from app.models.audit_log import AuditLog
+from app.models.siem import LogEvent
 from app.rules.engine import RuleEngine
 
 logger = logging.getLogger(__name__)
@@ -203,7 +205,64 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                 logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục (không có extension): {path_str}")
                 return
 
-            # 2. Debounce: Cùng 1 file nếu nhận liên tiếp các event (created, modified, modified...) trong 3 giây thì chỉ tạo 1 alert
+            # 2. Bỏ qua các file tạm thời nhiễu — browser download, IDE, Windows system
+            FIM_NOISE_EXTENSIONS = {
+                ".tmp", ".temp",        # Windows / browser temp files (bao gồm khi xuất CSV)
+                ".crdownload",          # Chrome đang tải
+                ".part",                # Firefox đang tải
+                ".partial",             # Edge / IE đang tải
+                ".download",            # Safari đang tải
+                ".opdownload",          # Opera đang tải
+                ".~lock",               # LibreOffice lock file
+                ".lnk",                 # Windows shortcut
+                ".db-journal",          # SQLite journal
+                ".db-wal", ".db-shm",   # SQLite WAL
+            }
+            FIM_NOISE_PATTERNS = [
+                # GUID-format file tạm (ví dụ: b42ac651-b622-4ddf-a2c5-ae6e565755bc.tmp)
+                r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+                # File tạm Windows bắt đầu bằng ~ hoặc .~ hoặc .
+                r'^~',
+                r'^\.',
+                # File xuất dữ liệu/báo cáo bình thường từ SOC Dashboard (SIEM, Alerts, Reports, Cases...)
+                r'^siem_events_.*\.csv$',
+                r'^.*(alert|case|audit|report|siem|metric|event|log).*(export|data|download)?.*\.(csv|xlsx|pdf|json)$',
+                # thumbs.db, desktop.ini
+                r'^thumbs\.db$',
+                r'^desktop\.ini$',
+                r'^\.ds_store$',
+            ]
+            FIM_NOISE_PATHS = [
+                r"\appdata\local\temp",
+                r"\appdata\local\microsoft\windows",
+                r"\appdata\roaming\microsoft\windows",
+                r"\windows\prefetch",
+                r"\windows\temp",
+                r"\temp",
+            ]
+
+            base_lower = base.lower()
+            norm_path = path_str.replace("/", "\\").lower()
+            ext = os.path.splitext(base_lower)[1]
+
+            # Bỏ qua theo extension
+            if ext in FIM_NOISE_EXTENSIONS:
+                logger.info(f"[STREAM] ℹ️ Bỏ qua FIM noise (extension={ext}): {path_str}")
+                return
+
+            # Bỏ qua theo pattern tên file
+            for pat in FIM_NOISE_PATTERNS:
+                if re.search(pat, base_lower):
+                    logger.info(f"[STREAM] ℹ️ Bỏ qua FIM noise (pattern={pat}): {path_str}")
+                    return
+
+            # Bỏ qua theo đường dẫn hệ thống
+            for noise_path in FIM_NOISE_PATHS:
+                if noise_path in norm_path:
+                    logger.info(f"[STREAM] ℹ️ Bỏ qua FIM noise (system path): {path_str}")
+                    return
+
+            # 3. Debounce: Cùng 1 file nếu nhận liên tiếp các event (created, modified, modified...) trong 3 giây thì chỉ tạo 1 alert
             now_ts = time.time()
             norm_path = path_str.replace("/", "\\").lower()
             key = (agent_id, norm_path)
@@ -247,6 +306,29 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                 event_dt = datetime.utcfromtimestamp(ts_sec)
             except Exception:
                 event_dt = datetime.utcnow()
+
+        # ===== Lưu LogEvent vào bảng SIEM (log_events) =====
+        # Ghi mọi event (kể cả không match rule) vào SIEM để analyst tra cứu
+        try:
+            level_map = {"critical": "CRITICAL", "high": "ERROR", "medium": "WARN", "low": "INFO"}
+            first_sev = alerts_data[0].get("severity", "low") if alerts_data else "low"
+            log_level = level_map.get(first_sev.lower(), "INFO")
+            msg = alerts_data[0].get("title") if alerts_data else f"Event: {event.event_type}"
+            async with AsyncSessionLocal() as log_db:
+                log_entry = LogEvent(
+                    occurred_at=event_dt,
+                    host=event.hostname or agent_id,
+                    source=event.event_type or "agent",
+                    level=log_level,
+                    user=raw_log.get("user") or raw_log.get("username") or None,
+                    ip=event.ip_address or None,
+                    message=msg or f"[{event.event_type}] Event from agent {agent_id}",
+                    raw=raw_log,
+                )
+                log_db.add(log_entry)
+                await log_db.commit()
+        except Exception as log_err:
+            logger.warning(f"[SIEM] ⚠️ Không lưu được LogEvent: {log_err}")
 
         # ===== Lưu Alerts vào DB và dispatch =====
         async with AsyncSessionLocal() as db:

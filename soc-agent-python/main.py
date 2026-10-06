@@ -187,6 +187,26 @@ def main():
         default="config.json",
         help="Đường dẫn tới file config.json",
     )
+    parser.add_argument(
+        "-server", "--server",
+        default="",
+        help="Địa chỉ gRPC server (VD: 192.168.1.194:50051)",
+    )
+    parser.add_argument(
+        "-agent-id", "--agent-id",
+        default="",
+        help="ID duy nhất của agent (VD: yairo01)",
+    )
+    parser.add_argument(
+        "-secret", "--secret",
+        default="",
+        help="Secret key xác thực Bearer token",
+    )
+    parser.add_argument(
+        "-protocol", "--protocol",
+        default="",
+        help="Giao thức truyền thông (grpc/http)",
+    )
     args = parser.parse_args()
 
     setup_logging("agent.log")
@@ -196,7 +216,7 @@ def main():
 
     # Load cấu hình
     from agent_config import load_config
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, args)
 
     # Stop event để graceful shutdown
     stop_event = threading.Event()

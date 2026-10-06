@@ -32,7 +32,7 @@ class RuleEngine:
             stmt = select(Rule).where(Rule.is_active.is_(True))
             res = await db.execute(stmt)
             self._rules = list(res.scalars().all())
-            logger.info(f"[RULE ENGINE] ✅ Đã nạp {len(self._rules)} rules từ Database vào memory")
+            logger.info(f"[RULE ENGINE] Đã nạp {len(self._rules)} rules từ Database vào memory")
 
     def get_active_rules(self) -> List[Rule]:
         return list(self._rules)

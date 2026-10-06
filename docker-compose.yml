@@ -43,11 +43,11 @@ services:
       - soc-network
 
   # ==============================================================================
-  # 3. SOC/EDR Backend Server (Golang REST API + gRPC)
+  # 3. SOC/EDR Backend Server (Python FastAPI + gRPC)
   # ==============================================================================
   soc-server:
     build:
-      context: ./soc-server
+      context: ./soc-server-python
       dockerfile: Dockerfile
     container_name: soc-server
     restart: always
@@ -57,14 +57,20 @@ services:
       redis:
         condition: service_healthy
     environment:
-      SOC_DB_HOST: "mysql"
-      SOC_DB_PORT: "3306"
-      SOC_DB_USER: "root"
-      SOC_DB_PASSWORD: "1"
-      SOC_DB_NAME: "soc_edr_db"
-      SOC_REDIS_ADDRESS: "redis:6379"
-      SOC_REST_PORT: "8080"
-      SOC_GRPC_PORT: "50051"
+      # Tương thích với .env của FastAPI
+      DB_HOST: "mysql"
+      DB_PORT: "3306"
+      DB_USER: "root"
+      DB_PASSWORD: "1"
+      DB_NAME: "soc_edr_db"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      HOST: "0.0.0.0"
+      PORT: "8080"
+      GRPC_PORT: "50051"
+      JWT_SECRET_KEY: "soc-agent-secret-token-2026"
+      AGENT_SECRET_KEY: "soc-agent-secret-token-2026"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin123}"
     ports:
       - "8080:8080"     # REST API & WebSocket
       - "50051:50051"   # gRPC cho Agents kết nối vào

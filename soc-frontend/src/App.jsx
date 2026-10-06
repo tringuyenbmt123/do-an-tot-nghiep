@@ -26,6 +26,9 @@ import Assets from './pages/Assets'
 import Firewall from './pages/Firewall'
 import Playbooks from './pages/Playbooks'
 import Reports from './pages/Reports'
+import SOCOverview from './pages/SOCOverview'
+import SOCAgents from './pages/SOCAgents'
+import SOCDeploy from './pages/SOCDeploy'
 
 // Route Guard
 function PrivateRoute({ children }) {
@@ -69,6 +72,9 @@ export default function App() {
                 <Route path="/firewall" element={<PrivateRoute><Firewall /></PrivateRoute>} />
                 <Route path="/playbooks" element={<PrivateRoute><Playbooks /></PrivateRoute>} />
                 <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
+                <Route path="/wazuh/overview"  element={<PrivateRoute><SOCOverview /></PrivateRoute>} />
+                <Route path="/wazuh/endpoints" element={<PrivateRoute><SOCAgents /></PrivateRoute>} />
+                <Route path="/wazuh/deploy"    element={<PrivateRoute><SOCDeploy /></PrivateRoute>} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />

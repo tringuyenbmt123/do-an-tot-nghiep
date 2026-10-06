@@ -1,6 +1,6 @@
 // ==============================================================
 // src/contexts/AuthContext.jsx
-// JWT stored in memory only (no localStorage)
+// JWT stored in sessionStorage for persistence with security
 // ==============================================================
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import { setToken, clearToken } from '../api/client'
@@ -11,7 +11,7 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('soc_user')
+      const saved = localStorage.getItem('soc_user') || sessionStorage.getItem('soc_user')
       return saved ? JSON.parse(saved) : null
     } catch {
       return null
@@ -27,6 +27,7 @@ export function AuthProvider({ children }) {
       setToken(token)
       localStorage.setItem('soc_user', JSON.stringify(userData))
       setUser(userData)
+      sessionStorage.setItem('soc_user', JSON.stringify(userData))
       return { ok: true }
     } catch (err) {
       return { ok: false, error: err.message }
@@ -39,6 +40,7 @@ export function AuthProvider({ children }) {
     clearToken()
     localStorage.removeItem('soc_user')
     setUser(null)
+    sessionStorage.removeItem('soc_user')
   }, [])
 
   const isAdmin = user?.role === 'admin'

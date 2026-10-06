@@ -18,6 +18,15 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
+:: Kiem tra hoac tao mat khau ngau nhien
+if exist .env (
+    for /F "tokens=2 delims==" %%I in ('findstr "^ADMIN_PASSWORD=" .env') do set ADMIN_PASS=%%I
+)
+if "%ADMIN_PASS%"=="" (
+    for /f "usebackq tokens=*" %%a in (`powershell -NoProfile -Command "-join ((48..57) + (65..90) + (97..122) | Get-Random -Count 24 | ForEach-Object {[char]$_})"`) do set ADMIN_PASS=%%a
+    echo ADMIN_PASSWORD=%ADMIN_PASS%>> .env
+)
+
 echo [1/3] Dang dung cac container cu (neu co)...
 docker compose down >nul 2>nul
 
@@ -43,7 +52,7 @@ echo   - gRPC cho Agent:    localhost:50051
 echo   - MySQL Database:    localhost:3306 (user: root, pass: 1, db: soc_edr_db)
 echo   - Redis:             localhost:6379
 echo.
-echo   * Tai khoan dang nhap Dashboard mac dinh: admin / admin123
+echo   * Tai khoan dang nhap Dashboard mac dinh: admin / %ADMIN_PASS%
 echo   * Co so du lieu khoi tao sach (Clean DB) - San sang ket noi Agent!
 echo ==============================================================================
 echo.

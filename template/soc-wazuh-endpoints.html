@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tài sản & Endpoint – SOC Console</title>
+<title>Endpoints – SOC Console</title>
 <style>
 :root{
   --bg:#f2f5f9;--panel:#ffffff;--panel2:#eef2f7;--line:#dce4ed;
@@ -189,6 +189,33 @@ tr.cl{cursor:pointer}
 .tl small{color:var(--muted);display:block}
 .bar3{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;min-width:70px}
 .bar3 b{display:block;height:100%;border-radius:3px}
+
+th.sr{cursor:pointer;user-select:none}th.sr:hover{color:var(--text)}
+th i{font-style:normal;color:var(--accent)}
+.os{display:flex;align-items:center;gap:8px}
+.oi{width:16px;height:16px;flex:none}
+.vd{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--crit);margin-left:6px}
+.sdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.menu{position:relative;display:inline-block}
+.pop{position:absolute;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 8px 24px rgba(27,42,59,.15);min-width:250px;z-index:5;padding:4px;display:block}
+.pop.hide{display:none}
+.pop button{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 12px;cursor:pointer;border-radius:4px;color:var(--text);font-size:16px;font-weight:400}
+.pop button:hover:not(:disabled){background:var(--panel2)}.pop button:disabled{opacity:.4;cursor:not-allowed}
+.pg{display:flex;justify-content:space-between;align-items:center;padding-top:12px;color:var(--muted);font-size:16px;flex-wrap:wrap;gap:8px}
+.lnk.on{border-color:var(--accent);color:var(--accent);background:#e3f3f7}
+.wql{font-family:var(--mono)}
+code{font-family:var(--mono);background:var(--panel2);padding:0 5px;border-radius:3px}
+#dB td:first-child{color:var(--muted);width:40%}
+
+.crumb{font-size:16px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.crumb a{color:var(--accent)}
+.donutbox{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.dn{width:150px;height:150px;flex:none}
+.dl{display:grid;gap:4px;flex:1;min-width:140px}
+.dl a,.dl div{display:flex;align-items:center;gap:8px;font-size:17px;color:var(--text);border-radius:4px;padding:3px 6px}
+.dl a:hover{background:var(--panel2)}
+.dl i{width:11px;height:11px;border-radius:50%;flex:none}
+@media(max-width:1100px){.top2{grid-template-columns:1fr!important}}
 </style>
 <!-- data-scaled -->
 </head>
@@ -222,7 +249,7 @@ tr.cl{cursor:pointer}
       </button>
       <div class="sub" id="infraSub">
         <div>
-          <a href="soc-assets.html" class="on">Tài sản &amp; Endpoint</a>
+          <a href="soc-assets.html">Tài sản &amp; Endpoint</a>
           <a href="soc-agents.html">Agents &amp; EDR</a>
           <a href="soc-firewall.html">Firewall / IDS</a>
         </div>
@@ -236,7 +263,7 @@ tr.cl{cursor:pointer}
       <div class="sub" id="wazuhSub">
         <div>
           <a href="soc-wazuh-overview.html">Tổng quan Wazuh</a>
-          <a href="soc-wazuh-endpoints.html">Endpoints</a>
+          <a href="soc-wazuh-endpoints.html" class="on">Endpoints</a>
           <a href="soc-wazuh-deploy.html">Triển khai agent</a>
         </div>
       </div>
@@ -267,18 +294,25 @@ tr.cl{cursor:pointer}
   <a class="user" href="soc-login.html" title="Tài khoản · Đăng xuất">MA</a>
 </header>
 
-<main><div class="ph"><div class="ic" style="background:#e3f6ec;color:var(--ok)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.01M7 17h.01"/></svg></div><div><h1>Tài sản &amp; Endpoint</h1><p>Kiểm kê máy chủ, máy trạm, thiết bị mạng và cloud</p></div><div class="act"><button class="b1" id="add">Thêm tài sản</button></div></div><section class="grid kpis"><div class="card kpi k-info"><div class="l">Tổng tài sản</div><div class="v" id="kAll">0</div></div><div class="card kpi k-info"><div class="l">Máy chủ</div><div class="v" id="kSrv">0</div></div><div class="card kpi k-high"><div class="l">Chưa có agent</div><div class="v" id="kNo">0</div></div><div class="card kpi k-crit"><div class="l">Rủi ro cao (≥70)</div><div class="v" id="kRisk">0</div></div></section>
-<section class="card"><div class="bar2"><input class="q" id="q" type="search" placeholder="Tìm hostname, IP, chủ sở hữu…" aria-label="Tìm tài sản">
-<select id="fT" aria-label="Loại"><option value="all">Mọi loại</option><option value="server">Máy chủ</option><option value="workstation">Máy trạm</option><option value="network">Thiết bị mạng</option><option value="cloud">Cloud</option></select>
-<select id="fC" aria-label="Mức quan trọng"><option value="all">Mọi mức quan trọng</option><option value="high">Cao</option><option value="med">Trung bình</option><option value="low">Thấp</option></select><span class="st" id="cnt"></span></div>
-<div class="tw"><table><thead><tr><th>Hostname</th><th>IP</th><th>Loại</th><th>Hệ điều hành</th><th>Chủ sở hữu</th><th>Quan trọng</th><th>Agent</th><th>Lỗ hổng</th><th>Rủi ro</th><th>Thấy lần cuối</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>
-<dialog id="dlg" aria-labelledby="dT"><div class="dh"><span id="dT"></span><button class="ico" data-close aria-label="Đóng">✕</button></div>
-<div class="db"><div class="fg"><label>Hostname<input class="fi" id="aH"></label><label>Địa chỉ IP<input class="fi" id="aI" placeholder="10.10.1.12"></label></div>
-<div class="fg"><label>Loại<select class="fi" id="aT"><option value="server">Máy chủ</option><option value="workstation">Máy trạm</option><option value="network">Thiết bị mạng</option><option value="cloud">Cloud</option></select></label><label>Mức quan trọng<select class="fi" id="aC"><option value="high">Cao</option><option value="med" selected>Trung bình</option><option value="low">Thấp</option></select></label></div>
-<div class="fg"><label>Hệ điều hành<input class="fi" id="aO"></label><label>Chủ sở hữu<input class="fi" id="aW"></label></div>
-<div class="fg"><label>Số lỗ hổng mở<input class="fi" id="aV" type="number" min="0" value="0"></label><label style="display:flex;align-items:center;gap:8px;padding-top:22px"><input type="checkbox" id="aA"> Đã cài agent EDR</label></div>
-<div id="err" style="color:var(--crit);font-size:14px;min-height:18px"></div></div>
-<div class="df"><button class="b2" data-close>Hủy</button><button class="b1" id="save">Lưu</button></div></dialog><div class="toast" id="toast" role="status"></div></main>
+<main><div class="crumb"><a href="soc-wazuh-overview.html">Wazuh</a> › <b>Endpoints</b></div><div class="ph"><div class="ic" style="background:#e5effc;color:var(--low)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg></div><div><h1>Endpoints</h1><p>Quản lý agent Wazuh · cụm node01</p></div><div class="act"><a class="b1" href="soc-wazuh-deploy.html" style="display:inline-block">Triển khai agent mới</a></div></div>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
+ <section class="card"><h2>Agent theo trạng thái</h2><div class="donutbox"><svg class="dn" id="d1" viewBox="0 0 42 42" role="img" aria-label="Agent theo trạng thái"></svg><div class="dl" id="l1"></div></div></section>
+ <section class="card"><h2>Top 5 hệ điều hành</h2><div class="donutbox"><svg class="dn" id="d2" viewBox="0 0 42 42" role="img" aria-label="Top 5 hệ điều hành"></svg><div class="dl" id="l2"></div></div></section>
+ <section class="card"><h2>Top 5 nhóm</h2><div class="donutbox"><svg class="dn" id="d3" viewBox="0 0 42 42" role="img" aria-label="Top 5 nhóm"></svg><div class="dl" id="l3"></div></div></section>
+</div>
+<section class="card">
+ <h2><span id="ttl">Agents</span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+  <a class="lnk" href="soc-wazuh-deploy.html" style="text-decoration:none">+ Triển khai agent mới</a><button class="lnk" id="refresh">Làm mới</button><button class="lnk" id="exp">Xuất định dạng</button>
+  <span class="menu"><button class="lnk" id="more" aria-haspopup="true" aria-expanded="false">Thêm ▾</button>
+   <span class="pop hide" id="pop"><button data-a="restart">Khởi động lại agent đã chọn</button><button data-a="upgrade">Nâng cấp agent đã chọn</button><button data-a="delete">Xóa agent đã chọn</button></span></span></span></h2>
+ <div class="bar2"><input class="q wql" id="wql" placeholder="Truy vấn WQL, ví dụ: status=active hoặc os~windows and group=default" aria-label="Truy vấn WQL"><button class="b2" id="clr">Xóa bộ lọc</button></div>
+ <div id="werr" style="color:var(--crit);font-size:14px;min-height:18px"></div>
+ <div class="tw"><table><thead><tr><th><input type="checkbox" id="all" aria-label="Chọn tất cả"></th><th class="sr" data-k="id">ID <i id="ar_id"></i></th><th class="sr" data-k="name">Tên <i id="ar_name"></i></th><th class="sr" data-k="ip">Địa chỉ IP <i id="ar_ip"></i></th><th>Nhóm</th><th>Hệ điều hành</th><th>Cluster node</th><th class="sr" data-k="ver">Phiên bản <i id="ar_ver"></i></th><th class="sr" data-k="status">Trạng thái <i id="ar_status"></i></th><th>Thao tác</th></tr></thead><tbody id="rows"></tbody></table></div>
+ <div class="pg"><label style="display:flex;gap:8px;align-items:center;margin:0">Số dòng mỗi trang <select id="per" aria-label="Số dòng mỗi trang"><option>10</option><option>25</option><option>50</option></select></label><span id="pgs"></span></div>
+ <div class="foot">Dấu đỏ cạnh phiên bản nghĩa là agent cũ hơn manager. Cú pháp WQL: <code>trường=giá_trị</code>, <code>!=</code>, <code>~</code> (chứa); nối bằng <code>and</code> / <code>or</code>. Trường: id, name, ip, group, os, node, version, status.</div>
+</section>
+<dialog id="dlg" aria-labelledby="dT"><div class="dh"><span id="dT"></span><button class="ico" data-close aria-label="Đóng">✕</button></div><div class="db"><table><tbody id="dB"></tbody></table></div>
+<div class="df"><button class="b2" id="dRs">Khởi động lại</button><button class="b2" id="dDel" style="color:var(--crit)">Xóa agent</button><button class="b1" data-close>Đóng</button></div></dialog><div class="toast" id="toast" role="status"></div></main>
 <script>
 const $=id=>document.getElementById(id);
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -297,43 +331,91 @@ function tick(){const t=new Date();$('clock').textContent=t.toLocaleTimeString('
 tick();setInterval(tick,1000);
 
 
-const TY={server:'Máy chủ',workstation:'Máy trạm',network:'Thiết bị mạng',cloud:'Cloud'},CR={high:'Cao',med:'Trung bình',low:'Thấp'};
-/* ===== DỮ LIỆU MẪU – thay bằng API /api/assets ===== */
-let assets=[
- {host:'FS-HN-02',ip:'10.10.1.12',type:'server',os:'Windows Server 2022',owner:'IT Hạ tầng',crit:'high',agent:true,vulns:3,seen:ago(1)},
- {host:'DC-01',ip:'10.10.0.2',type:'server',os:'Windows Server 2019',owner:'IT Hạ tầng',crit:'high',agent:true,vulns:1,seen:ago(2)},
- {host:'WEB-01',ip:'10.10.2.10',type:'server',os:'Ubuntu 22.04',owner:'Phát triển',crit:'high',agent:false,vulns:4,seen:ago(3)},
- {host:'PC-KT-17',ip:'10.10.6.15',type:'workstation',os:'Windows 11',owner:'Phòng Kế toán',crit:'med',agent:true,vulns:2,seen:ago(8)},
- {host:'PC-NS-03',ip:'10.10.7.31',type:'workstation',os:'Windows 10',owner:'Phòng Nhân sự',crit:'low',agent:false,vulns:1,seen:ago(2000)},
- {host:'GW-DMZ-01',ip:'10.10.100.1',type:'network',os:'FortiOS 7.4',owner:'Mạng',crit:'high',agent:false,vulns:0,seen:ago(1)},
- {host:'VPN-01',ip:'10.10.100.5',type:'network',os:'Cisco ASA',owner:'Mạng',crit:'med',agent:false,vulns:2,seen:ago(4)},
- {host:'s3-backup-prod',ip:'—',type:'cloud',os:'AWS S3',owner:'DevOps',crit:'med',agent:false,vulns:0,seen:ago(30)}
-];
-let edit=null;
-const risk=a=>Math.min(100,{high:40,med:20,low:10}[a.crit]+a.vulns*12+(a.agent||a.type==='network'||a.type==='cloud'?0:15));
-const rc=r=>r>=70?'var(--crit)':r>=40?'var(--high)':'var(--ok)';
-const okIp=v=>v==='—'||(/^(\d{1,3}\.){3}\d{1,3}$/.test(v)&&v.split('.').every(o=>+o<=255));
-function render(){
-  const q=$('q').value.trim().toLowerCase(),t=$('fT').value,c=$('fC').value;
-  const l=assets.filter(a=>(t==='all'||a.type===t)&&(c==='all'||a.crit===c)&&(!q||(a.host+a.ip+a.owner+a.os).toLowerCase().includes(q)));
-  $('rows').innerHTML=l.map(a=>{const r=risk(a);return `<tr><td class="mono" style="font-weight:600">${esc(a.host)}</td><td class="mono">${esc(a.ip)}</td><td>${TY[a.type]}</td><td>${esc(a.os)}</td><td>${esc(a.owner)}</td><td><span class="stt ${a.crit==='high'?'d':a.crit==='med'?'b':''}">${CR[a.crit]}</span></td><td>${a.agent?'<span class="stt c">Đã cài</span>':'<span class="stt">Chưa có</span>'}</td><td class="mono">${a.vulns}</td><td><div style="display:flex;align-items:center;gap:8px"><div class="bar3"><b style="width:${r}%;background:${rc(r)}"></b></div><span class="mono">${r}</span></div></td><td class="st">${fmt(a.seen)}</td><td><button class="lnk" data-e="${esc(a.host)}">Sửa</button><button class="lnk d" data-d="${esc(a.host)}">Xóa</button></td></tr>`}).join('')||'<tr><td colspan="11"><div class="empty"><b>Không có tài sản khớp bộ lọc</b>Hãy đổi từ khóa hoặc bỏ bộ lọc.</div></td></tr>';
-  $('cnt').textContent=l.length+' tài sản';$('kAll').textContent=assets.length;$('kSrv').textContent=assets.filter(a=>a.type==='server').length;
-  $('kNo').textContent=assets.filter(a=>!a.agent&&(a.type==='server'||a.type==='workstation')).length;$('kRisk').textContent=assets.filter(a=>risk(a)>=70).length;
+function donut(id,items){
+  const tot=items.reduce((a,x)=>a+x.v,0);let off=25,o='<circle cx="21" cy="21" r="15.9" fill="none" style="stroke:var(--panel2)" stroke-width="5"/>';
+  items.forEach(x=>{if(!x.v)return;const p=x.v/tot*100;o+=`<circle cx="21" cy="21" r="15.9" fill="none" stroke="${x.c}" stroke-width="5" stroke-dasharray="${p} ${100-p}" stroke-dashoffset="${off}"/>`;off-=p});
+  $(id).innerHTML=o+`<text x="21" y="22.8" text-anchor="middle" style="fill:var(--text)" font-size="7" font-weight="600">${tot}</text>`;
 }
-function open_(a){edit=a||null;$('dT').textContent=a?'Sửa tài sản '+a.host:'Thêm tài sản';$('err').textContent='';
-  $('aH').value=a?a.host:'';$('aH').readOnly=!!a;$('aI').value=a?a.ip:'';$('aT').value=a?a.type:'server';$('aC').value=a?a.crit:'med';$('aO').value=a?a.os:'';$('aW').value=a?a.owner:'';$('aV').value=a?a.vulns:0;$('aA').checked=a?a.agent:false;$('dlg').showModal()}
-$('add').addEventListener('click',()=>open_(null));
-$('rows').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.e)open_(assets.find(a=>a.host===b.dataset.e));
-  if(b.dataset.d&&confirm('Xóa tài sản '+b.dataset.d+' khỏi kiểm kê?')){assets=assets.filter(a=>a.host!==b.dataset.d);render();toast('Đã xóa tài sản')}});
-$('save').addEventListener('click',()=>{
-  const o={host:$('aH').value.trim(),ip:$('aI').value.trim()||'—',type:$('aT').value,crit:$('aC').value,os:$('aO').value.trim()||'—',owner:$('aW').value.trim()||'—',vulns:Math.max(0,+$('aV').value||0),agent:$('aA').checked};
-  if(!o.host){$('err').textContent='Nhập hostname.';return}
-  if(!okIp(o.ip)){$('err').textContent='Địa chỉ IP không hợp lệ, ví dụ 10.10.1.12.';return}
-  if(!edit&&assets.some(a=>a.host===o.host)){$('err').textContent='Hostname này đã tồn tại.';return}
-  if(edit)Object.assign(edit,o);else assets.unshift(Object.assign(o,{seen:new Date()}));
-  $('dlg').close();render();toast('Đã lưu tài sản');});
-['q','fT','fC'].forEach(i=>$(i).addEventListener('input',render));render();
+
+/* ===== DỮ LIỆU MẪU – thay bằng Wazuh API: GET /agents, /agents/summary/status, /agents/summary/os, /groups ===== */
+const MGR='4.14.0';
+const ST={active:['Hoạt động','var(--ok)','Agent đang hoạt động và nhận lệnh'],disconnected:['Mất kết nối','var(--crit)','Không có keep-alive gần đây'],pending:['Đang chờ','var(--med)','Agent đã đăng ký, đang chờ kết nối'],never_connected:['Chưa từng kết nối','#7b8794','Agent đã đăng ký nhưng chưa từng kết nối']};
+let AG=[
+ {id:'001',name:'Yairo',ip:'192.168.91.1',groups:['default'],os:'Microsoft Windows 11 Pro 10.0.26100.3775',plat:'windows',node:'node01',ver:'v4.7.5',status:'active',seen:new Date(),reg:'2026-08-14 09:12'},
+ {id:'002',name:'Yairo_centOS_01',ip:'192.168.91.158',groups:['default'],os:'CentOS Stream 9',plat:'centos',node:'node01',ver:'v4.7.5',status:'disconnected',seen:ago(60*24*9),reg:'2026-08-14 10:03'},
+ {id:'003',name:'Yairo_Kali',ip:'192.168.91.136',groups:['default'],os:'Kali GNU/Linux 2025.1',plat:'kali',node:'node01',ver:'v4.7.5',status:'disconnected',seen:ago(60*24*26),reg:'2026-08-15 08:41'}
+];
+const PAL=['#4fb39a','#5b8fc4','#d9608a','#e0b000','#8a4fd6'];
+const FIELDS={id:r=>r.id,name:r=>r.name,ip:r=>r.ip,group:r=>r.groups,os:r=>r.os,node:r=>r.node,version:r=>r.ver,status:r=>r.status};
+let sort={k:'id',d:1},page=1,cur=null;const sel=new Set();
+const vn=v=>v.replace(/^v/,'').split('.').map(Number);
+const old=v=>{const a=vn(v),b=vn(MGR);for(let i=0;i<3;i++){if((a[i]||0)!==b[i])return(a[i]||0)<b[i]}return false};
+const ipn=s=>s.split('.').reduce((a,x)=>a*256+(+x||0),0);
+const osIcon=p=>p==='windows'?'<svg class="oi" viewBox="0 0 16 16" fill="#2a7de1"><path d="M1 2.5l6-.8v5.6H1zM8 1.6L15 .6v6.7H8zM1 8.2h6v5.6l-6-.8zM8 8.2h7v6.7l-7-1z"/></svg>':'<svg class="oi" viewBox="0 0 16 16" fill="none" stroke="#5f7288" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 11c1-4 5-4 6 0M8 3v3"/></svg>';
+function atom(a){
+  const m=a.match(/^(\w+)\s*(!=|=|~)\s*(.+)$/);
+  if(!m){const v=a.toLowerCase();return{f:r=>(r.name+r.ip+r.os).toLowerCase().includes(v)}}
+  const k=m[1].toLowerCase(),op=m[2],v=m[3].trim().toLowerCase();
+  if(!FIELDS[k])return{err:'Trường không hợp lệ: "'+m[1]+'". Dùng: '+Object.keys(FIELDS).join(', ')+'.'};
+  const g=r=>[].concat(FIELDS[k](r)).map(x=>String(x).toLowerCase());
+  return{f:r=>op==='='?g(r).includes(v):op==='!='?!g(r).includes(v):g(r).some(x=>x.includes(v))};
+}
+function filtered(){
+  const q=$('wql').value.trim();$('werr').textContent='';if(!q)return AG;
+  const ands=q.split(/\s+and\s+|;/i).map(t=>t.split(/\s+or\s+|,/i).map(s=>s.trim()).filter(Boolean).map(atom)).filter(a=>a.length);
+  const bad=ands.flat().find(a=>a.err);if(bad){$('werr').textContent=bad.err;return AG}
+  return AG.filter(r=>ands.every(or=>or.some(a=>a.f(r))));
+}
+function sorted(l){const k=sort.k;return l.slice().sort((a,b)=>{let x=a[k],y=b[k];if(k==='ip'){x=ipn(x);y=ipn(y)}else if(k==='ver'){x=vn(x).join('.').padStart(12,'0');y=vn(y).join('.').padStart(12,'0')}return(x>y?1:x<y?-1:0)*sort.d})}
+function charts(){
+  const cnt=(arr)=>{const m={};arr.forEach(x=>m[x]=(m[x]||0)+1);return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,5)};
+  const st=Object.keys(ST).map(k=>({l:ST[k][0],k,v:AG.filter(a=>a.status===k).length,c:ST[k][1]}));
+  donut('d1',st);$('l1').innerHTML=st.map(x=>`<a href="#" data-s="${x.k}"><i style="background:${x.c}"></i>${x.l} (${x.v})</a>`).join('');
+  const os=cnt(AG.map(a=>a.plat)).map((e,i)=>({l:e[0],v:e[1],c:PAL[i]}));donut('d2',os);$('l2').innerHTML=os.map(x=>`<div><i style="background:${x.c}"></i>${esc(x.l)} (${x.v})</div>`).join('');
+  const gr=cnt(AG.flatMap(a=>a.groups)).map((e,i)=>({l:e[0],v:e[1],c:PAL[i]}));donut('d3',gr);$('l3').innerHTML=gr.map(x=>`<div><i style="background:${x.c}"></i>${esc(x.l)} (${x.v})</div>`).join('');
+}
+function render(){
+  const all=sorted(filtered()),per=+$('per').value,pages=Math.max(1,Math.ceil(all.length/per));page=Math.min(page,pages);
+  const rows=all.slice((page-1)*per,page*per);
+  $('rows').innerHTML=rows.map(a=>`<tr><td><input type="checkbox" data-k="${a.id}" ${sel.has(a.id)?'checked':''} aria-label="Chọn ${esc(a.name)}"></td><td class="mono">${a.id}</td><td style="font-weight:500">${esc(a.name)}</td><td class="mono">${a.ip}</td><td>${a.groups.map(g=>`<span class="tag">${esc(g)}</span>`).join(' ')}</td><td><span class="os">${osIcon(a.plat)}${esc(a.os)}</span></td><td>${a.node}</td><td class="mono">${a.ver}${old(a.ver)?'<i class="vd" title="Cũ hơn manager (v'+MGR+')"></i>':''}</td><td><span class="sdot" style="background:${ST[a.status][1]}"></span><span title="${ST[a.status][2]}">${ST[a.status][0]}</span></td><td><button class="lnk" data-v="${a.id}" aria-label="Xem chi tiết ${esc(a.name)}">Xem</button></td></tr>`).join('')||'<tr><td colspan="10"><div class="empty"><b>Không có agent khớp truy vấn</b>Hãy sửa truy vấn WQL hoặc bấm Xóa bộ lọc.</div></td></tr>';
+  $('ttl').textContent='Agents ('+all.length+')';
+  $('all').checked=rows.length>0&&rows.every(a=>sel.has(a.id));
+  ['id','name','ip','ver','status'].forEach(k=>$('ar_'+k).textContent=sort.k===k?(sort.d>0?'↑':'↓'):'');
+  $('pgs').innerHTML=Array.from({length:pages},(_,i)=>`<button class="lnk${i+1===page?' on':''}" data-p="${i+1}" aria-label="Trang ${i+1}">${i+1}</button>`).join('');
+  document.querySelectorAll('#pop button').forEach(b=>b.disabled=!sel.size);charts();
+}
+function dlgOpen(a){cur=a;$('dT').textContent='Agent '+a.id+' · '+a.name;
+  $('dB').innerHTML=[['ID',a.id],['Tên',a.name],['IP',a.ip],['Nhóm',a.groups.join(', ')],['Hệ điều hành',a.os],['Cluster node',a.node],['Phiên bản',a.ver+(old(a.ver)?' (cũ hơn manager v'+MGR+')':'')],['Trạng thái',ST[a.status][0]],['Keep-alive gần nhất',fmt(a.seen)],['Ngày đăng ký',a.reg]].map(r=>`<tr><td>${r[0]}</td><td>${esc(r[1])}</td></tr>`).join('');
+  $('dRs').disabled=a.status!=='active';$('dlg').showModal()}
+function act(kind,ids){
+  const l=AG.filter(a=>ids.includes(a.id));if(!l.length)return;
+  if(kind==='delete'){if(!confirm('Xóa '+l.length+' agent khỏi manager? Hành động này không thể hoàn tác.'))return;AG=AG.filter(a=>!ids.includes(a.id));ids.forEach(i=>sel.delete(i));render();toast('Đã xóa '+l.length+' agent');return}
+  const on=l.filter(a=>a.status==='active'),skip=l.length-on.length; /* mô phỏng – gọi PUT /agents/restart hoặc /agents/upgrade */
+  if(!on.length){toast('Các agent đã chọn đang mất kết nối nên không nhận được lệnh');return}
+  if(kind==='upgrade')setTimeout(()=>{on.forEach(a=>a.ver='v'+MGR);render()},900);
+  toast((kind==='restart'?'Đã gửi lệnh khởi động lại tới ':'Đã gửi yêu cầu nâng cấp tới ')+on.length+' agent'+(skip?' (bỏ qua '+skip+' agent mất kết nối)':''));
+}
+$('wql').addEventListener('input',()=>{page=1;render()});
+$('clr').addEventListener('click',()=>{$('wql').value='';page=1;render()});
+$('per').addEventListener('change',()=>{page=1;render()});
+$('l1').addEventListener('click',e=>{const a=e.target.closest('[data-s]');if(!a)return;e.preventDefault();$('wql').value='status='+a.dataset.s;page=1;render()});
+document.querySelector('thead').addEventListener('click',e=>{const th=e.target.closest('th.sr');if(!th)return;sort=sort.k===th.dataset.k?{k:sort.k,d:-sort.d}:{k:th.dataset.k,d:1};render()});
+$('all').addEventListener('change',()=>{const per=+$('per').value,rows=sorted(filtered()).slice((page-1)*per,page*per);rows.forEach(a=>$('all').checked?sel.add(a.id):sel.delete(a.id));render()});
+$('rows').addEventListener('click',e=>{
+  const c=e.target.closest('[data-k]');if(c){c.checked?sel.add(c.dataset.k):sel.delete(c.dataset.k);render();return}
+  const v=e.target.closest('[data-v]');if(v)dlgOpen(AG.find(a=>a.id===v.dataset.v))});
+$('pgs').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(b){page=+b.dataset.p;render()}});
+$('more').addEventListener('click',e=>{e.stopPropagation();const o=$('pop').classList.toggle('hide');$('more').setAttribute('aria-expanded',!o)});
+document.addEventListener('click',()=>{$('pop').classList.add('hide');$('more').setAttribute('aria-expanded','false')});
+$('pop').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b&&!b.disabled)act(b.dataset.a,[...sel])});
+$('dRs').addEventListener('click',()=>{act('restart',[cur.id]);$('dlg').close()});
+$('dDel').addEventListener('click',()=>{const id=cur.id;$('dlg').close();act('delete',[id])});
+$('refresh').addEventListener('click',()=>{AG.forEach(a=>{if(a.status==='active')a.seen=new Date()});render();toast('Đã làm mới danh sách agent')}); /* thay bằng GET /agents */
+$('exp').addEventListener('click',()=>{const l=sorted(filtered());if(!l.length){toast('Không có agent để xuất');return}
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  download('agents-'+new Date().toISOString().slice(0,10)+'.csv',[['id','name','ip','groups','os','node','version','status']].concat(l.map(a=>[a.id,a.name,a.ip,a.groups.join('|'),a.os,a.node,a.ver,a.status])).map(r=>r.map(q).join(',')).join('\n'),'text/csv;charset=utf-8');toast('Đã xuất '+l.length+' agent')});
+const sp=new URLSearchParams(location.search).get('status');if(sp&&ST[sp])$('wql').value='status='+sp;
+render();
 </script>
 </body>
 </html>

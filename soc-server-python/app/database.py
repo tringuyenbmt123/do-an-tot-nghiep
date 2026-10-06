@@ -44,7 +44,7 @@ async def init_db():
             agent, alert, case, rule, indicator, audit_log, user, setting, siem
         )
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("[DATABASE] ✅ AutoMigrate hoàn tất - Tất cả bảng đã sẵn sàng!")
+    logger.info("[DATABASE] AutoMigrate hoàn tất - Tất cả bảng đã sẵn sàng!")
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

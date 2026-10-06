@@ -80,8 +80,8 @@ class AgentConfig:
                 self.metric_interval_seconds = metric_sec
 
 
-def load_config(config_path: str = "config.json") -> AgentConfig:
-    """Tải cấu hình từ file JSON + override bằng Env Vars."""
+def load_config(config_path: str = "config.json", cli_args=None) -> AgentConfig:
+    """Tải cấu hình từ file JSON + override bằng Env Vars và CLI Arguments."""
     cfg = AgentConfig()
 
     # 1. Đọc file config.json
@@ -113,7 +113,18 @@ def load_config(config_path: str = "config.json") -> AgentConfig:
         except ValueError:
             pass
 
-    # 3. Tự động xác định Hostname và Agent ID
+    # 3. Override bằng CLI Arguments
+    if cli_args:
+        if getattr(cli_args, "server", None):
+            cfg.server_url = cli_args.server
+        if getattr(cli_args, "agent_id", None):
+            cfg.agent_id = cli_args.agent_id
+        if getattr(cli_args, "secret", None):
+            cfg.agent_secret_key = cli_args.secret
+        if getattr(cli_args, "protocol", None):
+            cfg.protocol = cli_args.protocol
+
+    # 4. Tự động xác định Hostname và Agent ID
     try:
         cfg.hostname = socket.gethostname()
     except Exception:
@@ -122,10 +133,10 @@ def load_config(config_path: str = "config.json") -> AgentConfig:
     if not cfg.agent_id:
         cfg.agent_id = f"agent-{cfg.hostname}"
 
-    # 4. Lấy IP outbound
+    # 5. Lấy IP outbound
     cfg.ip_address = _get_outbound_ip()
 
-    # 5. Xác định OS
+    # 6. Xác định OS
     cfg.os_type = platform.system().lower()  # 'windows', 'linux', 'darwin'
 
     return cfg

@@ -1,29 +1,64 @@
-# HỆ THỐNG GIÁM SÁT & PHẢN ỨNG TỰ ĐỘNG SOC / SOAR UNIFIED PLATFORM
-> **ĐỒ ÁN TỐT NGHỆP — CHUYÊN NGÀNH AN TOÀN THÔNG TIN / CÔNG NGHỆ THÔNG TIN**  
-> *Nền tảng tích hợp toàn diện SIEM (Giám sát & Phát hiện) + SOAR (Tự động hóa phản ứng) + EDR Agent (Phản ứng tích cực trên Endpoint) + Trí tuệ nhân tạo (AI Zero-Trust & Phê duyệt Human-in-the-Loop)*
+# 🛡️ SOC/EDR Unified Security Platform
+
+Hệ thống **Giám sát An ninh mạng (SOC)** và **Phản ứng tự động (SOAR / EDR)** mã nguồn mở, dành cho doanh nghiệp nhỏ và vừa. Tích hợp sâu AI, n8n SOAR, và Wazuh.
+
+![SOC Dashboard](soc-frontend/public/screenshot-dashboard.png)
+
+## 🚀 Tính năng nổi bật
+- **All-in-One Dashboard:** Giao diện React cực mượt, quản lý tập trung.
+- **Python EDR Agent:** Agent siêu nhẹ, thu thập log, FIM, và tự động xử lý (kill process, block IP) qua gRPC.
+- **Tích hợp SOAR (n8n):** Tự động điều tra mối đe dọa với AI, cảnh báo qua Telegram.
+- **Quản lý Wazuh:** Tích hợp giao diện quản lý và triển khai Wazuh Agent trực tiếp.
+- **Cài đặt siêu tốc (1-Click):** Cấu hình toàn bộ Backend, Frontend, DB bằng Docker chỉ với 1 câu lệnh.
 
 ---
 
-## Mục lục
-1. [Giới thiệu tổng quan](#giới-thiệu-tổng-quan)
-2. [Kiến trúc hệ thống](#kiến-trúc-hệ-thống)
-3. [Các phân hệ chính](#các-phân-hệ-chính)
-   - [1. Trung tâm điều phối & Xử lý (soc-server)](#1-trung-tâm-điều-phối--xử-lý-soc-server)
-   - [2. Tác tử giám sát & phản ứng Endpoint (soc-agent)](#2-tác-tử-giám-sát--phản-ứng-endpoint-soc-agent)
-   - [3. Giao diện quản trị Cyberpunk SOC Portal (soc-frontend)](#3-giao-diện-quản-trị-cyberpunk-soc-portal-soc-frontend)
-   - [4. Kịch bản điều phối SOAR & AI (n8n + Ollama + Telegram HITL)](#4-kịch-bản-điều-phối-soar--ai-n8n--ollama--telegram-hitl)
-4. [Công nghệ sử dụng](#công-nghệ-sử-dụng)
-5. [Cấu trúc thư mục dự án](#cấu-trúc-thư-mục-dự-án)
-6. [Hướng dẫn cài đặt & Chạy hệ thống](#hướng-dẫn-cài-đặt--chạy-hệ-thống)
-   - [Yêu cầu môi trường](#yêu-cầu-môi-trường)
-   - [Khởi chạy Backend (soc-server)](#bước-1-khởi-chạy-soc-server)
-   - [Khởi chạy Frontend (soc-frontend)](#bước-2-khởi-chạy-soc-frontend)
-   - [Triển khai Agent trên Endpoint (soc-agent)](#bước-3-triển-khai-soc-agent-trên-máy-nạn-nhânendpoint)
-   - [Cấu hình n8n SOAR Workflow](#bước-4-cấu-hình-n8n-soar-workflow)
-7. [Kịch bản kiểm thử thực tế](#kịch-bản-kiểm-thử-thực-tế)
-8. [Tác giả & Đồ án](#tác-giả--đồ-án)
+## 🛠️ Cài đặt Máy chủ (Server & Dashboard)
+
+> Yêu cầu: Máy chủ đã cài đặt Docker và Docker Compose. Nếu chưa có, script Linux sẽ tự động cài đặt.
+
+### Tùy chọn 1: Linux / macOS (Khuyên dùng)
+Chạy lệnh sau trên terminal:
+```bash
+curl -sSL https://raw.githubusercontent.com/tringuyenbmt123/do-an-tot-nghiep/main/install-server.sh | sudo bash
+```
+
+### Tùy chọn 2: Windows (PowerShell)
+Chạy bằng quyền **Administrator**:
+```powershell
+irm https://raw.githubusercontent.com/tringuyenbmt123/do-an-tot-nghiep/main/install-server.ps1 | iex
+```
+*(Nếu bạn thích dùng Batch, tải source code và chạy file `install-server.bat`)*
+
+**Sau khi cài đặt xong:**
+- Truy cập Dashboard: `http://localhost` (Tài khoản: admin / admin123)
+- API Server lắng nghe ở: `http://localhost:8080`
+- Agent kết nối gRPC ở: `localhost:50051`
 
 ---
+
+## 🛡️ Cài đặt EDR Agent trên máy khách
+
+Triển khai Agent Python siêu nhẹ để giám sát máy trạm.
+
+### Máy khách Windows (Double-click)
+1. Tải gói `soc-agent-windows-v1.0.0.zip` từ mục Release.
+2. Giải nén, click chuột phải vào `install-agent.bat` → chọn **Run as Administrator**.
+3. Nhập IP máy chủ Server khi được hỏi.
+
+*(Nếu muốn triển khai tự động qua PowerShell)*
+```powershell
+irm https://raw.githubusercontent.com/tringuyenbmt123/do-an-tot-nghiep/main/soc-agent-python/install-agent.ps1 | iex
+```
+
+### Máy khách Linux (Server / Desktop)
+Chạy lệnh sau bằng quyền root:
+```bash
+curl -sSL https://raw.githubusercontent.com/tringuyenbmt123/do-an-tot-nghiep/main/soc-agent-python/install-agent.sh | sudo bash
+```
+
+---
+
 
 ## Giới thiệu tổng quan
 

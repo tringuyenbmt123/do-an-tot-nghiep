@@ -9,20 +9,17 @@ import os
 import sys
 
 # Thêm thư mục chứa agent_pb2.py vào sys.path
-# Ưu tiên: thư mục hiện tại (nơi copy pb2 vào) → rồi mới đến server-python
+# Ưu tiên: thư mục proto_gen (nơi bundle pb2) → rồi mới đến server-python (trong môi trường dev)
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-_SERVER_GRPC_DIR = os.path.join(
-    _THIS_DIR,
-    "..",
-    "soc-server-python",
-    "app",
-    "grpc_server",
-)
-for _p in [_THIS_DIR, os.path.normpath(_SERVER_GRPC_DIR)]:
+_PROTO_GEN_DIR = os.path.join(_THIS_DIR, "proto_gen")
+_SERVER_GRPC_DIR = os.path.join(_THIS_DIR, "..", "soc-server-python", "app", "grpc_server")
+
+for _p in [_PROTO_GEN_DIR, os.path.normpath(_SERVER_GRPC_DIR), _THIS_DIR]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 import agent_pb2 as _pb2  # noqa: E402
+import agent_pb2_grpc as _pb2_grpc  # noqa: E402
 
 
 def make_event_request(

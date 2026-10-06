@@ -11,15 +11,17 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Token store with localStorage persistence
-let _token = localStorage.getItem('soc_token') || null
+// Token store with localStorage/sessionStorage persistence
+let _token = localStorage.getItem('soc_token') || sessionStorage.getItem('soc_token') || null
 
 export const setToken = (token) => {
   _token = token
   if (token) {
     localStorage.setItem('soc_token', token)
+    sessionStorage.setItem('soc_token', token)
   } else {
     localStorage.removeItem('soc_token')
+    sessionStorage.removeItem('soc_token')
   }
 }
 export const getToken = () => _token
@@ -27,6 +29,8 @@ export const clearToken = () => {
   _token = null
   localStorage.removeItem('soc_token')
   localStorage.removeItem('soc_user')
+  sessionStorage.removeItem('soc_token')
+  sessionStorage.removeItem('soc_user')
 }
 
 // Request interceptor – đính JWT header

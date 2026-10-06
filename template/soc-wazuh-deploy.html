@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tài sản & Endpoint – SOC Console</title>
+<title>Triển khai agent mới – SOC Console</title>
 <style>
 :root{
   --bg:#f2f5f9;--panel:#ffffff;--panel2:#eef2f7;--line:#dce4ed;
@@ -189,6 +189,35 @@ tr.cl{cursor:pointer}
 .tl small{color:var(--muted);display:block}
 .bar3{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;min-width:70px}
 .bar3 b{display:block;height:100%;border-radius:3px}
+
+.steps2{list-style:none;counter-reset:w;display:grid;gap:0}
+.wz{position:relative;padding:0 0 26px 48px;counter-increment:w}
+.wz::before{content:counter(w);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:16px}
+.wz.done::before{content:"✓";background:var(--ok)}
+.wz::after{content:"";position:absolute;left:15px;top:38px;bottom:4px;width:2px;background:var(--line)}
+.wz:last-child{padding-bottom:0}.wz:last-child::after{display:none}
+.wz h3{font-size:19.5px;margin-bottom:6px;line-height:32px}
+.wz p{color:var(--muted);font-size:16px;margin-bottom:8px}
+.pk{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.pk fieldset{border:1px solid var(--line);border-radius:var(--r);padding:8px 14px 12px}
+.pk legend{font-weight:600;padding:0 8px;font-size:16px;letter-spacing:.05em}
+.pk label,.grpbox label{display:flex;align-items:center;gap:8px;font-size:17px;color:var(--text);padding:5px 0;cursor:pointer;margin:0}
+.pk .two{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}
+.grpbox{border:1px solid var(--line);border-radius:var(--r);padding:6px 14px;max-width:420px;margin-top:4px}
+.note{border-radius:var(--r);padding:10px 14px;font-size:16px;margin-top:10px}
+.note.info{background:#e5f0fb;color:#1c4f8a}.note.warn{background:#fff6e0;color:#7a5600}
+.code{position:relative;background:#14202e;color:#d6e1ee;border-radius:var(--r);padding:12px 90px 12px 14px;font-family:var(--mono);font-size:15.5px;white-space:pre-wrap;word-break:break-all}
+.code button{position:absolute;right:8px;top:8px;background:#22344a;color:#d6e1ee;border-color:#35506f}
+
+.crumb{font-size:16px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.crumb a{color:var(--accent)}
+.donutbox{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.dn{width:150px;height:150px;flex:none}
+.dl{display:grid;gap:4px;flex:1;min-width:140px}
+.dl a,.dl div{display:flex;align-items:center;gap:8px;font-size:17px;color:var(--text);border-radius:4px;padding:3px 6px}
+.dl a:hover{background:var(--panel2)}
+.dl i{width:11px;height:11px;border-radius:50%;flex:none}
+@media(max-width:1100px){.top2{grid-template-columns:1fr!important}}
 </style>
 <!-- data-scaled -->
 </head>
@@ -222,7 +251,7 @@ tr.cl{cursor:pointer}
       </button>
       <div class="sub" id="infraSub">
         <div>
-          <a href="soc-assets.html" class="on">Tài sản &amp; Endpoint</a>
+          <a href="soc-assets.html">Tài sản &amp; Endpoint</a>
           <a href="soc-agents.html">Agents &amp; EDR</a>
           <a href="soc-firewall.html">Firewall / IDS</a>
         </div>
@@ -237,7 +266,7 @@ tr.cl{cursor:pointer}
         <div>
           <a href="soc-wazuh-overview.html">Tổng quan Wazuh</a>
           <a href="soc-wazuh-endpoints.html">Endpoints</a>
-          <a href="soc-wazuh-deploy.html">Triển khai agent</a>
+          <a href="soc-wazuh-deploy.html" class="on">Triển khai agent</a>
         </div>
       </div>
     </div>
@@ -267,18 +296,24 @@ tr.cl{cursor:pointer}
   <a class="user" href="soc-login.html" title="Tài khoản · Đăng xuất">MA</a>
 </header>
 
-<main><div class="ph"><div class="ic" style="background:#e3f6ec;color:var(--ok)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.01M7 17h.01"/></svg></div><div><h1>Tài sản &amp; Endpoint</h1><p>Kiểm kê máy chủ, máy trạm, thiết bị mạng và cloud</p></div><div class="act"><button class="b1" id="add">Thêm tài sản</button></div></div><section class="grid kpis"><div class="card kpi k-info"><div class="l">Tổng tài sản</div><div class="v" id="kAll">0</div></div><div class="card kpi k-info"><div class="l">Máy chủ</div><div class="v" id="kSrv">0</div></div><div class="card kpi k-high"><div class="l">Chưa có agent</div><div class="v" id="kNo">0</div></div><div class="card kpi k-crit"><div class="l">Rủi ro cao (≥70)</div><div class="v" id="kRisk">0</div></div></section>
-<section class="card"><div class="bar2"><input class="q" id="q" type="search" placeholder="Tìm hostname, IP, chủ sở hữu…" aria-label="Tìm tài sản">
-<select id="fT" aria-label="Loại"><option value="all">Mọi loại</option><option value="server">Máy chủ</option><option value="workstation">Máy trạm</option><option value="network">Thiết bị mạng</option><option value="cloud">Cloud</option></select>
-<select id="fC" aria-label="Mức quan trọng"><option value="all">Mọi mức quan trọng</option><option value="high">Cao</option><option value="med">Trung bình</option><option value="low">Thấp</option></select><span class="st" id="cnt"></span></div>
-<div class="tw"><table><thead><tr><th>Hostname</th><th>IP</th><th>Loại</th><th>Hệ điều hành</th><th>Chủ sở hữu</th><th>Quan trọng</th><th>Agent</th><th>Lỗ hổng</th><th>Rủi ro</th><th>Thấy lần cuối</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>
-<dialog id="dlg" aria-labelledby="dT"><div class="dh"><span id="dT"></span><button class="ico" data-close aria-label="Đóng">✕</button></div>
-<div class="db"><div class="fg"><label>Hostname<input class="fi" id="aH"></label><label>Địa chỉ IP<input class="fi" id="aI" placeholder="10.10.1.12"></label></div>
-<div class="fg"><label>Loại<select class="fi" id="aT"><option value="server">Máy chủ</option><option value="workstation">Máy trạm</option><option value="network">Thiết bị mạng</option><option value="cloud">Cloud</option></select></label><label>Mức quan trọng<select class="fi" id="aC"><option value="high">Cao</option><option value="med" selected>Trung bình</option><option value="low">Thấp</option></select></label></div>
-<div class="fg"><label>Hệ điều hành<input class="fi" id="aO"></label><label>Chủ sở hữu<input class="fi" id="aW"></label></div>
-<div class="fg"><label>Số lỗ hổng mở<input class="fi" id="aV" type="number" min="0" value="0"></label><label style="display:flex;align-items:center;gap:8px;padding-top:22px"><input type="checkbox" id="aA"> Đã cài agent EDR</label></div>
-<div id="err" style="color:var(--crit);font-size:14px;min-height:18px"></div></div>
-<div class="df"><button class="b2" data-close>Hủy</button><button class="b1" id="save">Lưu</button></div></dialog><div class="toast" id="toast" role="status"></div></main>
+<main><div class="crumb"><a href="soc-wazuh-overview.html">Wazuh</a> › <a href="soc-wazuh-endpoints.html">Endpoints</a> › <b>Triển khai agent mới</b></div><div class="ph"><div class="ic" style="background:#e3f6ec;color:var(--ok)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div><div><h1>Triển khai agent mới</h1><p>Làm theo 6 bước để cài và đăng ký agent với manager</p></div><div class="act"><a class="b2" href="soc-wazuh-endpoints.html" style="display:inline-block">← Quay lại danh sách</a></div></div>
+<section class="card"><ol class="steps2" id="wz">
+ <li class="wz" id="s1"><h3>Chọn gói cài đặt cho hệ thống của bạn</h3>
+  <div class="pk" id="pk"></div>
+  <div class="note info">Với hệ điều hành hoặc kiến trúc khác, xem <a href="https://documentation.wazuh.com/current/installation-guide/wazuh-agent/index.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">tài liệu Wazuh</a>.</div></li>
+ <li class="wz" id="s2"><h3>Địa chỉ server</h3><p>Địa chỉ agent dùng để liên lạc với server. Nhập địa chỉ IP hoặc tên miền đầy đủ (FQDN).</p>
+  <label>Gán địa chỉ server<input class="fi" id="srv" placeholder="VD: 192.168.91.146 hoặc wazuh.congty.vn" autocomplete="off" style="max-width:420px"></label>
+  <div id="e2" style="color:var(--crit);font-size:14px;min-height:18px"></div>
+  <label style="display:flex;align-items:center;gap:10px;margin-top:6px"><button class="sw" role="switch" aria-checked="false" id="rem" aria-label="Ghi nhớ địa chỉ server"></button> Ghi nhớ địa chỉ server</label></li>
+ <li class="wz" id="s3"><h3>Tùy chọn thêm</h3><p>Mặc định agent dùng hostname làm tên. Bạn có thể đặt tên khác ở ô dưới.</p>
+  <label>Gán tên agent<input class="fi" id="nm" placeholder="Tên agent (không bắt buộc)" autocomplete="off" style="max-width:420px"></label>
+  <div id="e3" style="color:var(--crit);font-size:14px;min-height:18px"></div>
+  <div class="note warn">Tên agent phải là duy nhất và không thể đổi sau khi đã đăng ký.</div>
+  <div style="margin-top:14px" class="lab">Chọn một hoặc nhiều nhóm có sẵn</div><div class="grpbox" id="gb"></div><div id="e3b" style="color:var(--crit);font-size:14px;min-height:18px"></div></li>
+ <li class="wz" id="s4"><h3>Chạy lệnh sau để tải và cài đặt agent</h3><div id="c4"></div></li>
+ <li class="wz" id="s5"><h3>Khởi động agent</h3><div id="c5"></div></li>
+ <li class="wz" id="s6"><h3>Quay lại danh sách endpoint để kiểm tra kết nối</h3><a class="b1" href="soc-wazuh-endpoints.html" style="display:inline-block">Về danh sách agent</a></li>
+</ol></section><div class="toast" id="toast" role="status"></div></main>
 <script>
 const $=id=>document.getElementById(id);
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -297,43 +332,52 @@ function tick(){const t=new Date();$('clock').textContent=t.toLocaleTimeString('
 tick();setInterval(tick,1000);
 
 
-const TY={server:'Máy chủ',workstation:'Máy trạm',network:'Thiết bị mạng',cloud:'Cloud'},CR={high:'Cao',med:'Trung bình',low:'Thấp'};
-/* ===== DỮ LIỆU MẪU – thay bằng API /api/assets ===== */
-let assets=[
- {host:'FS-HN-02',ip:'10.10.1.12',type:'server',os:'Windows Server 2022',owner:'IT Hạ tầng',crit:'high',agent:true,vulns:3,seen:ago(1)},
- {host:'DC-01',ip:'10.10.0.2',type:'server',os:'Windows Server 2019',owner:'IT Hạ tầng',crit:'high',agent:true,vulns:1,seen:ago(2)},
- {host:'WEB-01',ip:'10.10.2.10',type:'server',os:'Ubuntu 22.04',owner:'Phát triển',crit:'high',agent:false,vulns:4,seen:ago(3)},
- {host:'PC-KT-17',ip:'10.10.6.15',type:'workstation',os:'Windows 11',owner:'Phòng Kế toán',crit:'med',agent:true,vulns:2,seen:ago(8)},
- {host:'PC-NS-03',ip:'10.10.7.31',type:'workstation',os:'Windows 10',owner:'Phòng Nhân sự',crit:'low',agent:false,vulns:1,seen:ago(2000)},
- {host:'GW-DMZ-01',ip:'10.10.100.1',type:'network',os:'FortiOS 7.4',owner:'Mạng',crit:'high',agent:false,vulns:0,seen:ago(1)},
- {host:'VPN-01',ip:'10.10.100.5',type:'network',os:'Cisco ASA',owner:'Mạng',crit:'med',agent:false,vulns:2,seen:ago(4)},
- {host:'s3-backup-prod',ip:'—',type:'cloud',os:'AWS S3',owner:'DevOps',crit:'med',agent:false,vulns:0,seen:ago(30)}
-];
-let edit=null;
-const risk=a=>Math.min(100,{high:40,med:20,low:10}[a.crit]+a.vulns*12+(a.agent||a.type==='network'||a.type==='cloud'?0:15));
-const rc=r=>r>=70?'var(--crit)':r>=40?'var(--high)':'var(--ok)';
-const okIp=v=>v==='—'||(/^(\d{1,3}\.){3}\d{1,3}$/.test(v)&&v.split('.').every(o=>+o<=255));
+const VER='4.14.0'; /* đặt đúng phiên bản Wazuh manager của bạn; kiểm tra lệnh với tài liệu chính thức trước khi dùng */
+const EXISTING=['Yairo','Yairo_centOS_01','Yairo_Kali']; /* thay bằng GET /agents?select=name */
+const GROUPS=['default','linux-servers','windows-workstations']; /* thay bằng GET /groups */
+const P='https://packages.wazuh.com/4.x/';
+const PK={
+ 'rpm-amd64':{os:'linux',lab:'RPM amd64',cmd:e=>`curl -o wazuh-agent-${VER}-1.x86_64.rpm ${P}yum/wazuh-agent-${VER}-1.x86_64.rpm && sudo ${e} rpm -ihv wazuh-agent-${VER}-1.x86_64.rpm`},
+ 'rpm-arm':{os:'linux',lab:'RPM aarch64',cmd:e=>`curl -o wazuh-agent-${VER}-1.aarch64.rpm ${P}yum/wazuh-agent-${VER}-1.aarch64.rpm && sudo ${e} rpm -ihv wazuh-agent-${VER}-1.aarch64.rpm`},
+ 'deb-amd64':{os:'linux',lab:'DEB amd64',cmd:e=>`wget ${P}apt/pool/main/w/wazuh-agent/wazuh-agent_${VER}-1_amd64.deb && sudo ${e} dpkg -i ./wazuh-agent_${VER}-1_amd64.deb`},
+ 'deb-arm':{os:'linux',lab:'DEB aarch64',cmd:e=>`wget ${P}apt/pool/main/w/wazuh-agent/wazuh-agent_${VER}-1_arm64.deb && sudo ${e} dpkg -i ./wazuh-agent_${VER}-1_arm64.deb`},
+ 'msi':{os:'windows',lab:'MSI 32/64 bit',cmd:e=>'Invoke-WebRequest -Uri '+P+'windows/wazuh-agent-'+VER+'-1.msi -OutFile ${env:tmp}\\wazuh-agent; msiexec.exe /i ${env:tmp}\\wazuh-agent /q '+e},
+ 'mac-intel':{os:'mac',lab:'Intel',cmd:(e,r)=>`curl -so wazuh-agent.pkg ${P}macos/wazuh-agent-${VER}-1.intel64.pkg && echo "${r}" > /tmp/wazuh_envs && sudo installer -pkg ./wazuh-agent.pkg -target /`},
+ 'mac-arm':{os:'mac',lab:'Apple silicon',cmd:(e,r)=>`curl -so wazuh-agent.pkg ${P}macos/wazuh-agent-${VER}-1.arm64.pkg && echo "${r}" > /tmp/wazuh_envs && sudo installer -pkg ./wazuh-agent.pkg -target /`}
+};
+const START={linux:'sudo systemctl daemon-reload\nsudo systemctl enable wazuh-agent\nsudo systemctl start wazuh-agent',windows:'NET START Wazuh',mac:'sudo /Library/Ossec/bin/wazuh-control start'};
+const reSrv=v=>/^((\d{1,3}\.){3}\d{1,3}|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63})$/.test(v)&&(!/^[\d.]+$/.test(v)||v.split('.').every(o=>+o<=255));
+const reNm=v=>/^[A-Za-z0-9._-]{2,128}$/.test(v);
+let pkg=null,remembered='',rem=false,touched={s:false,n:false};const picked=new Set(['default']);
+/* ===== Dựng bước 1 và nhóm ===== */
+const grp=(t,keys,two)=>`<fieldset><legend>${t}</legend><div class="${two?'two':''}">`+keys.map(k=>`<label><input type="radio" name="pkg" value="${k}"> ${PK[k].lab}</label>`).join('')+'</div></fieldset>';
+$('pk').innerHTML=grp('LINUX',['rpm-amd64','rpm-arm','deb-amd64','deb-arm'],true)+grp('WINDOWS',['msi'])+grp('macOS',['mac-intel','mac-arm']);
+$('gb').innerHTML=GROUPS.map(g=>`<label><input type="checkbox" value="${g}"${g==='default'?' checked':''}> ${g}</label>`).join('');
+function cmdBox(text){return `<div class="code"><button class="lnk" data-copy>Sao chép</button>${esc(text)}</div>`}
 function render(){
-  const q=$('q').value.trim().toLowerCase(),t=$('fT').value,c=$('fC').value;
-  const l=assets.filter(a=>(t==='all'||a.type===t)&&(c==='all'||a.crit===c)&&(!q||(a.host+a.ip+a.owner+a.os).toLowerCase().includes(q)));
-  $('rows').innerHTML=l.map(a=>{const r=risk(a);return `<tr><td class="mono" style="font-weight:600">${esc(a.host)}</td><td class="mono">${esc(a.ip)}</td><td>${TY[a.type]}</td><td>${esc(a.os)}</td><td>${esc(a.owner)}</td><td><span class="stt ${a.crit==='high'?'d':a.crit==='med'?'b':''}">${CR[a.crit]}</span></td><td>${a.agent?'<span class="stt c">Đã cài</span>':'<span class="stt">Chưa có</span>'}</td><td class="mono">${a.vulns}</td><td><div style="display:flex;align-items:center;gap:8px"><div class="bar3"><b style="width:${r}%;background:${rc(r)}"></b></div><span class="mono">${r}</span></div></td><td class="st">${fmt(a.seen)}</td><td><button class="lnk" data-e="${esc(a.host)}">Sửa</button><button class="lnk d" data-d="${esc(a.host)}">Xóa</button></td></tr>`}).join('')||'<tr><td colspan="11"><div class="empty"><b>Không có tài sản khớp bộ lọc</b>Hãy đổi từ khóa hoặc bỏ bộ lọc.</div></td></tr>';
-  $('cnt').textContent=l.length+' tài sản';$('kAll').textContent=assets.length;$('kSrv').textContent=assets.filter(a=>a.type==='server').length;
-  $('kNo').textContent=assets.filter(a=>!a.agent&&(a.type==='server'||a.type==='workstation')).length;$('kRisk').textContent=assets.filter(a=>risk(a)>=70).length;
+  const srv=$('srv').value.trim(),nm=$('nm').value.trim();
+  const okS=reSrv(srv),okN=!nm||(reNm(nm)&&!EXISTING.includes(nm)),okG=picked.size>0;
+  $('e2').textContent=touched.s&&!okS?'Địa chỉ không hợp lệ. Nhập IP (VD 192.168.91.146) hoặc FQDN (VD wazuh.congty.vn).':'';
+  $('e3').textContent=!nm?'':!reNm(nm)?'Tên chỉ gồm chữ, số, dấu chấm, gạch dưới, gạch ngang (2–128 ký tự).':EXISTING.includes(nm)?'Tên agent này đã tồn tại, hãy chọn tên khác.':'';
+  $('e3b').textContent=okG?'':'Chọn ít nhất một nhóm.';
+  const ready=!!pkg&&okS&&okN&&okG;
+  $('s1').classList.toggle('done',!!pkg);$('s2').classList.toggle('done',okS);$('s3').classList.toggle('done',okN&&okG&&(!!nm||picked.size>0));
+  $('s4').classList.toggle('done',ready);$('s5').classList.toggle('done',ready);
+  const warn='<div class="note warn">Vui lòng chọn hệ điều hành và nhập địa chỉ server hợp lệ (và sửa các lỗi ở bước 3 nếu có).</div>';
+  if(!ready){$('c4').innerHTML=warn;$('c5').innerHTML=warn;return}
+  const gs=[...picked].join(','),pairs=[['WAZUH_MANAGER',srv],['WAZUH_AGENT_GROUP',gs]];if(nm)pairs.push(['WAZUH_AGENT_NAME',nm]);
+  const env=pairs.map(([k,v])=>k+"='"+v+"'").join(' '),macEnv=pairs.map(([k,v])=>k+"='"+v+"'").join(' && ');
+  $('c4').innerHTML=cmdBox(PK[pkg].cmd(env,macEnv));$('c5').innerHTML=cmdBox(START[PK[pkg].os]);
 }
-function open_(a){edit=a||null;$('dT').textContent=a?'Sửa tài sản '+a.host:'Thêm tài sản';$('err').textContent='';
-  $('aH').value=a?a.host:'';$('aH').readOnly=!!a;$('aI').value=a?a.ip:'';$('aT').value=a?a.type:'server';$('aC').value=a?a.crit:'med';$('aO').value=a?a.os:'';$('aW').value=a?a.owner:'';$('aV').value=a?a.vulns:0;$('aA').checked=a?a.agent:false;$('dlg').showModal()}
-$('add').addEventListener('click',()=>open_(null));
-$('rows').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.e)open_(assets.find(a=>a.host===b.dataset.e));
-  if(b.dataset.d&&confirm('Xóa tài sản '+b.dataset.d+' khỏi kiểm kê?')){assets=assets.filter(a=>a.host!==b.dataset.d);render();toast('Đã xóa tài sản')}});
-$('save').addEventListener('click',()=>{
-  const o={host:$('aH').value.trim(),ip:$('aI').value.trim()||'—',type:$('aT').value,crit:$('aC').value,os:$('aO').value.trim()||'—',owner:$('aW').value.trim()||'—',vulns:Math.max(0,+$('aV').value||0),agent:$('aA').checked};
-  if(!o.host){$('err').textContent='Nhập hostname.';return}
-  if(!okIp(o.ip)){$('err').textContent='Địa chỉ IP không hợp lệ, ví dụ 10.10.1.12.';return}
-  if(!edit&&assets.some(a=>a.host===o.host)){$('err').textContent='Hostname này đã tồn tại.';return}
-  if(edit)Object.assign(edit,o);else assets.unshift(Object.assign(o,{seen:new Date()}));
-  $('dlg').close();render();toast('Đã lưu tài sản');});
-['q','fT','fC'].forEach(i=>$(i).addEventListener('input',render));render();
+document.querySelectorAll('input[name=pkg]').forEach(r=>r.addEventListener('change',()=>{pkg=r.value;render()}));
+$('srv').addEventListener('input',()=>{touched.s=true;if(rem)remembered=$('srv').value.trim();render()});
+$('nm').addEventListener('input',render);
+$('gb').addEventListener('change',e=>{const c=e.target;c.checked?picked.add(c.value):picked.delete(c.value);render()});
+$('rem').addEventListener('click',()=>{rem=!rem;$('rem').setAttribute('aria-checked',rem);remembered=rem?$('srv').value.trim():'';
+  toast(rem?'Sẽ ghi nhớ địa chỉ server trong phiên này (lưu lâu dài cần backend)':'Đã tắt ghi nhớ')}); /* thay bằng lưu vào bảng settings của người dùng */
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-copy]');if(!b)return;
+  try{await navigator.clipboard.writeText(b.parentElement.textContent.replace(/^Sao chép/,''));toast('Đã sao chép lệnh')}catch(x){toast('Không sao chép được, hãy chọn và copy thủ công')}});
+render();
 </script>
 </body>
 </html>

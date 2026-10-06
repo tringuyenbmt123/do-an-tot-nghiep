@@ -6,7 +6,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Bell, FolderOpen, Activity, Shield, AlertTriangle,
   BookOpen, Server, Flame, FileText, Settings, LogOut, ChevronDown, ChevronRight,
-  Bug, Grid, TerminalSquare, BarChart2
+  Bug, Grid, TerminalSquare, BarChart2, Flag, Cpu, Download
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -33,6 +33,14 @@ const NAV = [
     ]
   },
   {
+    group: 'SOC Console',
+    items: [
+      { to: '/wazuh/overview',  icon: Flag,     label: 'Tổng quan SOC' },
+      { to: '/wazuh/endpoints', icon: Cpu,      label: 'Danh sách Agents' },
+      { to: '/wazuh/deploy',    icon: Download, label: 'Triển khai agent' },
+    ]
+  },
+  {
     group: 'Quản trị',
     items: [
       { to: '/playbooks', icon: TerminalSquare, label: 'Playbook' },
@@ -50,6 +58,7 @@ export default function Sidebar({ open, alertCount = 0, onClose }) {
   const [expanded, setExpanded] = useState({
     'Giám sát': true,
     'Phân tích': true,
+    'SOC Console': true,
     'Quản trị': true
   })
 

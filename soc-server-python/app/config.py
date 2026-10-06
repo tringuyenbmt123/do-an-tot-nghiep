@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     DB_PASSWORD: str = "1"
     DB_NAME: str = "soc_edr_db"
 
+    # Default Admin
+    ADMIN_PASSWORD: str = "admin123"
+
     # JWT
     JWT_SECRET_KEY: str = "super-secret-soc-key-2026"
     JWT_ALGORITHM: str = "HS256"

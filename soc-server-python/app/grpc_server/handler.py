@@ -140,7 +140,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                     )
 
                     logger.info(
-                        f"[STREAM] 🟢 Agent '{agent_id}' ({event.hostname}) "
+                        f"[STREAM] Agent '{agent_id}' ({event.hostname}) "
                         f"đã bắt đầu stream events"
                     )
 
@@ -172,7 +172,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
             raw_log = json.loads(event.raw_payload) if event.raw_payload else {}
         except json.JSONDecodeError:
             logger.warning(
-                f"[STREAM] ⚠️ Lỗi parse raw_payload JSON từ Agent '{agent_id}'"
+                f"[STREAM] Lỗi parse raw_payload JSON từ Agent '{agent_id}'"
             )
             raw_log = {"raw_data": event.raw_payload}
 
@@ -456,7 +456,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                 await self.redis.expire(f"agent:{request.agent_id}:heartbeat", 90)
             except Exception as e:
                 logger.warning(
-                    f"[HEARTBEAT] ⚠️ Lỗi cập nhật Redis cho Agent '{request.agent_id}': {e}"
+                    f"[HEARTBEAT] Lỗi cập nhật Redis cho Agent '{request.agent_id}': {e}"
                 )
 
         # ===== 2. Upsert Agent trong MySQL =====

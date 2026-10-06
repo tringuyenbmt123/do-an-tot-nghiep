@@ -42,14 +42,14 @@ class ConnectionManager:
             if conn.agent_id in self._connections:
                 old = self._connections[conn.agent_id]
                 logger.warning(
-                    f"[CONN MANAGER] ⚠️ Agent '{conn.agent_id}' đã có kết nối cũ, đang đóng..."
+                    f"[CONN MANAGER] Agent '{conn.agent_id}' đã có kết nối cũ, đang đóng..."
                 )
                 old.done.set()  # Báo hiệu goroutine cũ dừng lại
 
             self._connections[conn.agent_id] = conn
             count = len(self._connections)
             logger.info(
-                f"[CONN MANAGER] ✅ Đã đăng ký Agent '{conn.agent_id}' "
+                f"[CONN MANAGER] Đã đăng ký Agent '{conn.agent_id}' "
                 f"({conn.hostname} - {conn.ip_address}). Tổng: {count} agents online"
             )
 
@@ -90,7 +90,7 @@ class ConnectionManager:
             return True
         except asyncio.QueueFull:
             logger.warning(
-                f"[CONN MANAGER] ⚠️ Command queue của Agent '{agent_id}' đã đầy. "
+                f"[CONN MANAGER] Command queue của Agent '{agent_id}' đã đầy. "
                 f"Lệnh '{command.get('command_type')}' bị bỏ qua!"
             )
             return False

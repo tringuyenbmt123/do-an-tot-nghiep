@@ -1,20 +1,30 @@
-# Build / Release
+# ============================================================
+# .gitignore – SOC Platform
+# ============================================================
+
+# ------ Build / Release ------
 dist/
+build/
 soc-agent/release/
 soc-server/release/
 
-# Logs
+# ------ Logs ------
 *.log
+logs/
 
-# TLS private keys / generated certificates
+# ------ TLS / Certificates (generated) ------
 *.key
 *.csr
 *.srl
+*.pem
+*.crt
+certs/
 
-# Node
+# ------ Node ------
 node_modules/
+soc-frontend/node_modules/
 
-# Python
+# ------ Python ------
 venv/
 **/venv/
 __pycache__/
@@ -23,13 +33,38 @@ __pycache__/
 *.pyo
 *.pyd
 .pytest_cache/
+*.egg-info/
+.mypy_cache/
 
-# Environment / secrets
+# ------ Go binaries ------
+*.exe
+soc-agent/soc-agent
+soc-server/soc-server
+
+# ------ Environment / Secrets ------
 .env
 .env.*
+!.env.example
 
-# Go binaries
-*.exe
+# ------ Database dumps (too large / sensitive) ------
+*.sql
+*.db
+*.sqlite3
 
-# Temporary / Patch files
-fix-frontend/
+# ------ IDE / OS ------
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ------ Temporary / Patch files ------
+fix-frontend/
+*.tmp
+*.bak
+*.patch
+
+# ------ Postman / Test exports ------
+*.json.bak

@@ -64,11 +64,11 @@ async def seed_initial_data():
             auth_service = AuthService(session)
             await auth_service.create_user(
                 username="admin",
-                password="admin123",
+                password=settings.ADMIN_PASSWORD,
                 email="admin@soc.local",
                 role="admin",
             )
-            logger.info("[SEED] ✅ Đã tạo tài khoản Admin mặc định (user: admin / pass: admin123)")
+            logger.info(f"[SEED] Đã tạo tài khoản Admin mặc định (user: admin / pass: {settings.ADMIN_PASSWORD})")
 
         # 2. Default Rules
         res = await session.execute(select(func.count(Rule.id)))
@@ -77,7 +77,7 @@ async def seed_initial_data():
                 r = Rule(**r_data)
                 session.add(r)
             await session.commit()
-            logger.info(f"[SEED] ✅ Đã nạp {len(default_rules())} Detection Rules mặc định")
+            logger.info(f"[SEED] Đã nạp {len(default_rules())} Detection Rules mặc định")
 
         # 3. Default Indicators
         res = await session.execute(select(func.count(Indicator.id)))
@@ -86,7 +86,7 @@ async def seed_initial_data():
                 ind = Indicator(**ind_data)
                 session.add(ind)
             await session.commit()
-            logger.info(f"[SEED] ✅ Đã nạp {len(default_indicators())} Indicators mặc định")
+            logger.info(f"[SEED] Đã nạp {len(default_indicators())} Indicators mặc định")
 
         # 4. Load rules into in-memory engine
         await global_rule_engine.load_all_rules(session)
@@ -109,7 +109,7 @@ async def alert_cleanup_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("==================================================")
-    logger.info("🛡️  Khởi động SOC Server Python (FastAPI) 🛡️")
+    logger.info("Khởi động SOC Server Python (FastAPI)")
     logger.info("==================================================")
 
     # 1. Khởi tạo DB & AutoMigrate

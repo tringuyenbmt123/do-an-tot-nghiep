@@ -89,12 +89,12 @@ class SOARService:
                     }
                     resp = await client.post(url, json=payload, headers=headers)
                     if 200 <= resp.status_code < 300:
-                        logger.info(f"[SOAR] ✅ Đã dispatch Alert '{alert_id}' (type: {event_type}) sang n8n thành công")
+                        logger.info(f"[SOAR] Đã dispatch Alert '{alert_id}' (type: {event_type}) sang n8n thành công")
                         return
                     else:
-                        logger.warning(f"[SOAR] ⚠️ Webhook trả về status code: {resp.status_code}")
+                        logger.warning(f"[SOAR] Webhook trả về status code: {resp.status_code}")
                 except Exception as e:
-                    logger.warning(f"[SOAR] ⚠️ Lỗi gọi webhook n8n (lần {i}/{max_retries}): {e}")
+                    logger.warning(f"[SOAR] Lỗi gọi webhook n8n (lần {i}/{max_retries}): {e}")
 
                 if i < max_retries:
                     backoff = min(2 ** i, 30)

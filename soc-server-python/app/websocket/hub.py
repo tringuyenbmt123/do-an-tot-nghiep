@@ -24,7 +24,7 @@ class WebSocketHub:
         await websocket.accept()
         async with self._lock:
             self.active_connections.add(websocket)
-        logger.info(f"[WEBSOCKET HUB] 🟢 Client mới kết nối. Tổng: {len(self.active_connections)} clients")
+        logger.info(f"[WEBSOCKET HUB] Client mới kết nối. Tổng: {len(self.active_connections)} clients")
 
     async def disconnect(self, websocket: WebSocket):
         async with self._lock:

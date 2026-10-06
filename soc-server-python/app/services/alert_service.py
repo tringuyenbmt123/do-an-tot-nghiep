@@ -334,4 +334,4 @@ class AlertService:
         res = await self.db.execute(stmt)
         await self.db.commit()
         if res.rowcount:
-            logger.info(f"[CLEANUP JOB] ✅ Đã xóa {res.rowcount} LOW alerts cũ hơn {retention_days} ngày")
+            logger.info(f"[CLEANUP JOB] Đã xóa {res.rowcount} LOW alerts cũ hơn {retention_days} ngày")

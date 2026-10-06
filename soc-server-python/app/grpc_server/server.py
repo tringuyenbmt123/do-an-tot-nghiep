@@ -38,7 +38,7 @@ def create_server_credentials() -> Optional[grpc.ServerCredentials]:
     Tương đương: createMTLSConfig() trong server.go
     """
     if not MTLS_ENABLED:
-        logger.info("[gRPC SERVER] ⚠️ mTLS đang tắt - Chạy ở chế độ INSECURE (dev mode)")
+        logger.info("[gRPC SERVER] mTLS đang tắt - Chạy ở chế độ INSECURE (dev mode)")
         return None
 
     try:
@@ -54,18 +54,18 @@ def create_server_credentials() -> Optional[grpc.ServerCredentials]:
             root_certificates=ca_cert,
             require_client_auth=True,  # RequireAndVerifyClientCert
         )
-        logger.info("[gRPC SERVER] ✅ Đã tạo mTLS credentials thành công")
+        logger.info("[gRPC SERVER] Đã tạo mTLS credentials thành công")
         return credentials
 
     except FileNotFoundError as e:
         logger.warning(
-            f"[gRPC SERVER] ⚠️ Không tìm thấy cert file: {e}. "
+            f"[gRPC SERVER] Không tìm thấy cert file: {e}. "
             f"Chạy ở chế độ INSECURE (không mTLS) - CHỈ DÙNG CHO DEV!"
         )
         return None
     except Exception as e:
         logger.warning(
-            f"[gRPC SERVER] ⚠️ Không thể tạo mTLS credentials: {e}. "
+            f"[gRPC SERVER] Không thể tạo mTLS credentials: {e}. "
             f"Chạy ở chế độ INSECURE"
         )
         return None
@@ -122,12 +122,12 @@ async def create_grpc_server(
     if credentials:
         server.add_secure_port(listen_addr, credentials)
         logger.info(
-            f"[gRPC SERVER] ✅ gRPC Server đã sẵn sàng với mTLS trên port {GRPC_PORT}"
+            f"[gRPC SERVER] gRPC Server đã sẵn sàng với mTLS trên port {GRPC_PORT}"
         )
     else:
         server.add_insecure_port(listen_addr)
         logger.info(
-            f"[gRPC SERVER] ⚠️ gRPC Server INSECURE đang listen trên port {GRPC_PORT}"
+            f"[gRPC SERVER] gRPC Server INSECURE đang listen trên port {GRPC_PORT}"
         )
 
     return server
@@ -144,7 +144,7 @@ async def start_grpc_server(
     Gọi hàm này trong asyncio lifespan của FastAPI.
     """
     logger.info("================================================")
-    logger.info(f"🚀 Khởi động gRPC Agent Server trên port :{GRPC_PORT}")
+    logger.info(f"Khởi động gRPC Agent Server trên port :{GRPC_PORT}")
     logger.info("================================================")
 
     server = await create_grpc_server(
@@ -155,5 +155,5 @@ async def start_grpc_server(
     )
 
     await server.start()
-    logger.info(f"[gRPC SERVER] 🚀 gRPC Server đang chạy trên port :{GRPC_PORT}")
+    logger.info(f"[gRPC SERVER] gRPC Server đang chạy trên port :{GRPC_PORT}")
     return server

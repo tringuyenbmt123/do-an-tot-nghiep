@@ -74,9 +74,9 @@ async def handle_n8n_callback(
             }
             success = await global_conn_manager.send_command(alert.agent_id, cmd)
             if success:
-                logger.info(f"[SOAR HANDLER] ⚡ Đã ra lệnh {audit_action} xuống Agent '{alert.agent_id}' thành công")
+                logger.info(f"[SOAR HANDLER] Đã ra lệnh {audit_action} xuống Agent '{alert.agent_id}' thành công")
             else:
-                logger.warning(f"[SOAR HANDLER] ⚠️ Không thể gửi lệnh xuống Agent '{alert.agent_id}' (Agent offline)")
+                logger.warning(f"[SOAR HANDLER] Không thể gửi lệnh xuống Agent '{alert.agent_id}' (Agent offline)")
 
     # Ghi nhận thành công
     return {

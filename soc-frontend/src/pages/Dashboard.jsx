@@ -76,8 +76,7 @@ export default function Dashboard() {
     }
   }, []) // deps rỗng – chỉ register 1 lần
 
-  const KPI = [
-<<<<<<< HEAD
+  const kpis = [
     { label: 'Cảnh báo mới',   value: stats?.total_alerts_new ?? stats?.by_status?.new ?? '—', cls: 'k-crit', icon: AlertTriangle },
     { label: 'Cảnh báo hôm nay',value: stats?.total_alerts_today  ?? '—', cls: 'k-high', icon: TrendingUp },
     { label: 'Sự cố mở',       value: stats?.total_cases_open ?? stats?.active_cases ?? '—', cls: 'k-med',  icon: FolderOpen },
@@ -88,7 +87,6 @@ export default function Dashboard() {
   // Build chart data from stats
   const rawTrend = stats?.alerts_by_hour || stats?.alert_trend || []
   const barData = rawTrend.map(h => ({
-    // Lưu giá trị giờ dạng số để format đẹp
     time: h.time || (h.hour ? (h.hour.includes(':') ? h.hour : `${h.hour}:00`) : ''),
     hour: h.hour || (h.time ? h.time.split(':')[0] : '0'),
     critical: h.critical || 0,
@@ -97,13 +95,11 @@ export default function Dashboard() {
     low:      h.low      || 0,
   }))
 
-  // Formatter trục X: "08h", "14h" – ngắn gọn, dễ đọc
   const xTickFormatter = (val) => {
     const h = val?.split(':')?.[0] ?? val
     return `${String(h).padStart(2, '0')}h`
   }
 
-  // Tooltip label: "14:00 – 15:00"
   const tooltipLabel = (val) => {
     const h = parseInt(val?.split(':')?.[0] ?? val, 10)
     const next = (h + 1) % 24
@@ -115,29 +111,6 @@ export default function Dashboard() {
     { name: 'Cao',           value: stats?.severity_high     ?? stats?.by_severity?.high ?? 0,     color: SEV_COLORS.high },
     { name: 'Trung bình',   value: stats?.severity_medium   ?? stats?.by_severity?.medium ?? 0,   color: SEV_COLORS.medium },
     { name: 'Thấp',         value: stats?.severity_low      ?? stats?.by_severity?.low ?? 0,      color: SEV_COLORS.low },
-=======
-    { label: 'Cảnh báo mới', value: stats?.total_alerts_new ?? '—', cls: 'k-crit', icon: AlertTriangle },
-    { label: 'Cảnh báo hôm nay', value: stats?.total_alerts_today ?? '—', cls: 'k-high', icon: TrendingUp },
-    { label: 'Sự cố mở', value: stats?.total_cases_open ?? '—', cls: 'k-med', icon: FolderOpen },
-    { label: 'Agent online', value: stats?.agents_online ?? '—', cls: 'k-ok', icon: Server },
-    { label: 'Agent offline', value: stats?.agents_offline ?? '—', cls: 'k-info', icon: Activity },
-  ]
-
-  // Build chart data from stats
-  const barData = stats?.alert_trend?.map(h => ({
-    time: h.hour,
-    critical: h.critical || 0,
-    high: h.high || 0,
-    medium: h.medium || 0,
-    low: h.low || 0,
-  })) || []
-
-  const pieData = [
-    { name: 'Nghiêm trọng', value: stats?.severity_critical ?? 0, color: SEV_COLORS.critical },
-    { name: 'Cao', value: stats?.severity_high ?? 0, color: SEV_COLORS.high },
-    { name: 'Trung bình', value: stats?.severity_medium ?? 0, color: SEV_COLORS.medium },
-    { name: 'Thấp', value: stats?.severity_low ?? 0, color: SEV_COLORS.low },
->>>>>>> 8881d27 (Fix timezone display GMT+7, remove emojis from agent logs, and refine rule engine matching)
   ].filter(d => d.value > 0)
 
   return (
@@ -206,7 +179,6 @@ export default function Dashboard() {
                   axisLine={{ stroke: 'var(--line, #30363d)' }}
                   interval={2}
                 />
-<<<<<<< HEAD
                 <YAxis
                   tick={{ fontSize: 11, fill: 'var(--muted)' }}
                   tickLine={false}
@@ -225,12 +197,6 @@ export default function Dashboard() {
                 <Bar dataKey="medium"   stackId="a" fill={SEV_COLORS.medium}   name="Trung bình" />
                 <Bar dataKey="high"     stackId="a" fill={SEV_COLORS.high}     name="Cao" />
                 <Bar dataKey="critical" stackId="a" fill={SEV_COLORS.critical} name="Nghiêm trọng" radius={[3,3,0,0]} />
-=======
-                <Bar dataKey="critical" stackId="a" fill={SEV_COLORS.critical} name="Nghiêm trọng" />
-                <Bar dataKey="high" stackId="a" fill={SEV_COLORS.high} name="Cao" />
-                <Bar dataKey="medium" stackId="a" fill={SEV_COLORS.medium} name="Trung bình" />
-                <Bar dataKey="low" stackId="a" fill={SEV_COLORS.low} name="Thấp" radius={[4, 4, 0, 0]} />
->>>>>>> 8881d27 (Fix timezone display GMT+7, remove emojis from agent logs, and refine rule engine matching)
               </BarChart>
             </ResponsiveContainer>
           ) : (

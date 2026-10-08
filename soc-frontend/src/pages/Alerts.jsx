@@ -311,22 +311,6 @@ export default function Alerts() {
         size="lg"
         footer={
           <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-<<<<<<< HEAD
-            {detail?.status !== 'ack' && (
-              <button
-                className="b2"
-                onClick={async () => {
-                  if (detail?.id) {
-                    const ok = await handleSingleStatus(detail.id, 'ack')
-                    if (ok) setDetail(null)
-                  }
-                }}
-              >
-                <CheckCircle size={14} /> Nhận xử lý
-              </button>
-            )}
-            <button className="b2" onClick={() => { if (detail?.id) handleEscalate(detail.id); setDetail(null) }}>
-=======
             <button
               className="b2"
               onClick={() => detail?.id && handleStatusSingle(detail.id, 'ack')}
@@ -339,7 +323,6 @@ export default function Alerts() {
               onClick={() => { if (detail?.id) { handleEscalate(detail.id) } }}
               disabled={!detail?.id}
             >
->>>>>>> 8881d27 (Fix timezone display GMT+7, remove emojis from agent logs, and refine rule engine matching)
               <ArrowUp size={14} /> Tạo Case
             </button>
             <button className="b1 danger" style={{ marginLeft: 'auto' }} onClick={() => setDetail(null)}>Đóng</button>

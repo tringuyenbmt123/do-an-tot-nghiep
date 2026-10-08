@@ -67,7 +67,7 @@ class RuleEngine:
                 continue
 
             if self._match_all_conditions(raw_log, conditions):
-                logger.info(f"[RULE ENGINE] 🚨 MATCH! Rule '{rule.id}' ({rule.name}) khớp event từ Agent '{agent_id}'")
+                logger.info(f"[RULE ENGINE]  MATCH! Rule '{rule.id}' ({rule.name}) khớp event từ Agent '{agent_id}'")
                 matched_rules.append(rule)
 
         if not matched_rules:

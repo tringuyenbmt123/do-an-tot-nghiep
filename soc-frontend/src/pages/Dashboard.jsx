@@ -151,7 +151,7 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="grid kpis" style={{ marginBottom: 20 }}>
-          {KPI.map(k => (
+          {kpis.map(k => (
             <div key={k.label} className={`card kpi ${k.cls}`}>
               <div className="kpi-val">{k.value}</div>
               <div className="kpi-label">{k.label}</div>

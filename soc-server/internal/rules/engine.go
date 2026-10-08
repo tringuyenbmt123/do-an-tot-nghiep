@@ -134,7 +134,7 @@ func (e *RuleEngine) EvaluateLog(rawLog map[string]interface{}, agentID string) 
 
 		// Kiểm tra TẤT CẢ conditions (AND logic)
 		if e.matchAllConditions(rawLog, rule.Conditions) {
-			log.Printf("[RULE ENGINE] 🚨 MATCH! Rule '%s' (%s) khớp với event từ Agent '%s'",
+			log.Printf("[RULE ENGINE]  MATCH! Rule '%s' (%s) khớp với event từ Agent '%s'",
 				rule.ID, rule.Name, agentID)
 			matchedRules = append(matchedRules, rule)
 		}

@@ -230,7 +230,7 @@ func (h *AgentServiceHandler) processEvent(event *pb.EventRequest, agentID strin
 			continue
 		}
 
-		log.Printf("[STREAM] 🚨 ALERT CREATED: [%s] %s (Agent: %s, Rule: %s)",
+		log.Printf("[STREAM]  ALERT CREATED: [%s] %s (Agent: %s, Rule: %s)",
 			alert.Severity, alert.Title, agentID, alert.RuleID)
 
 		// ===== Ghi Audit Log =====

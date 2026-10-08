@@ -354,7 +354,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                     await db.flush()
 
                     logger.info(
-                        f"[STREAM] 🚨 ALERT CREATED: [{alert.severity.upper()}] "
+                        f"[STREAM]  ALERT CREATED: [{alert.severity.upper()}] "
                         f"{alert.title} (Agent: {agent_id}, Rule: {alert.rule_id})"
                     )
 

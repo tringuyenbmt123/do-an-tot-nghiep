@@ -67,7 +67,7 @@
       "parameters": {
         "operation": "sendAndWait",
         "chatId": "5407528909",
-        "message": "=🚨 YEU CAU PHE DUYET SOC\n\nAlert: {{ $json.alert_id }}\nEvent: {{ $json.event_type }}\nSeverity: {{ $json.severity }}\nAgent: {{ $json.agent_id || 'N/A' }}\n\nAction: {{ $json.action }}\nTarget: {{ $json.src_ip || $json.process_id || $json.domain || $json.url || 'N/A' }}\nAI confidence: {{ $json.ai_confidence }}\nLy do: {{ $json.reason }}\n\nChap nhan hanh dong thay doi he thong?",
+        "message": "= YEU CAU PHE DUYET SOC\n\nAlert: {{ $json.alert_id }}\nEvent: {{ $json.event_type }}\nSeverity: {{ $json.severity }}\nAgent: {{ $json.agent_id || 'N/A' }}\n\nAction: {{ $json.action }}\nTarget: {{ $json.src_ip || $json.process_id || $json.domain || $json.url || 'N/A' }}\nAI confidence: {{ $json.ai_confidence }}\nLy do: {{ $json.reason }}\n\nChap nhan hanh dong thay doi he thong?",
         "approvalOptions": {
           "values": {
             "approvalType": "double"

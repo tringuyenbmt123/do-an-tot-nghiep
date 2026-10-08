@@ -43,7 +43,7 @@ export default function Layout({ children, title = 'SOC Console' }) {
       const sev = (alertData.severity || 'high').toLowerCase()
       const title = alertData.title || alertData.event_type || 'Cảnh báo mới'
       const hostname = alertData.agent?.hostname || alertData.hostname || ''
-      const text = `🚨 [${sev.toUpperCase()}] ${title}${hostname ? ` (${hostname})` : ''}`
+      const text = ` [${sev.toUpperCase()}] ${title}${hostname ? ` (${hostname})` : ''}`
 
       if (['critical', 'high'].includes(sev)) {
         toastRef.current.error(text)
@@ -63,7 +63,7 @@ export default function Layout({ children, title = 'SOC Console' }) {
   }, [subscribe]) // subscribe là stable ref, chỉ đăng ký 1 lần
 
   const toggleSidebar = useCallback(() => setSidebarOpen(v => !v), [])
-  const closeSidebar  = useCallback(() => setSidebarOpen(false), [])
+  const closeSidebar = useCallback(() => setSidebarOpen(false), [])
 
   return (
     <div className="shell">

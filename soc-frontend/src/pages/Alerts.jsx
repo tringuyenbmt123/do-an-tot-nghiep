@@ -17,6 +17,7 @@ import { ago, formatDateTime } from '../utils/date'
 
 const PAGE_SIZE = 50
 
+
 export default function Alerts() {
   const [alerts, setAlerts]       = useState([])
   const [total, setTotal]         = useState(0)
@@ -130,6 +131,18 @@ export default function Alerts() {
       setDetail(null)
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  const handleStatusSingle = async (id, status) => {
+    const label = { ack: 'Nhận xử lý', closed: 'Đóng', fp: 'False Positive' }[status] || status
+    try {
+      await updateAlertStatus(id, { status })
+      toast.success(`Đã đặt cảnh báo thành "${label}"`)
+      setDetail(null)
+      load()
+    } catch (e) {
+      toast.error(`Không cập nhật được: ${e.message}`)
     }
   }
 
@@ -298,6 +311,7 @@ export default function Alerts() {
         size="lg"
         footer={
           <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+<<<<<<< HEAD
             {detail?.status !== 'ack' && (
               <button
                 className="b2"
@@ -312,6 +326,20 @@ export default function Alerts() {
               </button>
             )}
             <button className="b2" onClick={() => { if (detail?.id) handleEscalate(detail.id); setDetail(null) }}>
+=======
+            <button
+              className="b2"
+              onClick={() => detail?.id && handleStatusSingle(detail.id, 'ack')}
+              disabled={!detail?.id || detail?.status === 'ack'}
+            >
+              <CheckCircle size={14} /> Nhận xử lý
+            </button>
+            <button
+              className="b2"
+              onClick={() => { if (detail?.id) { handleEscalate(detail.id) } }}
+              disabled={!detail?.id}
+            >
+>>>>>>> 8881d27 (Fix timezone display GMT+7, remove emojis from agent logs, and refine rule engine matching)
               <ArrowUp size={14} /> Tạo Case
             </button>
             <button className="b1 danger" style={{ marginLeft: 'auto' }} onClick={() => setDetail(null)}>Đóng</button>

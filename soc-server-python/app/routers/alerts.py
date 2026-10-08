@@ -78,14 +78,35 @@ async def create_alert(
         "mitre_technique_id": req.mitre_technique_id,
     }
 
-    alert_service = AlertService(db)
-    alert = await alert_service.create_alert(alert_data)
+    try:
+        alert_service = AlertService(db)
+        alert = await alert_service.create_alert(alert_data)
 
-    # Dispatch to SOAR nếu cần
-    soar_service = SOARService(db)
-    soar_service.dispatch_to_n8n(alert)
+        # Broadcast qua WebSocket
+        try:
+            agent_info = {
+                "id": alert.agent_id,
+                "hostname": alert.agent_id,
+                "ip_address": "",
+            }
+            await ws_hub.broadcast_alert({
+                "id": alert.id,
+                "agent_id": alert.agent_id,
+                "agent": agent_info,
+                "hostname": alert.agent_id,
+                "event_type": alert.event_type,
+                "severity": alert.severity,
+                "title": alert.title,
+                "status": alert.status,
+                "mitre_tactic": alert.mitre_tactic,
+                "created_at": (alert.created_at.isoformat() + "Z") if alert.created_at else None,
+            })
+        except Exception:
+            pass
 
-    return alert
+        return alert
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("")

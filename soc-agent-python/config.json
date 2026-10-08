@@ -12,11 +12,12 @@
   ],
   "fim_enabled": true,
   "fim_paths": [
-    "C:\\Users\\Public\\SOC-Test"
+    "C:\\Users\\Public\\SOC-Test",
+    "C:\\Users\\WIN 11\\Downloads"
   ],
   "metrics_enabled": true,
   "log_tailer_enabled": true,
-  "process_monitor_enabled": false,
+  "process_monitor_enabled": true,
   "process_poll_interval_seconds": 5,
   "process_exclude_names": [
     "System Idle Process",

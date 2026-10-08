@@ -56,15 +56,15 @@ def run_agent(cfg, stop_event: threading.Event):
     """Khởi chạy toàn bộ các tác vụ của Agent."""
     logger = logging.getLogger(__name__)
 
-    logger.info("[AGENT] 📌 Agent ID: %s", cfg.agent_id)
+    logger.info("[AGENT] Agent ID: %s", cfg.agent_id)
     logger.info(
-        "[AGENT] 💻 Hostname: %s (%s, IP: %s)", cfg.hostname, cfg.os_type, cfg.ip_address
+        "[AGENT] Hostname: %s (%s, IP: %s)", cfg.hostname, cfg.os_type, cfg.ip_address
     )
     logger.info(
-        "[AGENT] 🌐 Target Server: %s (Protocol: %s)", cfg.server_url, cfg.protocol
+        "[AGENT] Target Server: %s (Protocol: %s)", cfg.server_url, cfg.protocol
     )
     logger.info(
-        "[AGENT] ⏱️  Heartbeat: %ds | Metric Interval: %ds | Buffer: %d items",
+        "[AGENT] Heartbeat: %ds | Metric Interval: %ds | Buffer: %d items",
         cfg.heartbeat_interval_seconds,
         cfg.metric_interval_seconds,
         cfg.buffer_size,
@@ -166,7 +166,7 @@ def run_agent(cfg, stop_event: threading.Event):
     threads.append(grpc_thread)
     grpc_thread.start()
 
-    logger.info("[AGENT] ✅ SOC/EDR Agent đang chạy đầy đủ tính năng...")
+    logger.info("[AGENT] SOC/EDR Agent đang chạy đầy đủ tính năng...")
 
     # Chờ stop_event (từ Ctrl+C / SIGTERM)
     stop_event.wait()
@@ -222,7 +222,7 @@ def main():
     stop_event = threading.Event()
 
     def _shutdown_handler(signum, frame):
-        logger.info("\n[AGENT] 🛑 Nhận tín hiệu tắt Agent. Đang tiến hành Graceful Shutdown...")
+        logger.info("\n[AGENT] Nhận tín hiệu tắt Agent. Đang tiến hành Graceful Shutdown...")
         stop_event.set()
 
     signal.signal(signal.SIGINT, _shutdown_handler)
@@ -231,9 +231,9 @@ def main():
     try:
         run_agent(cfg, stop_event)
     except Exception as e:
-        logger.error("[AGENT] ❌ Lỗi nghiêm trọng: %s", e, exc_info=True)
+        logger.error("[AGENT] Lỗi nghiêm trọng: %s", e, exc_info=True)
 
-    logger.info("[AGENT] 👋 Agent đã dừng an toàn. Hẹn gặp lại!")
+    logger.info("[AGENT] Agent đã dừng an toàn. Hẹn gặp lại!")
 
 
 if __name__ == "__main__":

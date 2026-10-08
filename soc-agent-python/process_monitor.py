@@ -34,9 +34,9 @@ class ProcessMonitor:
             if stop_event.is_set():
                 break
             current = self._snapshot()
-            for pid, name in current.items():
+            for pid, info in current.items():
                 if pid not in previous:
-                    self._emit(pid, name)
+                    self._emit(pid, info)
             previous = current
 
         logger.info("[PROCESS] Process Monitor đã dừng.")
@@ -45,12 +45,14 @@ class ProcessMonitor:
         """Lấy snapshot danh sách process hiện tại."""
         result = {}
         try:
-            for p in psutil.process_iter(["pid", "name"]):
+            for p in psutil.process_iter(["pid", "name", "cmdline"]):
                 try:
                     name = p.info["name"] or ""
                     pid = p.info["pid"]
+                    cmdline_list = p.info.get("cmdline") or []
+                    cmdline = " ".join(cmdline_list) if isinstance(cmdline_list, list) else str(cmdline_list)
                     if not self._excluded(name):
-                        result[pid] = name
+                        result[pid] = (name, cmdline)
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
         except Exception:
@@ -65,24 +67,26 @@ class ProcessMonitor:
                 return True
         return False
 
-    def _emit(self, pid: int, name: str):
+    def _emit(self, pid: int, info_tuple: tuple):
         """Phát EventRequest khi phát hiện process mới."""
+        name, cmdline = info_tuple
         raw = json.dumps(
             {
                 "action": "process_started",
                 "pid": pid,
                 "process_name": name,
+                "command_line": cmdline,
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             }
         )
         req = make_event_request(
             agent_id=self._cfg.agent_id,
-            event_type="process_start",
+            event_type="sysmon_process_create",
             hostname=self._cfg.hostname,
             ip_address=self._cfg.ip_address,
             raw_payload=raw,
             timestamp=int(time.time() * 1000),
-            metadata={"severity": "low", "process_name": name},
+            metadata={"severity": "low", "process_name": name, "command_line": cmdline},
         )
         pushed = self._buffer.push(req)
         if not pushed:

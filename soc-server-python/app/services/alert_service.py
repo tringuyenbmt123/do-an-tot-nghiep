@@ -263,7 +263,6 @@ class AlertService:
 
         # 5. Alert trend last 24h quy theo giờ Việt Nam (UTC+7)
         # Group theo datetime đầy đủ (năm-tháng-ngày-giờ) để tránh merge cùng số giờ
-        # của 2 ngày khác nhau vào 1 bucket (bug khi start24h trải qua 2 ngày)
         now_vn = now + timedelta(hours=7)
         trend_query = text("""
             SELECT DATE_FORMAT(DATE_ADD(created_at, INTERVAL 7 HOUR), '%Y-%m-%d %H') AS hour_slot,
@@ -321,6 +320,31 @@ class AlertService:
         stats["total"] = total_alerts_today
         stats["by_severity"] = severity_map
         stats["by_status"] = {"new": stats["total_alerts_new"], "in_progress": 0, "resolved": 0}
+
+        # --- Frontend expected keys ---
+        # total_alerts_new = cảnh báo có status='new'
+        cnt_new = await self.db.execute(
+            select(func.count(Alert.id)).where(Alert.status == "new")
+        )
+        stats["total_alerts_new"] = cnt_new.scalar() or 0
+
+        # total_alerts_today (alias)
+        stats["total_alerts_today"] = total_alerts_today
+
+        # total_cases_open
+        stats["total_cases_open"] = stats["active_cases"]
+
+        # agents_offline
+        cnt_offline = await self.db.execute(
+            select(func.count(Agent.id)).where(Agent.status != "online")
+        )
+        stats["agents_offline"] = cnt_offline.scalar() or 0
+
+        # Flat severity keys for pie chart
+        stats["severity_critical"] = severity_map["critical"]
+        stats["severity_high"]     = severity_map["high"]
+        stats["severity_medium"]   = severity_map["medium"]
+        stats["severity_low"]      = severity_map["low"]
 
         return stats
 

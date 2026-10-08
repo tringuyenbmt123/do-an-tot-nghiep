@@ -118,10 +118,10 @@ class RuleEngine:
         elif op == "contains":
             return target_val in field_val
         elif op == "contains_any":
-            parts = [p.strip() for p in target_val.split(",")]
+            parts = [p.strip().lower() for p in target_val.split(",") if p.strip()]
             return any(p in field_val for p in parts)
         elif op == "in":
-            parts = [p.strip() for p in target_val.split(",")]
+            parts = [p.strip().lower() for p in target_val.split(",") if p.strip()]
             return field_val in parts
         elif op == "regex":
             try:

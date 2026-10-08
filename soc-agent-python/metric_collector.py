@@ -55,7 +55,7 @@ class MetricCollector:
     def start(self, stop_event: threading.Event):
         """Vòng lặp thu thập định kỳ. Dừng khi stop_event được set."""
         logger.info(
-            "[COLLECTOR] 🚀 Metric Collector đã khởi chạy (Interval: %ds)",
+            "[COLLECTOR] Metric Collector đã khởi chạy (Interval: %ds)",
             self._cfg.metric_interval_seconds,
         )
         while not stop_event.is_set():
@@ -64,7 +64,7 @@ class MetricCollector:
             if stop_event.is_set():
                 break
             self._collect_and_send()
-        logger.info("[COLLECTOR] 🛑 Metric Collector đã dừng an toàn.")
+        logger.info("[COLLECTOR] Metric Collector đã dừng an toàn.")
 
     def collect_snapshot(self) -> Optional[SystemMetricSnapshot]:
         """Lấy snapshot metric đầy đủ tức thì."""

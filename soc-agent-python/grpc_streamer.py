@@ -43,7 +43,7 @@ class GRPCStreamer:
     def start(self, stop_event: threading.Event):
         """Vòng lặp kết nối và duy trì Stream liên tục với Auto-Reconnect."""
         logger.info(
-            "[STREAMER] 🚀 Bắt đầu gRPC Streamer (Server: %s, Protocol: gRPC)",
+            "[STREAMER] Bắt đầu gRPC Streamer (Server: %s, Protocol: gRPC)",
             self._cfg.server_url,
         )
 
@@ -61,7 +61,7 @@ class GRPCStreamer:
                 )
                 backoff = max(backoff, 1.0)
                 logger.warning(
-                    "[STREAMER] ⚠️ Mất kết nối tới Server: %s. Thử lại sau %.0fs (Lần #%d)...",
+                    "[STREAMER] Mất kết nối tới Server: %s. Thử lại sau %.0fs (Lần #%d)...",
                     e, backoff, attempt,
                 )
                 stop_event.wait(timeout=backoff)
@@ -70,7 +70,7 @@ class GRPCStreamer:
                 if not stop_event.is_set():
                     attempt = 0
 
-        logger.info("[STREAMER] 🛑 gRPC Streamer đã kết thúc.")
+        logger.info("[STREAMER] gRPC Streamer đã kết thúc.")
 
     def _connect_and_stream(self, stop_event: threading.Event):
         """Thiết lập kết nối gRPC, stream events và nhận commands."""
@@ -85,7 +85,7 @@ class GRPCStreamer:
             ]
 
             logger.info(
-                "[STREAMER] 🟢 Kết nối thành công tới SOC Server: %s [AgentID: %s]",
+                "[STREAMER] Kết nối thành công tới SOC Server: %s [AgentID: %s]",
                 self._cfg.server_url,
                 self._cfg.agent_id,
             )
@@ -170,9 +170,9 @@ class GRPCStreamer:
                             hb_sec=int(resp.heartbeat_interval_seconds)
                         )
             except grpc.RpcError as e:
-                logger.warning("[STREAMER] ⚠️ Gửi Heartbeat thất bại: %s", e.details() if hasattr(e, 'details') else e)
+                logger.warning("[STREAMER] Gửi Heartbeat thất bại: %s", e.details() if hasattr(e, 'details') else e)
             except Exception as e:
-                logger.warning("[STREAMER] ⚠️ Heartbeat lỗi: %s", e)
+                logger.warning("[STREAMER] Heartbeat lỗi: %s", e)
 
     def _create_channel(self):
         """Tạo gRPC channel (mTLS nếu có cert, hoặc insecure)."""

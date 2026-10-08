@@ -60,7 +60,7 @@ class LogTailer:
 
     def start(self, stop_event: threading.Event):
         """Bắt đầu theo dõi các file log. Dừng khi stop_event được set."""
-        logger.info("[TAILER] 🚀 Log Tailer (watchdog) đang khởi động...")
+        logger.info("[TAILER] Log Tailer (watchdog) đang khởi động...")
 
         handler = _LogFileHandler(self)
 
@@ -70,13 +70,13 @@ class LogTailer:
             self._add_file(abs_path, handler)
 
         self._observer.start()
-        logger.info("[TAILER] 👁️ Đang theo dõi %d file log", len(self._states))
+        logger.info("[TAILER] Đang theo dõi %d file log", len(self._states))
 
         stop_event.wait()
 
         self._observer.stop()
         self._observer.join()
-        logger.info("[TAILER] 🛑 Log Tailer đã dừng an toàn.")
+        logger.info("[TAILER] Log Tailer đã dừng an toàn.")
 
     def _add_file(self, file_path: str, handler: "_LogFileHandler") -> None:
         """Thêm một file log mới vào danh sách theo dõi."""
@@ -88,7 +88,7 @@ class LogTailer:
         if os.path.exists(abs_path):
             initial_offset = os.path.getsize(abs_path)
         else:
-            logger.warning("[TAILER] ⚠️ File không tồn tại (sẽ chờ tạo): %s", abs_path)
+            logger.warning("[TAILER] File không tồn tại (sẽ chờ tạo): %s", abs_path)
 
         with self._lock:
             self._states[abs_path] = _FileState(abs_path, initial_offset)
@@ -100,7 +100,7 @@ class LogTailer:
             self._watched_dirs.add(dir_path)
 
         logger.info(
-            "[TAILER] 👁️ Bắt đầu theo dõi file: %s (Offset ban đầu: %d)",
+            "[TAILER] Bắt đầu theo dõi file: %s (Offset ban đầu: %d)",
             abs_path,
             initial_offset,
         )
@@ -137,7 +137,7 @@ class LogTailer:
         if os.path.exists(abs_path):
             with self._lock:
                 self._states[abs_path] = _FileState(abs_path, 0)
-            logger.info("[TAILER] 🔄 Đã reload file sau khi Rotate: %s", abs_path)
+            logger.info("[TAILER] Đã reload file sau khi Rotate: %s", abs_path)
 
     def _dispatch_log_line(self, file_path: str, line: str):
         """Đóng gói dòng log thành EventRequest và gửi vào buffer."""

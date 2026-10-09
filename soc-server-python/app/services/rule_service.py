@@ -21,47 +21,232 @@ logger = logging.getLogger(__name__)
 def default_rules() -> List[dict]:
     return [
         {
-            "id": "RULE-POWERSHELL-ENCODED",
-            "name": "PowerShell Encoded Command Execution",
+            "id": "PS-SUSPICIOUS-001",
+            "name": "Phát hiện PowerShell thực thi lệnh mã hóa/tải file đáng ngờ",
             "severity": "high",
-            "event_type": "process_creation",
+            "event_type": "sysmon_process_create",
             "conditions": json.dumps([
-                {"field": "process_name", "operator": "equals", "value": "powershell.exe"},
-                {"field": "command_line", "operator": "contains", "value": "-EncodedCommand"}
+                {"field": "process_name", "operator": "in", "value": "powershell.exe,pwsh.exe,powershell_ise.exe"},
+                {"field": "command_line", "operator": "contains_any", "value": "-EncodedCommand,-enc ,Invoke-Expression,IEX,DownloadString,DownloadFile,Net.WebClient,Invoke-WebRequest,Start-BitsTransfer,-ExecutionPolicy Bypass,-ep bypass,-nop -w hidden"}
             ]),
             "mitre_tactic": "Execution",
             "mitre_technique_id": "T1059.001",
-            "description": "Detects PowerShell commands executed with encoded payloads, often used for script obfuscation.",
+            "description": "Phát hiện PowerShell chạy tham số mã hóa hoặc tải script độc hại từ bên ngoài.",
             "is_active": True,
             "source": "database",
         },
         {
-            "id": "RULE-RANSOMWARE-VSS",
-            "name": "Ransomware VSS Shadow Delete Activity",
+            "id": "RANSOMWARE-VSS-001",
+            "name": "Phát hiện xóa Volume Shadow Copy - Dấu hiệu Ransomware",
             "severity": "critical",
-            "event_type": "command_execution",
+            "event_type": "sysmon_process_create",
             "conditions": json.dumps([
-                {"field": "process_name", "operator": "in", "value": "vssadmin.exe"},
-                {"field": "command_line", "operator": "contains", "value": "shadow delete"}
+                {"field": "process_name", "operator": "in", "value": "vssadmin.exe,wmic.exe,bcdedit.exe,wbadmin.exe"},
+                {"field": "command_line", "operator": "contains_any", "value": "delete shadows,shadowcopy delete,recoveryenabled No,resize shadowstorage"}
             ]),
             "mitre_tactic": "Impact",
             "mitre_technique_id": "T1490",
-            "description": "Flags attempts to delete volume shadow copies, a common ransomware behavior.",
+            "description": "Cảnh báo hành vi cố tình xóa bản sao lưu phục hồi hệ thống của ransomware.",
             "is_active": True,
             "source": "database",
         },
         {
-            "id": "RULE-NETWORK-C2",
-            "name": "Outbound C2 Communication Pattern",
-            "severity": "medium",
-            "event_type": "network_connection",
+            "id": "FIM-100101",
+            "name": "Linux - Critical Identity Database Modified",
+            "severity": "critical",
+            "event_type": "file_integrity",
             "conditions": json.dumps([
-                {"field": "dst_ip", "operator": "not_equals", "value": "10.0.0.0/8"},
-                {"field": "protocol", "operator": "equals", "value": "tcp"}
+                {"field": "path", "operator": "contains_any", "value": "/etc/passwd,/etc/shadow"}
             ]),
-            "mitre_tactic": "Command and Control",
-            "mitre_technique_id": "T1071",
-            "description": "Looks for suspicious outbound connections outside the internal network segmentation.",
+            "mitre_tactic": "Initial Access",
+            "mitre_technique_id": "T1078",
+            "description": "Phát hiện sự thay đổi/thêm người dùng vào file quản lý tài khoản hệ thống Linux.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100102",
+            "name": "Linux - Sudoers Privilege Escalation Tampering",
+            "severity": "critical",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains_any", "value": "/etc/sudoers,/etc/sudoers.d"}
+            ]),
+            "mitre_tactic": "Privilege Escalation",
+            "mitre_technique_id": "T1548.003",
+            "description": "Phát hiện cấu hình cấp quyền Root (Sudoers) bị can thiệp trái phép.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100103",
+            "name": "Linux - SSH Configuration or Keys Modified",
+            "severity": "high",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains_any", "value": "/etc/ssh/sshd_config,authorized_keys"}
+            ]),
+            "mitre_tactic": "Persistence",
+            "mitre_technique_id": "T1098.004",
+            "description": "Phát hiện sửa cấu hình SSH daemon hoặc thêm SSH Public Key lạ để duy trì truy cập.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100104",
+            "name": "Linux - Persistence Cron Job Created or Modified",
+            "severity": "high",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains_any", "value": "/etc/cron,/var/spool/cron"}
+            ]),
+            "mitre_tactic": "Persistence",
+            "mitre_technique_id": "T1053.003",
+            "description": "Phát hiện lịch chạy tự động (Cron job) mới được tạo hoặc chỉnh sửa.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100105",
+            "name": "Linux - Persistence Systemd Service Unit Added/Modified",
+            "severity": "high",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains", "value": "/etc/systemd/system"}
+            ]),
+            "mitre_tactic": "Persistence",
+            "mitre_technique_id": "T1543.002",
+            "description": "Phát hiện service hệ thống Linux mới được đăng ký để khởi động cùng OS.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100107",
+            "name": "Linux - SUID/SGID Bit Granted to File",
+            "severity": "high",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "perm", "operator": "contains_any", "value": "4000,2000"}
+            ]),
+            "mitre_tactic": "Privilege Escalation",
+            "mitre_technique_id": "T1548.001",
+            "description": "Phát hiện gán quyền SUID/SGID cho file cho phép leo thang quyền root.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100108",
+            "name": "Linux - Web Shell Dropped in Web Root",
+            "severity": "critical",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains", "value": "/var/www/html"},
+                {"field": "path", "operator": "contains_any", "value": ".php,.phtml,.phar"}
+            ]),
+            "mitre_tactic": "Persistence",
+            "mitre_technique_id": "T1505.003",
+            "description": "Phát hiện file mã độc Web Shell tạo mới trong thư mục nguồn Web Server.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100109",
+            "name": "Linux - Executable Script Created in Temp Directory",
+            "severity": "high",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains_any", "value": "/tmp/,/var/tmp/,/dev/shm/"},
+                {"field": "path", "operator": "contains_any", "value": ".sh,.py,.pl,.elf"}
+            ]),
+            "mitre_tactic": "Defense Evasion",
+            "mitre_technique_id": "T1059.004",
+            "description": "Phát hiện script/binary thực thi được thả vào thư mục tạm của hệ thống.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100201",
+            "name": "Windows - System32 Executable / DLL Modification",
+            "severity": "critical",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains_any", "value": "System32,SysWOW64"},
+                {"field": "path", "operator": "contains_any", "value": ".exe,.dll,.sys"}
+            ]),
+            "mitre_tactic": "Defense Evasion",
+            "mitre_technique_id": "T1036",
+            "description": "Phát hiện can thiệp chỉnh sửa/ghi đè file hệ thống cốt lõi Windows System32.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100202",
+            "name": "Windows - Scheduled Task File Created / Modified",
+            "severity": "high",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains", "value": "System32\\Tasks"}
+            ]),
+            "mitre_tactic": "Persistence",
+            "mitre_technique_id": "T1053.005",
+            "description": "Phát hiện file cấu hình Windows Scheduled Task mới được tạo hoặc chỉnh sửa.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100203",
+            "name": "Windows - Startup Folder Modification",
+            "severity": "high",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains", "value": "Start Menu\\Programs\\Startup"}
+            ]),
+            "mitre_tactic": "Persistence",
+            "mitre_technique_id": "T1547.001",
+            "description": "Phát hiện shortcut hoặc file thực thi thả vào thư mục Startup khởi động cùng Windows.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100301",
+            "name": "Global - Security Agent Configuration Tampering",
+            "severity": "critical",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains_any", "value": "ossec.conf,wazuh-agent.conf"}
+            ]),
+            "mitre_tactic": "Defense Evasion",
+            "mitre_technique_id": "T1562.001",
+            "description": "Phát hiện file cấu hình agent giám sát an ninh bị can thiệp/vô hiệu hóa.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-100303",
+            "name": "Global - Ransomware Note Detected",
+            "severity": "critical",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "path", "operator": "contains_any", "value": "readme_decrypt,how_to_decrypt,DECRYPT_FILES,.LOCKED,.crypted"}
+            ]),
+            "mitre_tactic": "Impact",
+            "mitre_technique_id": "T1486",
+            "description": "Phát hiện file thông báo tống tiền (Ransom note) hoặc đuôi file bị mã hóa.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
+            "id": "FIM-DOWNLOAD-SUSP-001",
+            "name": "Phát hiện file thực thi mới được tải về (Downloads Monitor)",
+            "severity": "high",
+            "event_type": "file_integrity",
+            "conditions": json.dumps([
+                {"field": "action", "operator": "equals", "value": "created"},
+                {"field": "path", "operator": "contains_any", "value": "Downloads,temp,.exe,.bat,.ps1,.vbs,.iso"}
+            ]),
+            "mitre_tactic": "Initial Access",
+            "mitre_technique_id": "T1566",
+            "description": "Phát hiện các file có khả năng chứa mã độc thực thi được tải về thư mục Downloads.",
             "is_active": True,
             "source": "database",
         },

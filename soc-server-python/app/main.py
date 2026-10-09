@@ -6,6 +6,7 @@
 import asyncio
 import logging
 import time
+from datetime import datetime
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
@@ -70,14 +71,24 @@ async def seed_initial_data():
             )
             logger.info(f"[SEED] Đã tạo tài khoản Admin mặc định (user: admin / pass: {settings.ADMIN_PASSWORD})")
 
-        # 2. Default Rules
-        res = await session.execute(select(func.count(Rule.id)))
-        if (res.scalar() or 0) == 0:
-            for r_data in default_rules():
-                r = Rule(**r_data)
-                session.add(r)
-            await session.commit()
-            logger.info(f"[SEED] Đã nạp {len(default_rules())} Detection Rules mặc định")
+        # 2. Default Rules (Upsert tất cả FIM / Production Detection Rules)
+        for r_data in default_rules():
+            stmt = select(Rule).where(Rule.id == r_data["id"])
+            existing_rule = (await session.execute(stmt)).scalar_one_or_none()
+            if existing_rule:
+                existing_rule.name = r_data["name"]
+                existing_rule.severity = r_data["severity"]
+                existing_rule.event_type = r_data["event_type"]
+                existing_rule.conditions = r_data["conditions"]
+                existing_rule.mitre_tactic = r_data["mitre_tactic"]
+                existing_rule.mitre_technique_id = r_data["mitre_technique_id"]
+                existing_rule.description = r_data["description"]
+                existing_rule.is_active = True
+                existing_rule.updated_at = datetime.utcnow()
+            else:
+                session.add(Rule(**r_data))
+        await session.commit()
+        logger.info(f"[SEED] Đã đồng bộ {len(default_rules())} Production Detection Rules vào Database")
 
         # 3. Default Indicators
         res = await session.execute(select(func.count(Indicator.id)))

@@ -1,6 +1,6 @@
 # ==============================================================================
 # app/grpc_server/handler.py - gRPC Service Handler (AgentServiceServicer)
-# Tương đương: internal/agent_grpc/handler.go
+
 #
 # Implement AgentService với 2 RPC:
 #   1. StreamEvents (Bidirectional Streaming):

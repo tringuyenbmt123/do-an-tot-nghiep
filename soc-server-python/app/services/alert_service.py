@@ -245,7 +245,16 @@ class AlertService:
         total_agents = cnt_agents.scalar() or 0
         stats["agents_total"] = total_agents
 
-        cnt_online = await self.db.execute(select(func.count(Agent.id)).where(Agent.status == "online"))
+        from app.grpc_server.connection_manager import global_conn_manager
+        online_stream_ids = await global_conn_manager.get_online_agent_ids()
+        cutoff_hb = now - timedelta(seconds=60)
+
+        # Agent được coi là online nếu có gRPC stream active HOẶC last_heartbeat_at <= 60s
+        cond_online = (Agent.last_heartbeat_at >= cutoff_hb)
+        if online_stream_ids:
+            cond_online = cond_online | Agent.id.in_(online_stream_ids)
+
+        cnt_online = await self.db.execute(select(func.count(Agent.id)).where(cond_online))
         online_agents = cnt_online.scalar() or 0
         stats["agents_online"] = online_agents
         stats["agents_offline"] = max(0, total_agents - online_agents)
@@ -335,10 +344,7 @@ class AlertService:
         stats["total_cases_open"] = stats["active_cases"]
 
         # agents_offline
-        cnt_offline = await self.db.execute(
-            select(func.count(Agent.id)).where(Agent.status != "online")
-        )
-        stats["agents_offline"] = cnt_offline.scalar() or 0
+        stats["agents_offline"] = max(0, total_agents - online_agents)
 
         # Flat severity keys for pie chart
         stats["severity_critical"] = severity_map["critical"]

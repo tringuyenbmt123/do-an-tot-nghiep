@@ -82,9 +82,18 @@ class AgentService:
         agents = list(result.scalars().all())
 
         # Đồng bộ trạng thái thực tế
+        has_changes = False
         for agent in agents:
             real_status = await self._resolve_agent_status(agent)
-            agent.status = real_status
+            if agent.status != real_status:
+                agent.status = real_status
+                has_changes = True
+
+        if has_changes:
+            try:
+                await self.db.commit()
+            except Exception as e:
+                logger.warning(f"Lỗi commit đồng bộ trạng thái agent: {e}")
 
         return agents, total
 
@@ -95,6 +104,12 @@ class AgentService:
         agent = res.scalar_one_or_none()
 
         if agent:
-            agent.status = await self._resolve_agent_status(agent)
+            real_status = await self._resolve_agent_status(agent)
+            if agent.status != real_status:
+                agent.status = real_status
+                try:
+                    await self.db.commit()
+                except Exception:
+                    pass
 
         return agent

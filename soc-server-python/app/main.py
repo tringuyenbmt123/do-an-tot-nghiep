@@ -6,7 +6,7 @@
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
@@ -117,6 +117,35 @@ async def alert_cleanup_loop():
         await asyncio.sleep(24 * 3600)
 
 
+async def agent_healthcheck_loop():
+    """Background task định kỳ mỗi 30s kiểm tra và đồng bộ trạng thái offline cho Agent mất kết nối"""
+    while True:
+        try:
+            cutoff = datetime.utcnow() - timedelta(seconds=60)
+            async with AsyncSessionLocal() as session:
+                from app.models.agent import Agent
+                online_stream_ids = set(await global_conn_manager.get_online_agent_ids())
+                stmt = select(Agent).where(Agent.status == "online")
+                res = await session.execute(stmt)
+                online_agents = res.scalars().all()
+
+                has_update = False
+                for ag in online_agents:
+                    is_streaming = ag.id in online_stream_ids
+                    is_hb_active = ag.last_heartbeat_at and ag.last_heartbeat_at >= cutoff
+                    if not is_streaming and not is_hb_active:
+                        ag.status = "offline"
+                        ag.updated_at = datetime.utcnow()
+                        has_update = True
+
+                if has_update:
+                    await session.commit()
+                    logger.info("[AGENT HEALTHCHECK] 🔄 Đã cập nhật agent mất kết nối về offline")
+        except Exception as e:
+            logger.error(f"[AGENT HEALTHCHECK] ❌ Lỗi kiểm tra trạng thái agent: {e}")
+        await asyncio.sleep(30)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("==================================================")
@@ -160,13 +189,15 @@ async def lifespan(app: FastAPI):
         redis_client=None,  # Có thể truyền redis client nếu cần
     )
 
-    # 5. Chạy background cleanup job
+    # 5. Chạy background cleanup job & agent healthcheck job
     cleanup_task = asyncio.create_task(alert_cleanup_loop())
+    healthcheck_task = asyncio.create_task(agent_healthcheck_loop())
 
     yield
 
     # Graceful shutdown
     cleanup_task.cancel()
+    healthcheck_task.cancel()
     logger.info("[gRPC SERVER] 🛑 Đang graceful shutdown gRPC Server...")
     await grpc_server.stop(grace=5)
     logger.info("🛑 SOC Server Python đã dừng.")

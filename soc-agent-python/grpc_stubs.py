@@ -14,9 +14,10 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROTO_GEN_DIR = os.path.join(_THIS_DIR, "proto_gen")
 _SERVER_GRPC_DIR = os.path.join(_THIS_DIR, "..", "soc-server-python", "app", "grpc_server")
 
-for _p in [_PROTO_GEN_DIR, os.path.normpath(_SERVER_GRPC_DIR), _THIS_DIR]:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+for _p in [os.path.normpath(_SERVER_GRPC_DIR), _PROTO_GEN_DIR, _THIS_DIR]:
+    if _p in sys.path:
+        sys.path.remove(_p)
+    sys.path.insert(0, _p)
 
 import agent_pb2 as _pb2  # noqa: E402
 import agent_pb2_grpc as _pb2_grpc  # noqa: E402

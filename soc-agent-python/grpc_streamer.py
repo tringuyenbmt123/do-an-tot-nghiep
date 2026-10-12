@@ -24,9 +24,10 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _SERVER_GRPC_DIR = os.path.normpath(
     os.path.join(_THIS_DIR, "..", "soc-server-python", "app", "grpc_server")
 )
-for _p in [_THIS_DIR, _SERVER_GRPC_DIR]:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+for _p in [_SERVER_GRPC_DIR, _THIS_DIR]:
+    if _p in sys.path:
+        sys.path.remove(_p)
+    sys.path.insert(0, _p)
 
 import agent_pb2_grpc as _pb2_grpc  # noqa: E402
 

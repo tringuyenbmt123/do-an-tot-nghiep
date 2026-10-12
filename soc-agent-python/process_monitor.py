@@ -48,6 +48,16 @@ SAFE_PATH_PREFIXES = [
 ]
 
 
+LOLBIN_PROCESSES = {
+    "powershell.exe", "pwsh.exe", "powershell_ise.exe", "cmd.exe",
+    "certutil.exe", "bitsadmin.exe", "mshta.exe", "wscript.exe",
+    "cscript.exe", "regsvr32.exe", "rundll32.exe", "vssadmin.exe",
+    "wmic.exe", "schtasks.exe", "sc.exe", "net.exe", "net1.exe",
+    "nltest.exe", "dsquery.exe", "wevtutil.exe", "procdump.exe",
+    "procdump64.exe", "mimikatz.exe", "cipher.exe", "bash.exe", "sh.exe",
+}
+
+
 class ProcessMonitor:
     """Phát hiện process mới được khởi chạy trên endpoint."""
 
@@ -102,26 +112,31 @@ class ProcessMonitor:
 
     def _is_suspicious(self, name: str, exe: str, cmdline: str) -> bool:
         """
-        Xác định process có đáng ngờ không dựa trên đường dẫn thực thi.
-        - Chạy từ Temp, Downloads, AppData\\Roaming → ĐÁng ngờ → gửi event
-        - Chạy từ Program Files, Windows → Lành tính → bỏ qua
+        Xác định process có đáng ngờ không:
+        - Là LOLBin (PowerShell, CMD, Certutil, vssadmin...) → Gửi để Rule Engine phân tích cmdline
+        - Chạy từ Temp, Downloads, AppData, Public... → Đáng ngờ → gửi event
+        - Chạy từ Program Files, Windows thông thường → Bỏ qua
         """
+        # 1. Các LOLBins luôn cần được gửi để Rule Engine so khớp tham số dòng lệnh
+        if name.lower() in LOLBIN_PROCESSES:
+            return True
+
         if not exe:
-            return False  # Không có exe path → không đủ thông tin
+            return False
 
         exe_lower = exe.replace("/", "\\").lower()
 
-        # Bỏ qua các path an toàn
-        for safe in SAFE_PATH_PREFIXES:
-            if exe_lower.startswith(safe):
-                return False
-
-        # Báo cáo nếu chạy từ path đáng ngờ
+        # 2. Báo cáo nếu chạy từ path đáng ngờ
         for sus in SUSPICIOUS_PATH_PATTERNS:
             if sus in exe_lower:
                 return True
 
-        return False  # Mặc định: không đủ bằng chứng → im lặng
+        # 3. Bỏ qua các path an toàn thông thường
+        for safe in SAFE_PATH_PREFIXES:
+            if exe_lower.startswith(safe):
+                return False
+
+        return False
 
     def _emit(self, pid: int, info_tuple: tuple):
         """Phát EventRequest khi phát hiện process mới đáng ngờ."""

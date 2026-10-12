@@ -19,6 +19,13 @@ import signal
 import sys
 import threading
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 BANNER = r"""
 ==============================================================================
    ____  ___   ____     _                    _
@@ -177,8 +184,11 @@ def run_agent(cfg, stop_event: threading.Event):
 
 
 def main():
-    # Luôn đổi CWD về thư mục chứa main.py để đọc đúng config.json và ghi agent.log
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Luôn đổi CWD về thư mục chứa file chạy (.exe hoặc .py) để đọc đúng config.json và ghi agent.log
+    if getattr(sys, "frozen", False):
+        script_dir = os.path.dirname(sys.executable)
+    else:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(script_dir)
 
     parser = argparse.ArgumentParser(description="SOC/EDR Endpoint Agent (Python)")

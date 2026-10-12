@@ -234,7 +234,8 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
             except Exception:
                 pass
             base = os.path.basename(path_str.replace("\\", "/").rstrip("/"))
-            if "." not in base and action == "modified":
+            KNOWN_NO_EXT_FILES = {"hosts", "passwd", "shadow", "sudoers", "group"}
+            if "." not in base and base.lower() not in KNOWN_NO_EXT_FILES and action == "modified":
                 logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục (không có extension): {path_str}")
                 return
 

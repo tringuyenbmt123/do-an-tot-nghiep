@@ -186,6 +186,39 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
         if event.event_type == "system_metric":
             return
 
+        # ===== Whitelist: Bỏ qua process lành tính phổ biến để chống alert storm =====
+        # sysmon_process_create từ process thông thường không cần tạo alert
+        PROCESS_WHITELIST = {
+            # Browsers
+            "msedge.exe", "chrome.exe", "firefox.exe", "opera.exe", "brave.exe", "iexplore.exe",
+            # Windows core
+            "svchost.exe", "explorer.exe", "dwm.exe", "lsass.exe", "csrss.exe", "winlogon.exe",
+            "wininit.exe", "services.exe", "smss.exe", "taskhostw.exe", "taskmgr.exe",
+            "conhost.exe", "sihost.exe", "ctfmon.exe", "fontdrvhost.exe", "spoolsv.exe",
+            "RuntimeBroker.exe", "SearchHost.exe", "ShellExperienceHost.exe", "StartMenuExperienceHost.exe",
+            "ApplicationFrameHost.exe", "WUDFHost.exe", "MsMpEng.exe", "NisSrv.exe",
+            "SecurityHealthService.exe", "SecurityHealthSystray.exe",
+            # Dev tools
+            "node.exe", "python.exe", "python3.exe", "code.exe", "devenv.exe",
+            "git.exe", "git-credential-manager.exe",
+            # Common apps
+            "OneDrive.exe", "Teams.exe", "Slack.exe", "Zoom.exe", "Discord.exe",
+            "WinRAR.exe", "7z.exe", "notepad.exe", "notepad++.exe",
+            "OUTLOOK.EXE", "WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE",
+            "AcroRd32.exe", "Acrobat.exe",
+            # System update / antivirus
+            "SearchIndexer.exe", "SearchProtocolHost.exe", "SearchFilterHost.exe",
+            "WmiPrvSE.exe", "TrustedInstaller.exe", "msiexec.exe",
+            "MicrosoftEdgeUpdate.exe", "GoogleUpdate.exe",
+        }
+        if event.event_type == "sysmon_process_create":
+            proc_name = str(raw_log.get("process_name", "")).strip()
+            proc_lower = proc_name.lower()
+            if proc_lower in {p.lower() for p in PROCESS_WHITELIST}:
+                # Ghi SIEM nhưng không tạo alert
+                await self._save_siem_only(event, raw_log, agent_id)
+                return
+
         # Lọc bỏ sự kiện FIM trên thư mục và debounce chống bão cảnh báo khi thao tác 1 file
         if event.event_type == "file_integrity":
             path_str = str(raw_log.get("path", "")).strip()
@@ -280,23 +313,10 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
         alerts_data, matched = self.rule_engine.evaluate_log(raw_log, agent_id)
 
         if not matched:
-            # Event không nguy hiểm vẫn được lưu để analyst theo dõi
-            raw_payload_json = json.dumps(raw_log)
-            alerts_data = [
-                {
-                    "id": str(uuid.uuid4()),
-                    "agent_id": agent_id,
-                    "rule_id": "EVENT-OBSERVED",
-                    "event_type": event.event_type or "observed",
-                    "severity": "low",
-                    "raw_payload": raw_payload_json,
-                    "status": "new",
-                    "title": f"[LOW] Event observed: {event.event_type}",
-                    "description": "Sự kiện được ghi nhận từ Agent nhưng không khớp detection rule nguy hiểm.",
-                    "mitre_tactic": "",
-                    "mitre_technique_id": "",
-                }
-            ]
+            # Event không khớp rule nguy hiểm → chỉ ghi SIEM, KHÔNG tạo Alert rác
+            # (tránh alert storm do các event thông thường như process_create, heartbeat...)
+            await self._save_siem_only(event, raw_log, agent_id)
+            return
 
         # Xác định thời gian sự kiện từ agent.timestamp (nếu có) hoặc fallback về utcnow
         event_dt = datetime.utcnow()
@@ -409,6 +429,40 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                 await db.commit()
             except Exception as e:
                 logger.error(f"[STREAM] ❌ Lỗi commit batch alerts: {e}")
+
+    async def _save_siem_only(
+        self,
+        event: agent_pb2.EventRequest,
+        raw_log: dict,
+        agent_id: str,
+    ):
+        """
+        Ghi event vào SIEM (log_events) mà KHÔNG tạo Alert.
+        Dùng cho: event không match rule, process whitelist, telemetry thông thường.
+        """
+        event_dt = datetime.utcnow()
+        if getattr(event, "timestamp", None) and event.timestamp > 0:
+            try:
+                ts_sec = event.timestamp / 1000.0 if event.timestamp > 1e11 else float(event.timestamp)
+                event_dt = datetime.utcfromtimestamp(ts_sec)
+            except Exception:
+                event_dt = datetime.utcnow()
+        try:
+            async with AsyncSessionLocal() as log_db:
+                log_entry = LogEvent(
+                    occurred_at=event_dt,
+                    host=event.hostname or agent_id,
+                    source=event.event_type or "agent",
+                    level="INFO",
+                    user=raw_log.get("user") or raw_log.get("username") or None,
+                    ip=event.ip_address or None,
+                    message=f"[{event.event_type}] Event from agent {agent_id}",
+                    raw=raw_log,
+                )
+                log_db.add(log_entry)
+                await log_db.commit()
+        except Exception as log_err:
+            logger.debug(f"[SIEM] Không lưu được LogEvent (no-alert path): {log_err}")
 
     async def _safe_alert_callback(self, alert_data: dict):
         """Gọi alert callback an toàn trong background"""

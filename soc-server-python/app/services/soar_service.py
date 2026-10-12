@@ -86,8 +86,15 @@ class SOARService:
                     headers = {
                         "Content-Type": "application/json",
                         "X-SOC-Source": "SOC-Server-Python",
+                        "ngrok-skip-browser-warning": "true",
                     }
                     resp = await client.post(url, json=payload, headers=headers)
+                    if resp.status_code == 404 and "/webhook/" in url:
+                        test_url = url.replace("/webhook/", "/webhook-test/")
+                        test_resp = await client.post(test_url, json=payload, headers=headers)
+                        if 200 <= test_resp.status_code < 300:
+                            logger.info(f"[SOAR] Đã dispatch Alert '{alert_id}' sang n8n (test mode) thành công")
+                            return
                     if 200 <= resp.status_code < 300:
                         logger.info(f"[SOAR] Đã dispatch Alert '{alert_id}' (type: {event_type}) sang n8n thành công")
                         return

@@ -78,6 +78,27 @@ async def handle_n8n_callback(
             else:
                 logger.warning(f"[SOAR HANDLER] Không thể gửi lệnh xuống Agent '{alert.agent_id}' (Agent offline)")
 
+    # Cập nhật trạng thái PlaybookRun nếu có
+    try:
+        from app.models.playbook import PlaybookRun
+        from datetime import timezone
+        pb_stmt = select(PlaybookRun).where(PlaybookRun.status == "running").order_by(PlaybookRun.started_at.desc()).limit(1)
+        pb_res = await db.execute(pb_stmt)
+        latest_run = pb_res.scalar_one_or_none()
+        if latest_run:
+            latest_run.status = "success"
+            latest_run.completed_at = datetime.now(timezone.utc)
+            latest_run.logs = {
+                **(latest_run.logs or {}),
+                "callback_action": audit_action,
+                "callback_target": target,
+                "ai_reason": payload.ai_reason,
+                "human_approved_by": payload.human_approved_by,
+            }
+            await db.commit()
+    except Exception as pb_err:
+        logger.warning(f"[SOAR HANDLER] Lỗi cập nhật PlaybookRun: {pb_err}")
+
     # Ghi nhận thành công
     return {
         "message": "Callback processed successfully",

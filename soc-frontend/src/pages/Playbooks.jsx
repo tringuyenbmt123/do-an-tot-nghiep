@@ -326,21 +326,20 @@ export default function Playbooks() {
               notice.type === 'success'
                 ? 'rgba(34, 197, 94, 0.15)'
                 : notice.type === 'error'
-                ? 'rgba(239, 68, 68, 0.15)'
-                : 'rgba(59, 130, 246, 0.15)',
-            border: `1px solid ${
-              notice.type === 'success'
-                ? 'rgba(34, 197, 94, 0.3)'
-                : notice.type === 'error'
+                  ? 'rgba(239, 68, 68, 0.15)'
+                  : 'rgba(59, 130, 246, 0.15)',
+            border: `1px solid ${notice.type === 'success'
+              ? 'rgba(34, 197, 94, 0.3)'
+              : notice.type === 'error'
                 ? 'rgba(239, 68, 68, 0.3)'
                 : 'rgba(59, 130, 246, 0.3)'
-            }`,
+              }`,
             color:
               notice.type === 'success'
                 ? '#22c55e'
                 : notice.type === 'error'
-                ? '#ef4444'
-                : '#38bdf8',
+                  ? '#ef4444'
+                  : '#38bdf8',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -527,13 +526,12 @@ export default function Playbooks() {
                           </td>
                           <td>
                             <span
-                              className={`stt ${
-                                item.status === 'success'
-                                  ? 'a'
-                                  : item.status === 'failed'
+                              className={`stt ${item.status === 'success'
+                                ? 'a'
+                                : item.status === 'failed'
                                   ? 'e'
                                   : 'b'
-                              }`}
+                                }`}
                             >
                               {item.status === 'success' ? 'Thành công' : item.status === 'failed' ? 'Thất bại' : 'Đang xử lý'}
                             </span>

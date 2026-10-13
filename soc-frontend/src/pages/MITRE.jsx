@@ -9,20 +9,20 @@ import { getMitreCoverage } from '../api/mitre'
 
 // Full MITRE ATT&CK Enterprise tactic list (ordered)
 const ALL_TACTICS = [
-  { id: 'TA0001', name: 'Initial Access',        short: 'Xâm nhập ban đầu',    color: '#ef4444' },
-  { id: 'TA0002', name: 'Execution',             short: 'Thực thi',             color: '#f97316' },
-  { id: 'TA0003', name: 'Persistence',           short: 'Duy trì quyền',        color: '#eab308' },
-  { id: 'TA0004', name: 'Privilege Escalation',  short: 'Leo thang đặc quyền',  color: '#84cc16' },
-  { id: 'TA0005', name: 'Defense Evasion',       short: 'Né tránh phòng thủ',   color: '#22c55e' },
-  { id: 'TA0006', name: 'Credential Access',     short: 'Đánh cắp thông tin',   color: '#10b981' },
-  { id: 'TA0007', name: 'Discovery',             short: 'Trinh sát nội bộ',     color: '#14b8a6' },
-  { id: 'TA0008', name: 'Lateral Movement',      short: 'Di chuyển ngang',       color: '#06b6d4' },
-  { id: 'TA0009', name: 'Collection',            short: 'Thu thập dữ liệu',     color: '#3b82f6' },
-  { id: 'TA0010', name: 'Exfiltration',          short: 'Rò rỉ dữ liệu',        color: '#8b5cf6' },
-  { id: 'TA0011', name: 'Command and Control',   short: 'Điều khiển từ xa',      color: '#d946ef' },
-  { id: 'TA0040', name: 'Impact',                short: 'Tác động',             color: '#f43f5e' },
-  { id: 'TA0042', name: 'Resource Development',  short: 'Xây dựng tài nguyên',  color: '#64748b' },
-  { id: 'TA0043', name: 'Reconnaissance',        short: 'Trinh sát',            color: '#94a3b8' },
+  { id: 'TA0001', name: 'Initial Access', short: 'Xâm nhập ban đầu', color: '#ef4444' },
+  { id: 'TA0002', name: 'Execution', short: 'Thực thi', color: '#f97316' },
+  { id: 'TA0003', name: 'Persistence', short: 'Duy trì quyền', color: '#eab308' },
+  { id: 'TA0004', name: 'Privilege Escalation', short: 'Leo thang đặc quyền', color: '#84cc16' },
+  { id: 'TA0005', name: 'Defense Evasion', short: 'Né tránh phòng thủ', color: '#22c55e' },
+  { id: 'TA0006', name: 'Credential Access', short: 'Đánh cắp thông tin', color: '#10b981' },
+  { id: 'TA0007', name: 'Discovery', short: 'Trinh sát nội bộ', color: '#14b8a6' },
+  { id: 'TA0008', name: 'Lateral Movement', short: 'Di chuyển ngang', color: '#06b6d4' },
+  { id: 'TA0009', name: 'Collection', short: 'Thu thập dữ liệu', color: '#3b82f6' },
+  { id: 'TA0010', name: 'Exfiltration', short: 'Rò rỉ dữ liệu', color: '#8b5cf6' },
+  { id: 'TA0011', name: 'Command and Control', short: 'Điều khiển từ xa', color: '#d946ef' },
+  { id: 'TA0040', name: 'Impact', short: 'Tác động', color: '#f43f5e' },
+  { id: 'TA0042', name: 'Resource Development', short: 'Xây dựng tài nguyên', color: '#64748b' },
+  { id: 'TA0043', name: 'Reconnaissance', short: 'Trinh sát', color: '#94a3b8' },
 ]
 
 // Fallback static techniques for demo (mapped to tactic names)
@@ -411,7 +411,21 @@ export default function MITRE() {
                       }}>
                         {selected.hits > 0 ? `${selected.hits} events detected` : 'Chưa phát hiện'}
                       </span>
+                      {selected.rule_count !== undefined && (
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+                          background: 'rgba(59,130,246,0.1)', color: '#60a5fa',
+                          border: '1px solid rgba(59,130,246,0.3)',
+                        }}>
+                          {selected.rule_count} detection rules
+                        </span>
+                      )}
                     </div>
+                    {selected.description && (
+                      <div style={{ fontSize: 12.5, color: '#94a3b8', marginTop: 8, lineHeight: 1.4 }}>
+                        {selected.description}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <a

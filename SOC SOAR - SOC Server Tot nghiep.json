@@ -1,0 +1,924 @@
+{
+  "name": "SOC SOAR - SOC Server Tot nghiep",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ddos-alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 400],
+      "id": "webhook-ddos-001",
+      "name": "SOC DDoS Alert Webhook",
+      "webhookId": "ddos-alert"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "phishing-alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 560],
+      "id": "webhook-phishing-001",
+      "name": "SOC Phishing Alert Webhook",
+      "webhookId": "phishing-alert"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "soc-alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 720],
+      "id": "webhook-generic-001",
+      "name": "SOC Generic Alert Webhook",
+      "webhookId": "soc-alert",
+      "notes": "Nhận alert từ soc-server-python cho các event_type không có webhook riêng (brute_force, fim, malware...)"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [500, 560],
+      "id": "merge-webhooks-001",
+      "name": "Merge Webhooks"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// Normalize Payload từ soc-server-python\n// Payload đã có alert_id, agent_id, event_type, severity, raw_payload\n// KHÔNG cần tạo lại alert — chỉ chuẩn hóa schema\n// ============================================================\nconst body = $json.body || $json;\n\nfunction pick(...vals){\n  for (const v of vals){ if (v !== undefined && v !== null && v !== '') return v; }\n  return null;\n}\n\nfunction extractDomain(url) {\n  if (!url) return null;\n  try {\n    const m = String(url).match(/^[a-zA-Z][a-zA-Z\\d+\\-.]*:\\/\\/([^\\/:?#]+)/);\n    return m ? m[1] : null;\n  } catch(e) { return null; }\n}\n\n// Raw payload từ soc-server là JSON string hoặc object\nlet raw = {};\ntry {\n  raw = typeof body.raw_payload === 'string' ? JSON.parse(body.raw_payload) : (body.raw_payload || {});\n} catch(e) { raw = {}; }\n\n// Trích xuất fields từ raw payload\nconst af = raw.all_fields || raw;\nconst rule = af.rule || {};\nconst data = af.data || {};\nconst win = data.win?.eventdata || {};\nconst sysmon = data.sysmon?.eventdata || {};\nconst syscheck = af.syscheck || data.syscheck || {};\n\n// ---- Các field chính từ soc-server payload ----\nconst alert_id = body.alert_id || '';\nconst agent_id = body.agent_id || af.agent?.id || 'unknown';\nconst event_type = body.event_type || 'unknown';\nconst severity = (body.severity || 'medium').toLowerCase();\nconst title = body.title || 'SOC Alert';\nconst description = pick(body.description, rule.description, 'N/A');\nconst timestamp = body.timestamp || $now.toISO();\n\n// ---- Network ----\nconst src_ip = pick(\n  raw.src_ip, body.src_ip, data.srcip, win.sourceIp, sysmon.sourceIp,\n  af.agent?.ip, 'N/A'\n);\nconst original_url = pick(raw.url, body.url, null);\nlet domain = pick(raw.domain, data.domain, null);\nif (!domain && original_url) domain = extractDomain(original_url);\n\n// ---- Process / EDR ----\nconst process_id = pick(win.processId, sysmon.processId, data.process?.pid, raw.process_id, null);\nconst command_line = pick(win.commandLine, sysmon.commandLine, null);\nconst file_hash = pick(syscheck.sha256_after, syscheck.sha256, raw.file_hash, null);\n\n// ---- MITRE ----\nconst mitre = rule.mitre || {};\nconst mitre_tactic = body.mitre_tactic || (Array.isArray(mitre.tactic) ? mitre.tactic.join(', ') : (mitre.tactic || 'N/A'));\nconst mitre_id = body.mitre_technique_id || (Array.isArray(mitre.id) ? mitre.id.join(', ') : (mitre.id || 'N/A'));\n\n// ---- Severity number cho TheHive compat ----\nconst severity_num = severity === 'critical' ? 4 : severity === 'high' ? 3 : severity === 'low' ? 1 : 2;\n\n// ---- Flatten raw fields sang markdown ----\nfunction flattenToMd(obj) {\n  const blacklist = ['providerName','providerGuid','version','task','opcode','keywords',\n    'eventRecordID','threadID','channel','severityValue','message','level','eventID','systemTime','computer'];\n  let result = ''; let count = 0; const MAX = 40;\n  function sanitize(v){ return String(v).replace(/`/g, \"'\").replace(/\\n/g, ' ').replace(/\\r/g, ' '); }\n  function walk(o){\n    for (const k in o){\n      if (count >= MAX) return;\n      if (blacklist.includes(k)) continue;\n      const v = o[k];\n      if (typeof v === 'object' && v !== null && !Array.isArray(v)) { walk(v); }\n      else if (v !== '' && v !== null && v !== undefined) {\n        result += '* **' + k + ':** `' + sanitize(v) + '`\\n';\n        count++;\n      }\n    }\n  }\n  walk(obj || {});\n  return result || '*(Không có dữ liệu chi tiết)*';\n}\n\nconst parsed_fields_md = flattenToMd((Object.keys(data).length ? data : raw));\nconst raw_json_md = JSON.stringify(raw, null, 2);\n\nreturn [{ json: {\n  alert_id, agent_id, event_type, severity, severity_num, title, description,\n  src_ip, domain, original_url, process_id, command_line, file_hash,\n  mitre_tactic, mitre_id, timestamp,\n  rule_id: rule.id ?? 'N/A',\n  rule_level: rule.level ?? 'N/A',\n  rule_groups: Array.isArray(rule.groups) ? rule.groups : [],\n  confidence: raw.confidence ?? 'N/A',\n  reported_by: 'soc-server-python',\n  parsed_fields_md, raw_json_md\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 560],
+      "id": "normalize-payload-001",
+      "name": "Normalize Payload",
+      "notes": "Chuẩn hóa payload từ soc-server-python. alert_id đã có sẵn, KHÔNG tạo alert mới."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"username\": \"admin\", \"password\": \"admin123\" }",
+        "rawBody": "{ \"username\": \"admin\", \"password\": \"admin123\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [940, 400],
+      "id": "soc-login-001",
+      "name": "SOC Server Login",
+      "notes": "Lấy JWT token từ soc-server-python để gọi các API tiếp theo. Đổi username/password theo thực tế."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lưu JWT token vào biến chung để dùng trong flow\nconst token = $json.token || $json.access_token || '';\nconst norm = $('Normalize Payload').item.json;\n\nreturn [{ json: {\n  ...norm,\n  _jwt_token: token\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 400],
+      "id": "save-jwt-001",
+      "name": "Save JWT Token",
+      "notes": "Ghép JWT token vào data để dùng ở các bước sau"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/indicators/analyze",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: $json.file_hash ? 'hash' : 'ip', value: $json.file_hash ? $json.file_hash : $json.src_ip }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1380, 400],
+      "id": "analyze-ioc-001",
+      "name": "Analyze IOC (SOC Server)",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Phân tích IOC qua soc-server-python thay thế Cortex. Trả về verdict, risk_score, detections."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/indicators/restSearch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Save JWT Token').item.json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ returnFormat: 'json', limit: 10, type: 'ip', value: $('Normalize Payload').item.json.src_ip, tag: $('Normalize Payload').item.json.event_type, timestamp: '24h' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1380, 580],
+      "id": "search-indicators-001",
+      "name": "Search Indicators DB",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Tìm IOC trong DB soc-server-python thay thế MISP. Tương thích MISP restSearch format."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// Build IOC Summary từ soc-server-python analyze + search\n// Thay thế Cortex VT Summary + MISP check\n// ============================================================\nconst norm = $('Normalize Payload').item.json;\nconst jwt = $('Save JWT Token').item.json._jwt_token;\n\n// --- Kết quả từ Analyze IOC ---\nlet analyzeResult = {};\ntry { analyzeResult = $('Analyze IOC (SOC Server)').item.json; } catch(e) {}\n\n// --- Kết quả từ Search Indicators DB ---\nlet searchResult = {};\ntry { searchResult = $('Search Indicators DB').item.json; } catch(e) {}\n\n// Parse analyze result\nconst verdict = analyzeResult.verdict || 'unknown';\nconst risk_score = analyzeResult.risk_score || 0;\nconst detections = analyzeResult.detections || 0;\nconst total_engines = analyzeResult.total_engines || 0;\nconst ioc_tags = (analyzeResult.tags || []).join(', ');\nconst ioc_country = analyzeResult.details?.country || 'Unknown';\nconst community_score = analyzeResult.community_score || 0;\nconst last_analysis = analyzeResult.last_analysis || 'N/A';\n\n// Risk level từ score\nlet riskLevel = 'CLEAN';\nif (risk_score >= 80) riskLevel = 'CRITICAL';\nelse if (risk_score >= 60) riskLevel = 'HIGH';\nelse if (risk_score >= 40) riskLevel = 'MEDIUM';\nelse if (risk_score > 0) riskLevel = 'LOW';\n\n// Parse search result (tương thích MISP format)\nlet ioc_exists = false;\nlet ioc_id = null;\nlet ioc_attrs = [];\ntry {\n  const response = searchResult.response || [];\n  if (Array.isArray(response) && response.length > 0) {\n    ioc_exists = true;\n    ioc_id = response[0]?.Event?.id || null;\n    ioc_attrs = response[0]?.Event?.Attribute || [];\n  }\n} catch(e) {}\n\n// Build summary markdown\nconst ioc_summary_md = `🛡 **IOC Analysis — soc-server-python**\n\n### Risk Level\n• ${riskLevel}\n\n### Detection\n• Verdict: ${verdict}\n• Risk Score: ${risk_score}/100\n• Detections: ${detections}/${total_engines} engines\n• Community Score: ${community_score}\n\n### Classification\n• Tags: ${ioc_tags || 'None'}\n• Country: ${ioc_country}\n\n### Indicator Database\n• Exists in DB: ${ioc_exists ? 'YES (seen before)' : 'NO (new IOC)'}\n• IOC ID: ${ioc_id || 'N/A'}\n• Attributes found: ${ioc_attrs.length}\n\n### Last Analysis\n• ${last_analysis}`;\n\nreturn [{ json: {\n  ...norm,\n  _jwt_token: jwt,\n  ioc_verdict: verdict,\n  ioc_risk_level: riskLevel,\n  ioc_risk_score: risk_score,\n  ioc_detections: detections,\n  ioc_total_engines: total_engines,\n  ioc_tags,\n  ioc_country,\n  ioc_exists,\n  ioc_id,\n  ioc_attrs: ioc_attrs.slice(0, 15),\n  ioc_summary_md\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1620, 480],
+      "id": "build-ioc-summary-001",
+      "name": "Build IOC Summary",
+      "notes": "Tổng hợp kết quả từ Analyze + Search thay thế Cortex VT Summary + MISP check"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "ddos_detected",
+                    "operator": {"type": "string", "operation": "equals"},
+                    "id": "route-ddos-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DDoS Detected"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "phishing_detected",
+                    "operator": {"type": "string", "operation": "equals"},
+                    "id": "route-phish-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Phishing Detected"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [1860, 480],
+      "id": "route-event-type-001",
+      "name": "Route by Event Type",
+      "notes": "DDoS → block_ip rule-based. Phishing → log_only rule-based. Others → AI analysis."
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = $('Build IOC Summary').item.json;\nreturn [{ json: {\n  ...norm,\n  action: 'block_ip',\n  reason: 'DDoS được soc-server-python xác nhận. Phản ứng tức thời block IP theo rule-based policy.',\n  recommendation: 'Đề xuất chặn ngay IP nguồn qua SOAR callback để ngăn tấn công tiếp diễn. Kiểm tra firewall log sau 30 phút.',\n  ai_used: false,\n  ai_verdict: null,\n  ai_confidence: 1.0\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 340],
+      "id": "action-ddos-rule-001",
+      "name": "Set Action: block_ip (DDoS)",
+      "notes": "Rule-based: DDoS luôn block_ip, không cần AI"
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = $('Build IOC Summary').item.json;\nreturn [{ json: {\n  ...norm,\n  action: 'log_only',\n  reason: 'Phishing được ghi nhận theo chính sách hiện tại. Không tự động chặn domain - chờ SOC analyst xác minh.',\n  recommendation: 'SOC analyst cần xác minh URL/domain trước khi block. Kiểm tra email header, screenshot phishing page nếu có.',\n  ai_used: false,\n  ai_verdict: null,\n  ai_confidence: 0.8\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 500],
+      "id": "action-phish-rule-001",
+      "name": "Set Action: log_only (Phishing)",
+      "notes": "Rule-based: Phishing → log only, SOC analyst xác minh"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// Build AI Prompt từ IOC summary + event data\n// Thay MISP attributes bằng indicator DB results\n// ============================================================\nconst norm = $('Build IOC Summary').item.json;\n\nconst eventForAI = {\n  event_type: norm.event_type,\n  severity: norm.severity,\n  description: norm.description,\n  timestamp: norm.timestamp,\n  src_ip: norm.src_ip,\n  agent_id: norm.agent_id,\n  process_id: norm.process_id,\n  command_line: norm.command_line,\n  file_hash: norm.file_hash,\n  mitre_tactic: norm.mitre_tactic,\n  mitre_id: norm.mitre_id,\n  parsed_fields: norm.parsed_fields_md\n};\n\nconst iocContext = {\n  verdict: norm.ioc_verdict,\n  risk_level: norm.ioc_risk_level,\n  risk_score: norm.ioc_risk_score,\n  detections: norm.ioc_detections,\n  exists_in_db: norm.ioc_exists,\n  tags: norm.ioc_tags,\n  country: norm.ioc_country,\n  attrs: norm.ioc_attrs\n};\n\nconst prompt =\n  \"Bạn là chuyên gia phân tích an toàn thông tin Tier 1/2 (SOC Analyst).\\n\" +\n  \"Dựa trên cảnh báo từ hệ thống SOC và dữ liệu IOC dưới đây, hãy:\\n\" +\n  \"1) Phân loại True Positive hay False Positive.\\n\" +\n  \"2) Nếu True Positive, đề xuất đúng MỘT hành động Zero-Trust:\\n\" +\n  \"   - \\\"block_ip\\\": tấn công mạng rõ ràng (DDoS, Brute-force, Botnet, C2).\\n\" +\n  \"   - \\\"kill_process\\\": mã độc/tiến trình độc hại đang chạy (Malware, LOLBins, Ransomware).\\n\" +\n  \"   - \\\"block_url\\\": URL/domain độc hại (Phishing, C2 URL).\\n\" +\n  \"   - \\\"none\\\": hợp lệ hoặc false positive.\\n\" +\n  \"3) Viết \\\"reason\\\" (tại sao kết luận như vậy) và \\\"recommendation\\\" (khuyến nghị SOC analyst) bằng tiếng Việt.\\n\" +\n  \"Chỉ trả JSON thuần (không markdown): {\\\"verdict\\\": \\\"true_positive|false_positive\\\", \\\"action\\\": \\\"block_ip|kill_process|block_url|none\\\", \\\"reason\\\": \\\"(tiếng Việt)\\\", \\\"recommendation\\\": \\\"(tiếng Việt)\\\", \\\"confidence\\\": 0.0}\\n\\n\" +\n  \"SỰ KIỆN: \" + JSON.stringify(eventForAI) + \"\\n\" +\n  \"IOC ANALYSIS: \" + JSON.stringify(iocContext);\n\nreturn [{ json: {\n  prompt,\n  alert_id: norm.alert_id,\n  agent_id: norm.agent_id,\n  src_ip: norm.src_ip,\n  process_id: norm.process_id,\n  command_line: norm.command_line,\n  file_hash: norm.file_hash,\n  description: norm.description,\n  severity: norm.severity,\n  timestamp: norm.timestamp,\n  parsed_fields_md: norm.parsed_fields_md,\n  raw_json_md: norm.raw_json_md,\n  ioc_summary_md: norm.ioc_summary_md,\n  _jwt_token: norm._jwt_token,\n  prompt_char_length: prompt.length\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 660],
+      "id": "build-ai-prompt-001",
+      "name": "Build AI Prompt",
+      "notes": "Xây dựng prompt AI từ event data + IOC analysis (thay MISP attributes)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"model\": \"gemma3:4b\", \"prompt\": $json.prompt, \"stream\": false, \"format\": \"json\", \"options\": { \"temperature\": 0.0, \"num_ctx\": 4096, \"num_predict\": 700 } } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2300, 660],
+      "id": "ollama-llm-001",
+      "name": "Ollama LLM",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Gọi LLM Gemma3 cục bộ qua Ollama để phân tích cảnh báo SOC + IOC và đề xuất hành động Zero-Trust."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// Parse AI Result từ Ollama\n// ============================================================\nconst prep = $('Build AI Prompt').item.json;\n\n// Bắt lỗi kết nối Ollama\nconst errorData = $json.error;\nif (errorData) {\n  let reason = errorData.message || 'Không xác định';\n  if (errorData.code === 'ECONNREFUSED') reason = 'Ollama chưa bật hoặc sai port.';\n  if (errorData.code === 'ETIMEDOUT') reason = 'Ollama quá tải, không trả lời kịp.';\n  if (errorData.code === 'ENOTFOUND') reason = 'Không tìm thấy địa chỉ IP của Ollama.';\n  return [{ json: {\n    action: 'log_only',\n    reason: '⚠️ Lỗi kết nối AI: ' + reason,\n    recommendation: 'Kiểm tra Ollama service tại host.docker.internal:11434. SOC analyst xử lý thủ công.',\n    ai_used: true, ai_verdict: 'unknown', ai_confidence: 0,\n    alert_id: prep.alert_id,\n    src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n    timestamp: prep.timestamp, description: prep.description, severity: prep.severity,\n    ioc_summary_md: prep.ioc_summary_md, _jwt_token: prep._jwt_token\n  } }];\n}\n\nlet rawOutput = ($json.response ?? '').toString();\nrawOutput = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();\n\nlet parsed;\nif (!rawOutput) {\n  parsed = { verdict: 'false_positive', action: 'none', reason: '⚠️ Ollama không trả về dữ liệu. Kiểm tra service Ollama / model gemma3:4b.', confidence: 0 };\n} else {\n  try { parsed = JSON.parse(rawOutput); }\n  catch (e) {\n    const preview = rawOutput.length > 300 ? rawOutput.slice(0, 300) + '...' : rawOutput;\n    parsed = { verdict: 'false_positive', action: 'none', reason: '⚠️ AI trả lời sai JSON: ' + e.message + ' | Raw: ' + preview, confidence: 0 };\n  }\n}\n\nif (typeof parsed !== 'object' || parsed === null || (!('verdict' in parsed) && !('action' in parsed))) {\n  const preview = rawOutput.length > 300 ? rawOutput.slice(0, 300) + '...' : rawOutput;\n  parsed = { verdict: 'false_positive', action: 'none', reason: '⚠️ AI trả JSON sai schema | Raw: ' + preview, confidence: 0 };\n}\n\nconst action = (parsed.action ?? 'none') === 'none' ? 'log_only' : parsed.action;\n\nconst defaultRec = {\n  block_ip: 'Đề xuất chặn ngay IP nguồn qua SOAR callback để ngăn tấn công tiếp diễn.',\n  kill_process: 'Đề xuất buộc dừng tiến trình độc hại trên endpoint và cách ly máy nếu cần.',\n  block_url: 'Đề xuất block domain/URL trên DNS/Firewall và thông báo user bị ảnh hưởng.',\n  log_only: 'Chưa đủ cơ sở hành động tự động, SOC analyst xác minh thủ công.'\n};\nconst recommendation = (parsed.recommendation && String(parsed.recommendation).trim())\n  || defaultRec[action]\n  || 'SOC analyst cần đánh giá thủ công.';\n\nreturn [{ json: {\n  action, recommendation,\n  reason: parsed.reason ?? 'N/A',\n  ai_used: true, ai_verdict: parsed.verdict ?? 'false_positive', ai_confidence: parsed.confidence ?? 0,\n  alert_id: prep.alert_id,\n  src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n  timestamp: prep.timestamp, description: prep.description, severity: prep.severity,\n  ioc_summary_md: prep.ioc_summary_md, _jwt_token: prep._jwt_token\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2520, 660],
+      "id": "parse-ai-result-001",
+      "name": "Parse AI Result",
+      "notes": "Parse kết quả từ Ollama LLM, xử lý lỗi kết nối gracefully"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [2760, 480],
+      "id": "merge-decision-001",
+      "name": "Merge Decision Paths",
+      "notes": "Merge rule-based (DDoS block_ip, Phishing log_only) + AI decision (others)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+          "conditions": [
+            {
+              "id": "check-confidence-01",
+              "leftValue": "={{ Number($json.ai_confidence) || 0 }}",
+              "rightValue": 0.9,
+              "operator": {"type": "number", "operation": "gte"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2980, 480],
+      "id": "check-approval-level-001",
+      "name": "Check Approval Level",
+      "notes": "confidence >= 0.9 → auto execute. Ngược lại → yêu cầu Telegram approval"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "6094178234",
+        "message": "=🚨 YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\n⚡ Hành động đề xuất:\n{{ $json.action }}\n\n📌 Thông tin cảnh báo:\n• Alert ID: {{ $json.alert_id }}\n• Event: {{ $json.description }}\n• Severity: {{ $json.severity }}\n• Agent: {{ $json.agent_id }}\n• Time: {{ $json.timestamp }}\n\n{{ $json.src_ip ? '• Source IP: ' + $json.src_ip : '' }}\n{{ $json.process_id ? '• Process ID: ' + $json.process_id : '' }}\n{{ $json.file_hash ? '• SHA256: ' + $json.file_hash : '' }}\n\n🤖 Nguồn quyết định:\n{{ $json.ai_used ? 'AI (Ollama Gemma3)' : 'Rule-based (Automatic)' }}\n\n🎯 Confidence: {{ $json.ai_confidence }}\n\n📝 Lý do:\n{{ $json.reason }}\n\n💡 Khuyến nghị:\n{{ $json.recommendation }}\n\n🛡 IOC Analysis:\n{{ $json.ioc_summary_md || 'N/A' }}\n\n⚠️ Hành động sẽ thực hiện sau khi phê duyệt.\n✅ Approve = Cho phép thực hiện\n❌ Decline = Hủy hành động",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 15,
+              "resumeUnit": "minutes"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3200, 560],
+      "id": "request-approval-001",
+      "name": "Request Approval (Telegram)",
+      "webhookId": "soar-approval-telegram-001",
+      "notes": "Yêu cầu phê duyệt từ SOC analyst qua Telegram khi AI confidence < 0.9"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+          "conditions": [
+            {
+              "id": "check-approved-01",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {"type": "boolean", "operation": "true", "singleValue": true}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [3440, 560],
+      "id": "check-approval-result-001",
+      "name": "Check Approval Result"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $('Merge Decision Paths').item.json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [3200, 400],
+      "id": "restore-data-approved-001",
+      "name": "Restore Alert Data (Auto)"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $('Merge Decision Paths').item.json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [3680, 440],
+      "id": "restore-data-human-001",
+      "name": "Restore Alert Data (Human Approved)"
+    },
+    {
+      "parameters": {
+        "chatId": "6094178234",
+        "text": "=❌ HÀNH ĐỘNG BỊ TỪ CHỐI\n📌 Alert ID: {{ $('Merge Decision Paths').item.json.alert_id }}\n⚡ Action từ chối: {{ $('Merge Decision Paths').item.json.action }}\n🕐 Time: {{ $('Merge Decision Paths').item.json.timestamp }}\n\n⚠️ Alert vẫn ở trạng thái 'new', cần SOC analyst xử lý thủ công.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3680, 680],
+      "id": "telegram-rejected-001",
+      "name": "Notify: Action Rejected",
+      "webhookId": "soar-reject-telegram-001"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "block_ip",
+                    "operator": {"type": "string", "operation": "equals"},
+                    "id": "act-block-ip-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Block IP"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "kill_process",
+                    "operator": {"type": "string", "operation": "equals"},
+                    "id": "act-kill-proc-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Kill Process"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "block_url",
+                    "operator": {"type": "string", "operation": "equals"},
+                    "id": "act-block-url-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Block URL"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [3900, 440],
+      "id": "action-switch-001",
+      "name": "Action Switch",
+      "notes": "Routing hành động: block_ip / kill_process / block_url / log_only (fallback)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "your-strong-random-secret-here"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  alert_id: $('Action Switch').item.json.alert_id,\n  action: 'block_ip',\n  target: $('Action Switch').item.json.src_ip,\n  ai_reason: $('Action Switch').item.json.reason,\n  confidence: $('Action Switch').item.json.ai_confidence,\n  human_approved_by: $('Action Switch').item.json.ai_used ? '' : 'soar-auto'\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4120, 320],
+      "id": "soar-callback-block-001",
+      "name": "SOAR Callback: Block IP",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Gọi soc-server-python SOAR callback để block IP. Server tự gửi lệnh gRPC xuống agent."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "your-strong-random-secret-here"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  alert_id: $('Action Switch').item.json.alert_id,\n  action: 'kill_process',\n  target: String($('Action Switch').item.json.process_id ?? ''),\n  ai_reason: $('Action Switch').item.json.reason,\n  confidence: $('Action Switch').item.json.ai_confidence,\n  human_approved_by: ''\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4120, 480],
+      "id": "soar-callback-kill-001",
+      "name": "SOAR Callback: Kill Process",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Gọi soc-server-python SOAR callback để kill process. Server tự gửi lệnh gRPC xuống agent."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "your-strong-random-secret-here"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  alert_id: $('Action Switch').item.json.alert_id,\n  action: 'block_url',\n  target: $('Action Switch').item.json.domain || $('Action Switch').item.json.src_ip,\n  ai_reason: $('Action Switch').item.json.reason,\n  confidence: $('Action Switch').item.json.ai_confidence,\n  human_approved_by: ''\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4120, 640],
+      "id": "soar-callback-url-001",
+      "name": "SOAR Callback: Block URL",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Gọi soc-server-python SOAR callback để block URL/domain."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "your-strong-random-secret-here"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  alert_id: $json.alert_id,\n  action: 'log_only',\n  target: $json.src_ip || '',\n  ai_reason: $json.reason,\n  confidence: $json.ai_confidence || 0,\n  human_approved_by: ''\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4120, 800],
+      "id": "soar-callback-log-001",
+      "name": "SOAR Callback: Log Only",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Callback log_only → server ghi audit log và tạo Case để SOC analyst xem xét"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://host.docker.internal:8080/api/v1/alerts/{{ $('Action Switch').item.json.alert_id }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Action Switch').item.json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  status: 'in_progress',\n  description: '### SOAR: Đã block IP ' + $('Action Switch').item.json.src_ip + '\\n\\n**Nguồn quyết định:** ' + ($('Action Switch').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based') + '\\n**Lý do:** ' + $('Action Switch').item.json.reason + '\\n**Confidence:** ' + $('Action Switch').item.json.ai_confidence,\n  tags: [($('Action Switch').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'auto-blocked', 'soar']\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4360, 320],
+      "id": "update-alert-block-001",
+      "name": "Update Alert: Blocked",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Cập nhật trạng thái Alert trong soc-server-python sau khi block IP (thay TheHive)"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://host.docker.internal:8080/api/v1/alerts/{{ $('Action Switch').item.json.alert_id }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Action Switch').item.json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  status: 'in_progress',\n  description: '### SOAR: Đã kill process PID ' + $('Action Switch').item.json.process_id + ' (Agent ' + $('Action Switch').item.json.agent_id + ')\\n\\n**Nguồn:** ' + ($('Action Switch').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based') + '\\n**Lý do:** ' + $('Action Switch').item.json.reason + '\\n**Confidence:** ' + $('Action Switch').item.json.ai_confidence,\n  tags: ['ai-decision', 'auto-killed-process', 'soar']\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4360, 480],
+      "id": "update-alert-kill-001",
+      "name": "Update Alert: Process Killed",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Cập nhật trạng thái Alert sau khi kill process (thay TheHive)"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://host.docker.internal:8080/api/v1/alerts/{{ $('Action Switch').item.json.alert_id }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Action Switch').item.json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  status: 'in_progress',\n  description: '### SOAR: Đã block URL ' + ($('Action Switch').item.json.domain || $('Action Switch').item.json.src_ip) + '\\n\\n**Nguồn:** AI (Ollama)\\n**Lý do:** ' + $('Action Switch').item.json.reason,\n  tags: ['ai-decision', 'auto-blocked-url', 'soar']\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4360, 640],
+      "id": "update-alert-url-001",
+      "name": "Update Alert: URL Blocked",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://host.docker.internal:8080/api/v1/alerts/{{ $json.alert_id }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  status: 'new',\n  description: '### SOAR: Chỉ ghi nhận (Log Only)\\n\\n**Nguồn:** ' + ($json.ai_used ? 'AI (Ollama)' : 'Rule-based') + '\\n**Lý do:** ' + $json.reason + '\\n**Confidence:** ' + ($json.ai_confidence || 0) + '\\n\\n⚠️ Cần SOC analyst xác minh thủ công.',\n  tags: [($json.ai_used ? 'ai-decision' : 'rule-decision'), 'log-only', 'pending-soc-review']\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4360, 800],
+      "id": "update-alert-log-001",
+      "name": "Update Alert: Log Only",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Cập nhật Alert status = new (pending review) khi chỉ ghi log"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/indicators",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Action Switch').item.json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'ip',\n  value: $('Action Switch').item.json.src_ip,\n  category: 'network',\n  source: 'soar-auto-block',\n  description: 'Auto-blocked by SOAR. Event: ' + $('Action Switch').item.json.event_type + '. Reason: ' + $('Action Switch').item.json.reason,\n  risk_score: 90,\n  is_active: true\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4600, 320],
+      "id": "save-indicator-block-001",
+      "name": "Save Indicator (Block IP IOC)",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Lưu IP bị block vào Indicators DB (thay thế Push IOC to MISP)"
+    },
+    {
+      "parameters": {
+        "chatId": "6094178234",
+        "text": "=🔴 IP BLOCKED: {{ $('Action Switch').item.json.src_ip }}\n🔔 Alert ID: {{ $('Action Switch').item.json.alert_id }}\n🧭 Nguồn quyết định: {{ $('Action Switch').item.json.ai_used ? '🤖 AI (Ollama Gemma3)' : '📐 Rule-based (DDoS Auto-block)' }}\n📋 Lý do: {{ $('Action Switch').item.json.reason }}\n📊 Confidence: {{ $('Action Switch').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch').item.json.timestamp }}\n\n🛡 IOC Analysis:\n{{ $('Action Switch').item.json.ioc_summary_md || 'N/A' }}\n\n✅ SOC Server SOAR Callback: block_ip → gRPC → Agent",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [4840, 320],
+      "id": "telegram-block-001",
+      "name": "Telegram: IP Blocked",
+      "webhookId": "soar-block-telegram-001"
+    },
+    {
+      "parameters": {
+        "chatId": "6094178234",
+        "text": "=💀 PROCESS KILLED: PID {{ $('Action Switch').item.json.process_id }} (Agent {{ $('Action Switch').item.json.agent_id }})\n🔔 Alert ID: {{ $('Action Switch').item.json.alert_id }}\n🧭 Nguồn quyết định: {{ $('Action Switch').item.json.ai_used ? '🤖 AI (Ollama Gemma3)' : '📐 Rule-based' }}\n📋 Lý do: {{ $('Action Switch').item.json.reason }}\n📊 Confidence: {{ $('Action Switch').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch').item.json.timestamp }}\n\n✅ SOC Server SOAR Callback: kill_process → gRPC → Agent",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [4600, 480],
+      "id": "telegram-kill-001",
+      "name": "Telegram: Process Killed",
+      "webhookId": "soar-kill-telegram-001"
+    },
+    {
+      "parameters": {
+        "chatId": "6094178234",
+        "text": "=🌐 URL/DOMAIN BLOCKED: {{ $('Action Switch').item.json.domain || $('Action Switch').item.json.src_ip }}\n🔔 Alert ID: {{ $('Action Switch').item.json.alert_id }}\n🧭 Nguồn: AI (Ollama Gemma3)\n📋 Lý do: {{ $('Action Switch').item.json.reason }}\n📊 Confidence: {{ $('Action Switch').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch').item.json.timestamp }}\n\n✅ SOC Server SOAR Callback: block_url → gRPC → Agent",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [4600, 640],
+      "id": "telegram-url-001",
+      "name": "Telegram: URL Blocked",
+      "webhookId": "soar-url-telegram-001"
+    },
+    {
+      "parameters": {
+        "chatId": "6094178234",
+        "text": "=📋 LOGGED ONLY — Chờ SOC Analyst\n🔔 Alert ID: {{ $json.alert_id }}\n🔗 IP/Target: {{ $json.src_ip }}\n📝 Mô tả: {{ $json.description }}\n🧭 Nguồn: {{ $json.ai_used ? '🤖 AI (Ollama)' : '📐 Rule-based' }}\n📋 Lý do: {{ $json.reason }}\n💡 Khuyến nghị: {{ $json.recommendation }}\n📊 Confidence: {{ $json.ai_confidence }}\n🕐 Time: {{ $json.timestamp }}\n\n⚠️ Alert đang chờ SOC analyst xác minh thủ công.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [4600, 800],
+      "id": "telegram-log-001",
+      "name": "Telegram: Log Only",
+      "webhookId": "soar-log-telegram-001"
+    }
+  ],
+  "connections": {
+    "SOC DDoS Alert Webhook": {
+      "main": [[{"node": "Merge Webhooks", "type": "main", "index": 0}]]
+    },
+    "SOC Phishing Alert Webhook": {
+      "main": [[{"node": "Merge Webhooks", "type": "main", "index": 1}]]
+    },
+    "SOC Generic Alert Webhook": {
+      "main": [[{"node": "Merge Webhooks", "type": "main", "index": 2}]]
+    },
+    "Merge Webhooks": {
+      "main": [[{"node": "Normalize Payload", "type": "main", "index": 0}]]
+    },
+    "Normalize Payload": {
+      "main": [[{"node": "SOC Server Login", "type": "main", "index": 0}]]
+    },
+    "SOC Server Login": {
+      "main": [[{"node": "Save JWT Token", "type": "main", "index": 0}]]
+    },
+    "Save JWT Token": {
+      "main": [
+        [
+          {"node": "Analyze IOC (SOC Server)", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "Analyze IOC (SOC Server)": {
+      "main": [[{"node": "Search Indicators DB", "type": "main", "index": 0}]]
+    },
+    "Search Indicators DB": {
+      "main": [[{"node": "Build IOC Summary", "type": "main", "index": 0}]]
+    },
+    "Build IOC Summary": {
+      "main": [[{"node": "Route by Event Type", "type": "main", "index": 0}]]
+    },
+    "Route by Event Type": {
+      "main": [
+        [{"node": "Set Action: block_ip (DDoS)", "type": "main", "index": 0}],
+        [{"node": "Set Action: log_only (Phishing)", "type": "main", "index": 0}],
+        [{"node": "Build AI Prompt", "type": "main", "index": 0}]
+      ]
+    },
+    "Set Action: block_ip (DDoS)": {
+      "main": [[{"node": "Merge Decision Paths", "type": "main", "index": 0}]]
+    },
+    "Set Action: log_only (Phishing)": {
+      "main": [[{"node": "Merge Decision Paths", "type": "main", "index": 1}]]
+    },
+    "Build AI Prompt": {
+      "main": [[{"node": "Ollama LLM", "type": "main", "index": 0}]]
+    },
+    "Ollama LLM": {
+      "main": [[{"node": "Parse AI Result", "type": "main", "index": 0}]]
+    },
+    "Parse AI Result": {
+      "main": [[{"node": "Merge Decision Paths", "type": "main", "index": 2}]]
+    },
+    "Merge Decision Paths": {
+      "main": [[{"node": "Check Approval Level", "type": "main", "index": 0}]]
+    },
+    "Check Approval Level": {
+      "main": [
+        [{"node": "Restore Alert Data (Auto)", "type": "main", "index": 0}],
+        [{"node": "Request Approval (Telegram)", "type": "main", "index": 0}]
+      ]
+    },
+    "Restore Alert Data (Auto)": {
+      "main": [[{"node": "Action Switch", "type": "main", "index": 0}]]
+    },
+    "Request Approval (Telegram)": {
+      "main": [[{"node": "Check Approval Result", "type": "main", "index": 0}]]
+    },
+    "Check Approval Result": {
+      "main": [
+        [{"node": "Restore Alert Data (Human Approved)", "type": "main", "index": 0}],
+        [{"node": "Notify: Action Rejected", "type": "main", "index": 0}]
+      ]
+    },
+    "Restore Alert Data (Human Approved)": {
+      "main": [[{"node": "Action Switch", "type": "main", "index": 0}]]
+    },
+    "Action Switch": {
+      "main": [
+        [{"node": "SOAR Callback: Block IP", "type": "main", "index": 0}],
+        [{"node": "SOAR Callback: Kill Process", "type": "main", "index": 0}],
+        [{"node": "SOAR Callback: Block URL", "type": "main", "index": 0}],
+        [{"node": "SOAR Callback: Log Only", "type": "main", "index": 0}]
+      ]
+    },
+    "SOAR Callback: Block IP": {
+      "main": [[{"node": "Update Alert: Blocked", "type": "main", "index": 0}]]
+    },
+    "SOAR Callback: Kill Process": {
+      "main": [[{"node": "Update Alert: Process Killed", "type": "main", "index": 0}]]
+    },
+    "SOAR Callback: Block URL": {
+      "main": [[{"node": "Update Alert: URL Blocked", "type": "main", "index": 0}]]
+    },
+    "SOAR Callback: Log Only": {
+      "main": [[{"node": "Update Alert: Log Only", "type": "main", "index": 0}]]
+    },
+    "Update Alert: Blocked": {
+      "main": [[{"node": "Save Indicator (Block IP IOC)", "type": "main", "index": 0}]]
+    },
+    "Save Indicator (Block IP IOC)": {
+      "main": [[{"node": "Telegram: IP Blocked", "type": "main", "index": 0}]]
+    },
+    "Update Alert: Process Killed": {
+      "main": [[{"node": "Telegram: Process Killed", "type": "main", "index": 0}]]
+    },
+    "Update Alert: URL Blocked": {
+      "main": [[{"node": "Telegram: URL Blocked", "type": "main", "index": 0}]]
+    },
+    "Update Alert: Log Only": {
+      "main": [[{"node": "Telegram: Log Only", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-10-13T00:00:00.000Z",
+  "versionId": "soc-soar-v2-soc-server-python"
+}

@@ -68,3 +68,4 @@ fix-frontend/
 
 # ------ Postman / Test exports ------
 *.json.bak
+template/

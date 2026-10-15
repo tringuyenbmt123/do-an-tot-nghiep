@@ -100,32 +100,45 @@ class AlertService:
         page_size: int = 100,
         filters: Optional[Dict[str, str]] = None,
     ) -> Tuple[List[Alert], int]:
-        """Lấy danh sách tất cả alerts với phân trang và eager load Agent"""
+        """Lấy danh sách alerts với phân trang và eager load Agent"""
         filters = filters or {}
-        stmt = select(Alert).options(joinedload(Alert.agent)).where(Alert.event_type != "system_metric")
-        count_stmt = select(func.count(Alert.id)).where(Alert.event_type != "system_metric")
 
+        conditions = [Alert.event_type != "system_metric"]
         if filters.get("severity"):
-            stmt = stmt.where(Alert.severity == filters["severity"])
-            count_stmt = count_stmt.where(Alert.severity == filters["severity"])
+            conditions.append(Alert.severity == filters["severity"])
         if filters.get("status"):
-            stmt = stmt.where(Alert.status == filters["status"])
-            count_stmt = count_stmt.where(Alert.status == filters["status"])
+            conditions.append(Alert.status == filters["status"])
         if filters.get("event_type"):
-            stmt = stmt.where(Alert.event_type == filters["event_type"])
-            count_stmt = count_stmt.where(Alert.event_type == filters["event_type"])
+            conditions.append(Alert.event_type == filters["event_type"])
         if filters.get("agent_id"):
-            stmt = stmt.where(Alert.agent_id == filters["agent_id"])
-            count_stmt = count_stmt.where(Alert.agent_id == filters["agent_id"])
+            conditions.append(Alert.agent_id == filters["agent_id"])
 
-        total_res = await self.db.execute(count_stmt)
+        total_res = await self.db.execute(
+            select(func.count(Alert.id)).where(*conditions)
+        )
         total = total_res.scalar() or 0
 
+        # Bước 1: chỉ sort id (nhẹ, không đụng raw_payload)
         offset = (page - 1) * page_size
-        stmt = stmt.order_by(desc(Alert.created_at)).offset(offset).limit(page_size)
+        ids_res = await self.db.execute(
+            select(Alert.id)
+            .where(*conditions)
+            .order_by(desc(Alert.created_at))
+            .offset(offset)
+            .limit(page_size)
+        )
+        ids = [r[0] for r in ids_res.all()]
+        if not ids:
+            return [], total
 
-        result = await self.db.execute(stmt)
-        alerts = list(result.scalars().all())
+        # Bước 2: lấy đầy đủ đúng các dòng đó
+        result = await self.db.execute(
+            select(Alert)
+            .options(joinedload(Alert.agent))
+            .where(Alert.id.in_(ids))
+            .order_by(desc(Alert.created_at))
+        )
+        alerts = list(result.unique().scalars().all())
         return alerts, total
 
     async def get_alert_by_id(self, alert_id: str) -> Optional[Alert]:

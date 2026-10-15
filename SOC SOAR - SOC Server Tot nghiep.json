@@ -9,8 +9,11 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [240, 400],
-      "id": "webhook-ddos-001",
+      "position": [
+        -3888,
+        80
+      ],
+      "id": "f13dbe06-1c56-48f5-a384-b22e193a1661",
       "name": "SOC DDoS Alert Webhook",
       "webhookId": "ddos-alert"
     },
@@ -22,8 +25,11 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [240, 560],
-      "id": "webhook-phishing-001",
+      "position": [
+        -3888,
+        240
+      ],
+      "id": "19e20042-4a0e-4e21-b603-9dc04a437bd2",
       "name": "SOC Phishing Alert Webhook",
       "webhookId": "phishing-alert"
     },
@@ -35,8 +41,11 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [240, 720],
-      "id": "webhook-generic-001",
+      "position": [
+        -3888,
+        400
+      ],
+      "id": "baf67acf-eedf-4add-8d85-b44c7ae1cdfe",
       "name": "SOC Generic Alert Webhook",
       "webhookId": "soc-alert",
       "notes": "Nhận alert từ soc-server-python cho các event_type không có webhook riêng (brute_force, fim, malware...)"
@@ -52,8 +61,11 @@
       },
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.1,
-      "position": [500, 560],
-      "id": "merge-webhooks-001",
+      "position": [
+        -3616,
+        240
+      ],
+      "id": "9434166e-49c9-4f7c-a551-1ffbe651f189",
       "name": "Merge Webhooks"
     },
     {
@@ -62,8 +74,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [720, 560],
-      "id": "normalize-payload-001",
+      "position": [
+        -3408,
+        240
+      ],
+      "id": "7ac15c18-b40c-4dc6-9685-a2fca77a7acb",
       "name": "Normalize Payload",
       "notes": "Chuẩn hóa payload từ soc-server-python. alert_id đã có sẵn, KHÔNG tạo alert mới."
     },
@@ -74,13 +89,15 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={ \"username\": \"admin\", \"password\": \"admin123\" }",
-        "rawBody": "{ \"username\": \"admin\", \"password\": \"admin123\" }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [940, 400],
-      "id": "soc-login-001",
+      "position": [
+        -3184,
+        80
+      ],
+      "id": "838461e9-7677-4552-b346-6973cc5fa40d",
       "name": "SOC Server Login",
       "notes": "Lấy JWT token từ soc-server-python để gọi các API tiếp theo. Đổi username/password theo thực tế."
     },
@@ -90,8 +107,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1160, 400],
-      "id": "save-jwt-001",
+      "position": [
+        -2960,
+        80
+      ],
+      "id": "ed510847-9940-4254-8df8-6cb436bb3a6d",
       "name": "Save JWT Token",
       "notes": "Ghép JWT token vào data để dùng ở các bước sau"
     },
@@ -119,8 +139,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1380, 400],
-      "id": "analyze-ioc-001",
+      "position": [
+        -2736,
+        80
+      ],
+      "id": "e5628a7e-d415-438d-86db-4e2f55b62447",
       "name": "Analyze IOC (SOC Server)",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -150,8 +173,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1380, 580],
-      "id": "search-indicators-001",
+      "position": [
+        -2736,
+        272
+      ],
+      "id": "c7cb50cf-efae-4d72-8562-a72973cb5452",
       "name": "Search Indicators DB",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -163,8 +189,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1620, 480],
-      "id": "build-ioc-summary-001",
+      "position": [
+        -2496,
+        160
+      ],
+      "id": "d6e36679-d296-4dfe-9995-5cb4775746a5",
       "name": "Build IOC Summary",
       "notes": "Tổng hợp kết quả từ Analyze + Search thay thế Cortex VT Summary + MISP check"
     },
@@ -174,12 +203,20 @@
           "values": [
             {
               "conditions": {
-                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $json.event_type }}",
                     "rightValue": "ddos_detected",
-                    "operator": {"type": "string", "operation": "equals"},
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
                     "id": "route-ddos-01"
                   }
                 ],
@@ -190,12 +227,20 @@
             },
             {
               "conditions": {
-                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $json.event_type }}",
                     "rightValue": "phishing_detected",
-                    "operator": {"type": "string", "operation": "equals"},
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
                     "id": "route-phish-01"
                   }
                 ],
@@ -212,8 +257,11 @@
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [1860, 480],
-      "id": "route-event-type-001",
+      "position": [
+        -2256,
+        160
+      ],
+      "id": "274ad00b-4e1a-4be6-b6a3-a6b0d054233b",
       "name": "Route by Event Type",
       "notes": "DDoS → block_ip rule-based. Phishing → log_only rule-based. Others → AI analysis."
     },
@@ -223,8 +271,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2080, 340],
-      "id": "action-ddos-rule-001",
+      "position": [
+        -2048,
+        32
+      ],
+      "id": "d161095b-c1be-48c8-abc6-4df34645fe15",
       "name": "Set Action: block_ip (DDoS)",
       "notes": "Rule-based: DDoS luôn block_ip, không cần AI"
     },
@@ -234,8 +285,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2080, 500],
-      "id": "action-phish-rule-001",
+      "position": [
+        -2048,
+        192
+      ],
+      "id": "94f70c51-2b12-4fd3-906b-a377de29d28d",
       "name": "Set Action: log_only (Phishing)",
       "notes": "Rule-based: Phishing → log only, SOC analyst xác minh"
     },
@@ -245,8 +299,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2080, 660],
-      "id": "build-ai-prompt-001",
+      "position": [
+        -2048,
+        352
+      ],
+      "id": "8763b2d4-4bbd-491c-bc5b-1c19504fd42b",
       "name": "Build AI Prompt",
       "notes": "Xây dựng prompt AI từ event data + IOC analysis (thay MISP attributes)"
     },
@@ -261,8 +318,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [2300, 660],
-      "id": "ollama-llm-001",
+      "position": [
+        -1824,
+        352
+      ],
+      "id": "0709a1be-c137-459b-a377-084be829de2e",
       "name": "Ollama LLM",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -274,8 +334,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2520, 660],
-      "id": "parse-ai-result-001",
+      "position": [
+        -1600,
+        352
+      ],
+      "id": "46529ae7-1797-437f-a69c-b9d90cea0a8e",
       "name": "Parse AI Result",
       "notes": "Parse kết quả từ Ollama LLM, xử lý lỗi kết nối gracefully"
     },
@@ -285,21 +348,32 @@
       },
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.1,
-      "position": [2760, 480],
-      "id": "merge-decision-001",
+      "position": [
+        -1360,
+        160
+      ],
+      "id": "33a48848-1b13-4933-a7ad-13721611231b",
       "name": "Merge Decision Paths",
       "notes": "Merge rule-based (DDoS block_ip, Phishing log_only) + AI decision (others)"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
           "conditions": [
             {
               "id": "check-confidence-01",
               "leftValue": "={{ Number($json.ai_confidence) || 0 }}",
               "rightValue": 0.9,
-              "operator": {"type": "number", "operation": "gte"}
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
             }
           ],
           "combinator": "and"
@@ -308,15 +382,18 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [2980, 480],
-      "id": "check-approval-level-001",
+      "position": [
+        -1136,
+        160
+      ],
+      "id": "0359cc46-2f7d-471b-8989-e3fc42d4d78c",
       "name": "Check Approval Level",
       "notes": "confidence >= 0.9 → auto execute. Ngược lại → yêu cầu Telegram approval"
     },
     {
       "parameters": {
         "operation": "sendAndWait",
-        "chatId": "6094178234",
+        "chatId": "5407528909",
         "message": "=🚨 YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\n⚡ Hành động đề xuất:\n{{ $json.action }}\n\n📌 Thông tin cảnh báo:\n• Alert ID: {{ $json.alert_id }}\n• Event: {{ $json.description }}\n• Severity: {{ $json.severity }}\n• Agent: {{ $json.agent_id }}\n• Time: {{ $json.timestamp }}\n\n{{ $json.src_ip ? '• Source IP: ' + $json.src_ip : '' }}\n{{ $json.process_id ? '• Process ID: ' + $json.process_id : '' }}\n{{ $json.file_hash ? '• SHA256: ' + $json.file_hash : '' }}\n\n🤖 Nguồn quyết định:\n{{ $json.ai_used ? 'AI (Ollama Gemma3)' : 'Rule-based (Automatic)' }}\n\n🎯 Confidence: {{ $json.ai_confidence }}\n\n📝 Lý do:\n{{ $json.reason }}\n\n💡 Khuyến nghị:\n{{ $json.recommendation }}\n\n🛡 IOC Analysis:\n{{ $json.ioc_summary_md || 'N/A' }}\n\n⚠️ Hành động sẽ thực hiện sau khi phê duyệt.\n✅ Approve = Cho phép thực hiện\n❌ Decline = Hủy hành động",
         "approvalOptions": {
           "values": {
@@ -334,22 +411,40 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [3200, 560],
-      "id": "request-approval-001",
+      "position": [
+        -928,
+        240
+      ],
+      "id": "b1f2c2eb-a9b3-4d60-b6b8-7b28b535ef43",
       "name": "Request Approval (Telegram)",
       "webhookId": "soar-approval-telegram-001",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      },
       "notes": "Yêu cầu phê duyệt từ SOC analyst qua Telegram khi AI confidence < 0.9"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
           "conditions": [
             {
               "id": "check-approved-01",
               "leftValue": "={{ $json.data.approved }}",
               "rightValue": "",
-              "operator": {"type": "boolean", "operation": "true", "singleValue": true}
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -358,8 +453,11 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [3440, 560],
-      "id": "check-approval-result-001",
+      "position": [
+        -688,
+        240
+      ],
+      "id": "72884b9a-881b-4806-87b4-c88655a1ab96",
       "name": "Check Approval Result"
     },
     {
@@ -370,8 +468,11 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [3200, 400],
-      "id": "restore-data-approved-001",
+      "position": [
+        -928,
+        80
+      ],
+      "id": "b8b35589-a170-4051-bea9-ab4c1aa31b9a",
       "name": "Restore Alert Data (Auto)"
     },
     {
@@ -382,22 +483,34 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [3680, 440],
-      "id": "restore-data-human-001",
+      "position": [
+        -480,
+        -16
+      ],
+      "id": "afb1d917-e436-4d85-be79-de6f654a6d62",
       "name": "Restore Alert Data (Human Approved)"
     },
     {
       "parameters": {
-        "chatId": "6094178234",
+        "chatId": "5407528909",
         "text": "=❌ HÀNH ĐỘNG BỊ TỪ CHỐI\n📌 Alert ID: {{ $('Merge Decision Paths').item.json.alert_id }}\n⚡ Action từ chối: {{ $('Merge Decision Paths').item.json.action }}\n🕐 Time: {{ $('Merge Decision Paths').item.json.timestamp }}\n\n⚠️ Alert vẫn ở trạng thái 'new', cần SOC analyst xử lý thủ công.",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [3680, 680],
-      "id": "telegram-rejected-001",
+      "position": [
+        -448,
+        368
+      ],
+      "id": "83247c02-4ec6-442b-afea-eb8e6eb83ba8",
       "name": "Notify: Action Rejected",
-      "webhookId": "soar-reject-telegram-001"
+      "webhookId": "soar-reject-telegram-001",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
     },
     {
       "parameters": {
@@ -405,12 +518,20 @@
           "values": [
             {
               "conditions": {
-                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $json.action }}",
                     "rightValue": "block_ip",
-                    "operator": {"type": "string", "operation": "equals"},
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
                     "id": "act-block-ip-01"
                   }
                 ],
@@ -421,12 +542,20 @@
             },
             {
               "conditions": {
-                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $json.action }}",
                     "rightValue": "kill_process",
-                    "operator": {"type": "string", "operation": "equals"},
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
                     "id": "act-kill-proc-01"
                   }
                 ],
@@ -437,12 +566,20 @@
             },
             {
               "conditions": {
-                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $json.action }}",
                     "rightValue": "block_url",
-                    "operator": {"type": "string", "operation": "equals"},
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
                     "id": "act-block-url-01"
                   }
                 ],
@@ -459,8 +596,11 @@
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [3900, 440],
-      "id": "action-switch-001",
+      "position": [
+        -224,
+        128
+      ],
+      "id": "66ba061a-0dde-4d9f-b4b1-15111c385cf6",
       "name": "Action Switch",
       "notes": "Routing hành động: block_ip / kill_process / block_url / log_only (fallback)"
     },
@@ -488,8 +628,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [4120, 320],
-      "id": "soar-callback-block-001",
+      "position": [
+        0,
+        0
+      ],
+      "id": "1043bb56-51b0-473d-ad1f-aff9fae4845f",
       "name": "SOAR Callback: Block IP",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -519,8 +662,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [4120, 480],
-      "id": "soar-callback-kill-001",
+      "position": [
+        0,
+        160
+      ],
+      "id": "5c860fae-c515-4eb0-b4f1-6b4a5db57304",
       "name": "SOAR Callback: Kill Process",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -550,8 +696,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [4120, 640],
-      "id": "soar-callback-url-001",
+      "position": [
+        0,
+        320
+      ],
+      "id": "734df9ad-2f79-4e8e-a6f5-d48982017ac8",
       "name": "SOAR Callback: Block URL",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -581,8 +730,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [4120, 800],
-      "id": "soar-callback-log-001",
+      "position": [
+        0,
+        480
+      ],
+      "id": "047d6dde-d77f-4134-9fb9-0d0f2440a142",
       "name": "SOAR Callback: Log Only",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -612,8 +764,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [4360, 320],
-      "id": "update-alert-block-001",
+      "position": [
+        240,
+        0
+      ],
+      "id": "4ca6bc00-a8df-4d3a-9721-7cf194c95ada",
       "name": "Update Alert: Blocked",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -643,8 +798,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [4360, 480],
-      "id": "update-alert-kill-001",
+      "position": [
+        240,
+        160
+      ],
+      "id": "e1cd8264-86af-4b25-9d5b-a0aca760fcfd",
       "name": "Update Alert: Process Killed",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -674,8 +832,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [4360, 640],
-      "id": "update-alert-url-001",
+      "position": [
+        240,
+        320
+      ],
+      "id": "3f662a93-c9fb-40d7-8d5c-f02266648bea",
       "name": "Update Alert: URL Blocked",
       "continueOnFail": true,
       "onError": "continueRegularOutput"
@@ -704,8 +865,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [4360, 800],
-      "id": "update-alert-log-001",
+      "position": [
+        240,
+        480
+      ],
+      "id": "029a6153-f788-4c72-965e-f12d98d299eb",
       "name": "Update Alert: Log Only",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -735,8 +899,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [4600, 320],
-      "id": "save-indicator-block-001",
+      "position": [
+        480,
+        0
+      ],
+      "id": "99d44538-6653-4c91-95f8-a5d6878fed8a",
       "name": "Save Indicator (Block IP IOC)",
       "continueOnFail": true,
       "onError": "continueRegularOutput",
@@ -744,181 +911,509 @@
     },
     {
       "parameters": {
-        "chatId": "6094178234",
+        "chatId": "5407528909",
         "text": "=🔴 IP BLOCKED: {{ $('Action Switch').item.json.src_ip }}\n🔔 Alert ID: {{ $('Action Switch').item.json.alert_id }}\n🧭 Nguồn quyết định: {{ $('Action Switch').item.json.ai_used ? '🤖 AI (Ollama Gemma3)' : '📐 Rule-based (DDoS Auto-block)' }}\n📋 Lý do: {{ $('Action Switch').item.json.reason }}\n📊 Confidence: {{ $('Action Switch').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch').item.json.timestamp }}\n\n🛡 IOC Analysis:\n{{ $('Action Switch').item.json.ioc_summary_md || 'N/A' }}\n\n✅ SOC Server SOAR Callback: block_ip → gRPC → Agent",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [4840, 320],
-      "id": "telegram-block-001",
+      "position": [
+        720,
+        0
+      ],
+      "id": "fcfaa66e-2996-4d4a-b353-ce1ee4cbe695",
       "name": "Telegram: IP Blocked",
-      "webhookId": "soar-block-telegram-001"
+      "webhookId": "soar-block-telegram-001",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
     },
     {
       "parameters": {
-        "chatId": "6094178234",
+        "chatId": "5407528909",
         "text": "=💀 PROCESS KILLED: PID {{ $('Action Switch').item.json.process_id }} (Agent {{ $('Action Switch').item.json.agent_id }})\n🔔 Alert ID: {{ $('Action Switch').item.json.alert_id }}\n🧭 Nguồn quyết định: {{ $('Action Switch').item.json.ai_used ? '🤖 AI (Ollama Gemma3)' : '📐 Rule-based' }}\n📋 Lý do: {{ $('Action Switch').item.json.reason }}\n📊 Confidence: {{ $('Action Switch').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch').item.json.timestamp }}\n\n✅ SOC Server SOAR Callback: kill_process → gRPC → Agent",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [4600, 480],
-      "id": "telegram-kill-001",
+      "position": [
+        480,
+        160
+      ],
+      "id": "89a26f4c-ba67-462b-8b05-b8b12e71ed00",
       "name": "Telegram: Process Killed",
-      "webhookId": "soar-kill-telegram-001"
+      "webhookId": "soar-kill-telegram-001",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
     },
     {
       "parameters": {
-        "chatId": "6094178234",
+        "chatId": "5407528909",
         "text": "=🌐 URL/DOMAIN BLOCKED: {{ $('Action Switch').item.json.domain || $('Action Switch').item.json.src_ip }}\n🔔 Alert ID: {{ $('Action Switch').item.json.alert_id }}\n🧭 Nguồn: AI (Ollama Gemma3)\n📋 Lý do: {{ $('Action Switch').item.json.reason }}\n📊 Confidence: {{ $('Action Switch').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch').item.json.timestamp }}\n\n✅ SOC Server SOAR Callback: block_url → gRPC → Agent",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [4600, 640],
-      "id": "telegram-url-001",
+      "position": [
+        480,
+        320
+      ],
+      "id": "1b303229-b29e-4521-b1c2-b66b52377eda",
       "name": "Telegram: URL Blocked",
-      "webhookId": "soar-url-telegram-001"
+      "webhookId": "soar-url-telegram-001",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
     },
     {
       "parameters": {
-        "chatId": "6094178234",
-        "text": "=📋 LOGGED ONLY — Chờ SOC Analyst\n🔔 Alert ID: {{ $json.alert_id }}\n🔗 IP/Target: {{ $json.src_ip }}\n📝 Mô tả: {{ $json.description }}\n🧭 Nguồn: {{ $json.ai_used ? '🤖 AI (Ollama)' : '📐 Rule-based' }}\n📋 Lý do: {{ $json.reason }}\n💡 Khuyến nghị: {{ $json.recommendation }}\n📊 Confidence: {{ $json.ai_confidence }}\n🕐 Time: {{ $json.timestamp }}\n\n⚠️ Alert đang chờ SOC analyst xác minh thủ công.",
+        "chatId": "5407528909",
+        "text": "=📋 LOGGED ONLY — Chờ SOC Analyst\n🔔 Alert ID: {{ $('Action Switch').item.json.alert_id }}\n🔗 IP/Target: {{ $('Action Switch').item.json.src_ip }}\n📝 Mô tả: {{ $('Action Switch').item.json.description }}\n🧭 Nguồn: {{ $('Action Switch').item.json.ai_used ? '🤖 AI (Ollama)' : '📐 Rule-based' }}\n📋 Lý do: {{ $('Action Switch').item.json.reason }}\n💡 Khuyến nghị: {{ $('Action Switch').item.json.recommendation }}\n📊 Confidence: {{ $('Action Switch').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch').item.json.timestam }}\n\n⚠️ Alert đang chờ SOC analyst xác minh thủ công.",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [4600, 800],
-      "id": "telegram-log-001",
+      "position": [
+        480,
+        480
+      ],
+      "id": "752d3326-7b25-44bb-b871-66f007b789bf",
       "name": "Telegram: Log Only",
-      "webhookId": "soar-log-telegram-001"
+      "webhookId": "soar-log-telegram-001",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
     }
   ],
+  "pinData": {},
   "connections": {
     "SOC DDoS Alert Webhook": {
-      "main": [[{"node": "Merge Webhooks", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Merge Webhooks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "SOC Phishing Alert Webhook": {
-      "main": [[{"node": "Merge Webhooks", "type": "main", "index": 1}]]
+      "main": [
+        [
+          {
+            "node": "Merge Webhooks",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     },
     "SOC Generic Alert Webhook": {
-      "main": [[{"node": "Merge Webhooks", "type": "main", "index": 2}]]
+      "main": [
+        [
+          {
+            "node": "Merge Webhooks",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
     },
     "Merge Webhooks": {
-      "main": [[{"node": "Normalize Payload", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Normalize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Normalize Payload": {
-      "main": [[{"node": "SOC Server Login", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "SOC Server Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "SOC Server Login": {
-      "main": [[{"node": "Save JWT Token", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Save JWT Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save JWT Token": {
       "main": [
         [
-          {"node": "Analyze IOC (SOC Server)", "type": "main", "index": 0}
+          {
+            "node": "Analyze IOC (SOC Server)",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Analyze IOC (SOC Server)": {
-      "main": [[{"node": "Search Indicators DB", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Search Indicators DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Search Indicators DB": {
-      "main": [[{"node": "Build IOC Summary", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Build IOC Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build IOC Summary": {
-      "main": [[{"node": "Route by Event Type", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Route by Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Route by Event Type": {
       "main": [
-        [{"node": "Set Action: block_ip (DDoS)", "type": "main", "index": 0}],
-        [{"node": "Set Action: log_only (Phishing)", "type": "main", "index": 0}],
-        [{"node": "Build AI Prompt", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Set Action: block_ip (DDoS)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Action: log_only (Phishing)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Set Action: block_ip (DDoS)": {
-      "main": [[{"node": "Merge Decision Paths", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Set Action: log_only (Phishing)": {
-      "main": [[{"node": "Merge Decision Paths", "type": "main", "index": 1}]]
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     },
     "Build AI Prompt": {
-      "main": [[{"node": "Ollama LLM", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Ollama LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Ollama LLM": {
-      "main": [[{"node": "Parse AI Result", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Parse AI Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse AI Result": {
-      "main": [[{"node": "Merge Decision Paths", "type": "main", "index": 2}]]
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
     },
     "Merge Decision Paths": {
-      "main": [[{"node": "Check Approval Level", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Check Approval Level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Approval Level": {
       "main": [
-        [{"node": "Restore Alert Data (Auto)", "type": "main", "index": 0}],
-        [{"node": "Request Approval (Telegram)", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Restore Alert Data (Auto)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Request Approval (Telegram)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Restore Alert Data (Auto)": {
-      "main": [[{"node": "Action Switch", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Action Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Request Approval (Telegram)": {
-      "main": [[{"node": "Check Approval Result", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Check Approval Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Approval Result": {
       "main": [
-        [{"node": "Restore Alert Data (Human Approved)", "type": "main", "index": 0}],
-        [{"node": "Notify: Action Rejected", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Restore Alert Data (Human Approved)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify: Action Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Restore Alert Data (Human Approved)": {
-      "main": [[{"node": "Action Switch", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Action Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Action Switch": {
       "main": [
-        [{"node": "SOAR Callback: Block IP", "type": "main", "index": 0}],
-        [{"node": "SOAR Callback: Kill Process", "type": "main", "index": 0}],
-        [{"node": "SOAR Callback: Block URL", "type": "main", "index": 0}],
-        [{"node": "SOAR Callback: Log Only", "type": "main", "index": 0}]
+        [
+          {
+            "node": "SOAR Callback: Block IP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SOAR Callback: Kill Process",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SOAR Callback: Block URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SOAR Callback: Log Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "SOAR Callback: Block IP": {
-      "main": [[{"node": "Update Alert: Blocked", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Update Alert: Blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "SOAR Callback: Kill Process": {
-      "main": [[{"node": "Update Alert: Process Killed", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Update Alert: Process Killed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "SOAR Callback: Block URL": {
-      "main": [[{"node": "Update Alert: URL Blocked", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Update Alert: URL Blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "SOAR Callback: Log Only": {
-      "main": [[{"node": "Update Alert: Log Only", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Update Alert: Log Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Alert: Blocked": {
-      "main": [[{"node": "Save Indicator (Block IP IOC)", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Save Indicator (Block IP IOC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save Indicator (Block IP IOC)": {
-      "main": [[{"node": "Telegram: IP Blocked", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Telegram: IP Blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Alert: Process Killed": {
-      "main": [[{"node": "Telegram: Process Killed", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Telegram: Process Killed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Alert: URL Blocked": {
-      "main": [[{"node": "Telegram: URL Blocked", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Telegram: URL Blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Alert: Log Only": {
-      "main": [[{"node": "Telegram: Log Only", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Telegram: Log Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "pinData": {},
+  "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "staticData": null,
-  "tags": [],
-  "triggerCount": 0,
-  "updatedAt": "2026-10-13T00:00:00.000Z",
-  "versionId": "soc-soar-v2-soc-server-python"
+  "versionId": "1a465088-2f26-4980-a8bc-12b5b6ff57d0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "88b3b600d62a38b9608292b540d8c9071a2a33ce6c9e93fd11131e23c9f0be82"
+  },
+  "nodeGroups": [],
+  "id": "GgODb7cjrq9DsL20",
+  "tags": []
 }

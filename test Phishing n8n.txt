@@ -1,0 +1,76 @@
+# ============================================================
+# Test Phishing SOAR flow đầy đủ - tạo alert thật rồi gửi n8n
+# ============================================================
+
+# 1. Đăng nhập lấy JWT token
+$loginBody = '{"username":"admin","password":"admin123"}' | ConvertFrom-Json | ConvertTo-Json
+
+$loginResp = Invoke-RestMethod `
+    -Uri "http://localhost:8080/api/v1/auth/login" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $loginBody
+
+$token = $loginResp.token
+
+Write-Host "Token: $($token.Substring(0,20))..." -ForegroundColor Green
+
+
+# 2. Tạo alert Phishing mới trong DB
+$alertBody = @{
+    agent_id    = "endpoint-win11-01"
+    event_type  = "phishing_detected"
+    severity    = "high"
+    title       = "[HIGH] Phishing URL Detected"
+    description = "Phishing URL detected from employee endpoint"
+    raw_payload = '{"url":"https://spx88k-cointelegraph.com/","src_ip":"192.168.10.25","confidence":0.98,"reported_by":"Phishing-ML-Detector"}'
+    status      = "new"
+} | ConvertTo-Json
+
+$alertResp = Invoke-RestMethod `
+    -Uri "http://localhost:8080/api/v1/alerts" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Headers @{ Authorization = "Bearer $token" } `
+    -Body $alertBody
+
+$alertId = $alertResp.id
+
+Write-Host "Alert tạo thành công! ID: $alertId" -ForegroundColor Green
+
+
+# 3. Gửi alert vào n8n SOAR flow với alert_id thực
+$webhookBody = @{
+    alert_id    = $alertId
+    agent_id    = "endpoint-win11-01"
+    event_type  = "phishing_detected"
+    severity    = "high"
+    title       = "[HIGH] Phishing URL Detected"
+    description = "Phishing URL detected from employee endpoint"
+    url         = "https://spx88k-cointelegraph.com/"
+    employee_ip = "192.168.10.25"
+    confidence  = 0.98
+    timestamp   = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+} | ConvertTo-Json
+
+$n8nResp = Invoke-RestMethod `
+    -Uri "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook-test/phishing-alert" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $webhookBody
+
+
+# 4. Hiển thị kết quả
+Write-Host "n8n Response:" -ForegroundColor Green
+Write-Host ($n8nResp | ConvertTo-Json -Depth 10)
+
+Write-Host ""
+Write-Host "Alert ID: $alertId" -ForegroundColor Cyan
+Write-Host "Webhook: http://192.168.1.28:5678/webhook-test/phishing-alert" -ForegroundColor Cyan
+Write-Host "Xem alert: http://localhost:5173/alerts" -ForegroundColor Cyan
+
+
+
+
+
+1700000000.123 100 192.168.1.34 TCP_MISS/200 1234 GET http://phishing-site123.com/ - DIRECT/1.2.3.4 text/html

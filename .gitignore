@@ -68,4 +68,7 @@ fix-frontend/
 
 # ------ Postman / Test exports ------
 *.json.bak
-template/
+
+PhishingAI_Detection_System_V6/
+*.rar
+*.zip

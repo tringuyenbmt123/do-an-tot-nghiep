@@ -1,0 +1,57 @@
+# ============================================================
+# Test DDoS SOAR flow đầy đủ - tạo alert thật rồi gửi n8n
+# ============================================================
+
+# 1. Đăng nhập lấy JWT token
+$loginBody = '{"username":"admin","password":"admin123"}' | ConvertFrom-Json | ConvertTo-Json
+$loginResp = Invoke-RestMethod `
+    -Uri "http://localhost:8080/api/v1/auth/login" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $loginBody
+$token = $loginResp.token
+Write-Host "✅ Token: $($token.Substring(0,20))..." -ForegroundColor Green
+
+# 2. Tạo alert DDoS mới trong DB
+$alertBody = @{
+    agent_id    = "endpoint-win11-01"
+    event_type  = "ddos_detected"
+    severity    = "critical"
+    title       = "[CRITICAL] DDoS Attack - SYN Flood"
+    description = "High volume SYN Flood from external IP 185.220.101.45"
+    raw_payload = '{"src_ip":"185.220.101.45","attack_type":"SYN Flood","target":"192.168.91.100","confidence":0.98,"reported_by":"DDoS-ML-Detector"}'
+    status      = "new"
+} | ConvertTo-Json
+
+$alertResp = Invoke-RestMethod `
+    -Uri "http://localhost:8080/api/v1/alerts" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Headers @{ Authorization = "Bearer $token" } `
+    -Body $alertBody
+
+$alertId = $alertResp.id
+Write-Host "✅ Alert tạo thành công! ID: $alertId" -ForegroundColor Green
+
+# 3. Gửi alert vào n8n SOAR flow với alert_id thực
+$webhookBody = @{
+    alert_id    = $alertId
+    agent_id    = "endpoint-win11-01"
+    event_type  = "ddos_detected"
+    severity    = "critical"
+    title       = "[CRITICAL] DDoS Attack - SYN Flood"
+    description = "High volume SYN Flood from external IP 185.220.101.45"
+    raw_payload = '{"src_ip":"185.220.101.45","attack_type":"SYN Flood","target":"192.168.91.100","confidence":0.98,"reported_by":"DDoS-ML-Detector"}'
+    timestamp   = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+} | ConvertTo-Json
+
+$n8nResp = Invoke-RestMethod `
+    -Uri "http://10.251.22.148:5678/webhook-test/ddos-alert" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $webhookBody
+
+Write-Host "✅ n8n Response: $($n8nResp | ConvertTo-Json)" -ForegroundColor Green
+Write-Host ""
+Write-Host "📌 Alert ID: $alertId" -ForegroundColor Cyan
+Write-Host "🔗 Xem alert: http://localhost:5173/alerts" -ForegroundColor Cyan

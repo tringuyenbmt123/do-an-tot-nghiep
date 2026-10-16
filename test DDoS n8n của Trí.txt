@@ -1,0 +1,27 @@
+# ============================================================
+# Test DDoS SOAR flow - Sử dụng đường dẫn Ngrok
+# ============================================================
+
+$webhookBody = @{
+    agent_id    = "endpoint-win11-01"
+    event_type  = "ddos_detected"
+    severity    = "critical"
+    title       = "[CRITICAL] DDoS Attack - SYN Flood"
+    description = "High volume SYN Flood from external IP 185.220.101.45"
+    src_ip      = "185.220.101.45"
+    target      = "192.168.91.100"
+    attack_type = "SYN Flood"
+    confidence  = 0.98
+    reported_by = "DDoS-ML-Detector"
+    timestamp   = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+} | ConvertTo-Json
+
+# Bắn vào webhook-test của n8n thông qua ngrok
+$n8nResp = Invoke-RestMethod `
+    -Uri "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook-test/ddos-alert" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $webhookBody
+
+Write-Host "✅ Gửi cảnh báo thành công tới n8n!" -ForegroundColor Green
+Write-Host "📌 Response từ n8n: $($n8nResp | ConvertTo-Json -Depth 3)" -ForegroundColor Cyan

@@ -1,0 +1,25 @@
+# ============================================================
+# Test DDoS SOAR flow - Sử dụng đường dẫn Ngrok
+# ============================================================
+
+$webhookBody = @{
+    event_type   = "wazuh_alert"
+    severity     = "high"
+    title        = "[HIGH] Suspicious PowerShell Execution"
+    description  = "Phát hiện tiến trình PowerShell chạy lệnh mã hóa đáng ngờ trên máy trạm."
+    agent_id     = "endpoint-win11-01"
+    agent_name   = "Windows-11-SOC"
+    process_id   = "4420"
+    command_line = "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand JABz..."
+    timestamp    = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+} | ConvertTo-Json
+
+# Bắn vào webhook-test của n8n thông qua ngrok
+$n8nResp = Invoke-RestMethod `
+    -Uri "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webhook-test/ddos-alert" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $webhookBody
+
+Write-Host "✅ Gửi cảnh báo thành công tới n8n!" -ForegroundColor Green
+Write-Host "📌 Response từ n8n: $($n8nResp | ConvertTo-Json -Depth 3)" -ForegroundColor Cyan

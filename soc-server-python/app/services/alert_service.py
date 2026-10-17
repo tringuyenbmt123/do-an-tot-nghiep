@@ -131,14 +131,14 @@ class AlertService:
         if not ids:
             return [], total
 
-        # Bước 2: lấy đầy đủ đúng các dòng đó
+        # Bước 2: lấy đầy đủ đúng các dòng đó (không ORDER BY ở SQL để tránh filesort trên TEXT/JSON làm tràn sort_buffer_size)
         result = await self.db.execute(
             select(Alert)
             .options(joinedload(Alert.agent))
             .where(Alert.id.in_(ids))
-            .order_by(desc(Alert.created_at))
         )
-        alerts = list(result.unique().scalars().all())
+        alerts_map = {a.id: a for a in result.unique().scalars().all()}
+        alerts = [alerts_map[aid] for aid in ids if aid in alerts_map]
         return alerts, total
 
     async def get_alert_by_id(self, alert_id: str) -> Optional[Alert]:

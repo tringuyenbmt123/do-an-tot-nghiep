@@ -3,38 +3,6 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## 🛡️ SOC SOAR UNIFIED PLATFORM v9\n**Hợp nhất:** Dashboard DDoS + Phishing + Wazuh SIEM (v8) ⨯ TheHive (Case Mgmt) ⨯ MISP (Threat Intel)\n\n**4 nguồn cảnh báo vào:**\n1. `ddos-alert` — Dashboard/ML DDoS detector\n2. `phishing-alert` — Dashboard/Engine Phishing detector\n3. `wazuh-critical-alert` — Wazuh alert dạng rút gọn (custom integration)\n4. `wazuh-alerts-v2` — Wazuh alert RAW đầy đủ (Sysmon/Windows EventData, Syscheck, VirusTotal...)\n\n**Pipeline:** Normalize → TheHive Create Alert → MISP Enrich → Quyết định (Rule-based hoặc AI Ollama Zero-Trust) → Wazuh Active Response (block/kill) → Telegram + TheHive Update Alert + SSH Audit Log",
-        "height": 460,
-        "width": 480,
-        "color": 4
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -416,
-        -784
-      ],
-      "id": "e2470a11-59e1-4f21-b74c-a6d90340c6b5",
-      "name": "Sticky - Overview1"
-    },
-    {
-      "parameters": {
-        "content": "## ⚙️ CẦN CẤU HÌNH TRƯỚC KHI CHẠY\n\n1. **Credential `TheHive account`** (theHiveApi) → URL + API key TheHive\n2. **Credential `MISP account`** (mispApi) → URL + API key MISP\n3. **Credential `wazuh`** (httpBasicAuth) → user/pass Wazuh API\n4. **Credential `Wazuh SSH`** (sshPassword) → SSH vào Wazuh Manager (ghi log audit)\n5. **Credential `Telegram account`** (telegramApi) → Bot token, đổi `chatId` cho đúng nhóm SOC\n6. Sửa URL trong `Wazuh_Get_Token`, `Wazuh_Get_Token1`, `Wazuh_Execute_Block`, `Wazuh_Execute_Kill` (đang để placeholder ngrok/IP)\n7. Sửa URL Ollama trong node `Ollama` (đang để `192.168.1.12:11434`)\n8. Active Response script trên Wazuh Manager cần khai báo: `firewall-drop600` và `kill-process600` trong `ossec.conf`\n9. ⚠️ Kiểm tra giá trị `status` hợp lệ cho Alert theo phiên bản TheHive bạn dùng (v4: New/Updated/Ignored/Imported — v5 có thể khác)",
-        "height": 460,
-        "width": 480,
-        "color": 5
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        256,
-        -768
-      ],
-      "id": "1aebda6d-7f80-4597-b688-8e5b71a77ca4",
-      "name": "Sticky - Setup Checklist1"
-    },
-    {
-      "parameters": {
         "httpMethod": "POST",
         "path": "ddos-alert",
         "options": {}
@@ -369,7 +337,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst prep = $('Data_Parser_&_AI_Prep1').item.json;\n\n// --- Bắt lỗi kết nối Ollama ---\nconst errorData = $json.error;\nif (errorData) {\n  let reason = errorData.message || 'Không xác định';\n  if (errorData.code === 'ECONNREFUSED') reason = 'Ollama chưa bật hoặc sai port.';\n  if (errorData.code === 'ETIMEDOUT') reason = 'Ollama quá tải, không trả lời kịp.';\n  if (errorData.code === 'ENOTFOUND') reason = 'Không tìm thấy địa chỉ IP của Ollama.';\n  return [{ json: {\n    action: 'log_only', reason: '⚠️ Lỗi kết nối AI: ' + reason,\n    ai_used: true, ai_verdict: 'unknown', ai_confidence: 0,\n    src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n    alert_id: prep.alert_id, timestamp: prep.timestamp, description: prep.description, severity: prep.severity\n  } }];\n}\n\nlet rawOutput = ($json.response ?? '').toString();\nrawOutput = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();\n\nlet parsed;\nif (!rawOutput) {\n  parsed = { verdict: 'false_positive', action: 'none', reason: 'Ollama không trả về dữ liệu.', confidence: 0 };\n} else {\n  try { parsed = JSON.parse(rawOutput); }\n  catch (e) { parsed = { verdict: 'false_positive', action: 'none', reason: 'AI trả lời sai định dạng JSON: ' + e.message, confidence: 0 }; }\n}\n\nconst action = (parsed.action ?? 'none') === 'none' ? 'log_only' : parsed.action;\n\nreturn [{ json: {\n  action, reason: parsed.reason ?? 'N/A',\n  ai_used: true, ai_verdict: parsed.verdict ?? 'false_positive', ai_confidence: parsed.confidence ?? 0,\n  src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n  alert_id: prep.alert_id, timestamp: prep.timestamp, description: prep.description, severity: prep.severity\n} }];\n"
+        "jsCode": "const prep = $('Data_Parser_&_AI_Prep1').item.json;\n\n// --- Bắt lỗi kết nối Ollama ---\nconst errorData = $json.error;\nif (errorData) {\n  let reason = errorData.message || 'Không xác định';\n  if (errorData.code === 'ECONNREFUSED') reason = 'Ollama chưa bật hoặc sai port.';\n  if (errorData.code === 'ETIMEDOUT') reason = 'Ollama quá tải, không trả lời kịp.';\n  if (errorData.code === 'ENOTFOUND') reason = 'Không tìm thấy địa chỉ IP của Ollama.';\n  return [{ json: {\n    action: 'log_only', reason: '⚠️ Lỗi kết nối AI: ' + reason,\n    ai_used: true, ai_verdict: 'unknown', ai_confidence: 0,\n    src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n    alert_id: prep.alert_id, timestamp: prep.timestamp, description: prep.description, severity: prep.severity\n  } }];\n}\n\nlet rawOutput = ($json.response ?? '').toString();\nrawOutput = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();\n\nlet parsed;\nif (!rawOutput) {\n  parsed = { verdict: 'false_positive', action: 'none', reason: 'Ollama không trả về dữ liệu.', confidence: 0 };\n} else {\n  try { parsed = JSON.parse(rawOutput); }\n  catch (e) { parsed = { verdict: 'false_positive', action: 'none', reason: 'AI trả lời sai định dạng JSON: ' + e.message, confidence: 0 }; }\n}\n\nconst action = (parsed.action ?? 'none') === 'none' ? 'log_only' : parsed.action;\n\n// Làm sạch chuỗi reason, loại bỏ các ký tự dấu huyền hoặc ký tự đặc biệt Markdown gây lỗi Telegram (Bad Request 400)\nlet cleanReason = parsed.reason ?? 'N/A';\nif (cleanReason) {\n  cleanReason = cleanReason.replace(/[`_*[\\]()~>#+=|{}.!-]/g, ' ');\n}\n\nreturn [{ json: {\n  action, \n  reason: cleanReason,\n  ai_used: true, \n  ai_verdict: parsed.verdict ?? 'false_positive', \n  ai_confidence: parsed.confidence ?? 0,\n  src_ip: prep.src_ip, \n  agent_id: prep.agent_id, \n  process_id: prep.process_id,\n  alert_id: prep.alert_id, \n  timestamp: prep.timestamp, \n  description: prep.description, \n  severity: prep.severity\n} }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -589,8 +557,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        4048,
-        608
+        4080,
+        640
       ],
       "id": "34b4a1cf-c865-4237-8641-328b6cd6d31b",
       "name": "Update Alert - Kill1",
@@ -1267,10 +1235,23 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://host.docker.internal:8080/api/v1/agents/kill-process",
+        "url": "=http://host.docker.internal:8080/api/v1/agents/{{ $('Action Switch1').item.json.agent_id }}/response/kill-process",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Save Token (DDoS)').item?.json?._jwt_token || $('Save JWT Token1').item?.json?._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  JSON.stringify({\n    agent_id: $('Action Switch1').item.json.agent_id,\n    process_id: $('Action Switch1').item.json.process_id,\n    reason: $('Action Switch1').item.json.reason,\n    triggered_by: $('Action Switch1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based'\n  })\n}}",
+        "jsonBody": "={{ JSON.stringify({ pid: Number($('Action Switch1').item.json.process_id) }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -1280,7 +1261,8 @@
         608
       ],
       "id": "fac9d6f7-4ee4-4e23-865e-e8f4fd81321c",
-      "name": "SOC App - Kill Process API"
+      "name": "SOC App - Kill Process API",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -2292,7 +2274,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "01e34b52-d5a1-4d59-ae14-c7d4bcfc7a14",
+  "versionId": "c961eb8a-7b18-4786-a0fb-a5693265174a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "88b3b600d62a38b9608292b540d8c9071a2a33ce6c9e93fd11131e23c9f0be82"

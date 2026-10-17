@@ -37,10 +37,11 @@ class SOARService:
         event_type = (alert.event_type or "").lower()
         if event_type in [
             "ddos_detected", "phishing_detected", "brute_force",
-            "brute_force_detected", "file_integrity", "fim", "fim_detected"
+            "brute_force_detected", "file_integrity", "fim", "fim_detected",
+            "sysmon_process_create", "suspicious_process", "wazuh_alert"
         ]:
             return True
-        return (alert.severity or "").lower() == "critical"
+        return (alert.severity or "").lower() in ["critical", "high"]
 
     def get_webhook_url(self, alert: Alert) -> str:
         """Chọn đúng webhook URL theo event_type"""
@@ -49,9 +50,14 @@ class SOARService:
             return settings.n8n_webhook_url_ddos
         if event_type == "phishing_detected" and settings.n8n_webhook_url_phishing:
             return settings.n8n_webhook_url_phishing
-        if event_type in ["file_integrity", "fim", "fim_detected", "brute_force", "brute_force_detected", "wazuh_alert"]:
+        if event_type in [
+            "file_integrity", "fim", "fim_detected", "brute_force",
+            "brute_force_detected", "wazuh_alert", "sysmon_process_create", "suspicious_process"
+        ]:
             if settings.n8n_webhook_url_wazuh:
                 return settings.n8n_webhook_url_wazuh
+            if settings.n8n_webhook_url_ddos:
+                return settings.n8n_webhook_url_ddos
         return settings.n8n_webhook_url
 
     def dispatch_to_n8n(self, alert: Alert):
@@ -73,6 +79,22 @@ class SOARService:
             "raw_payload": alert.raw_payload or "{}",
             "timestamp": alert.created_at.isoformat() if alert.created_at else datetime.utcnow().isoformat(),
         }
+
+        # Trích xuất thêm các trường chi tiết từ raw_payload (PID, command_line, IP...) để n8n dùng ngay
+        if alert.raw_payload:
+            try:
+                import json
+                raw_dict = json.loads(alert.raw_payload) if isinstance(alert.raw_payload, str) else alert.raw_payload
+                if isinstance(raw_dict, dict):
+                    pid = raw_dict.get("pid") or raw_dict.get("process_id")
+                    if pid:
+                        payload["process_id"] = str(pid)
+                    if cmdline := raw_dict.get("command_line"):
+                        payload["command_line"] = str(cmdline)
+                    if src_ip := (raw_dict.get("src_ip") or raw_dict.get("ip_address")):
+                        payload["src_ip"] = str(src_ip)
+            except Exception:
+                pass
 
         asyncio.create_task(self._send_webhook_with_retry(webhook_url, payload, alert.id, alert.event_type, alert.agent_id))
 

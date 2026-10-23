@@ -61,7 +61,7 @@ func (s *GRPCStreamer) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("[STREAMER] 🛑 gRPC Streamer đã kết thúc.")
+			log.Println("[STREAMER]  gRPC Streamer đã kết thúc.")
 			return
 		default:
 		}

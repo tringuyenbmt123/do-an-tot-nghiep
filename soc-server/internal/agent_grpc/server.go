@@ -31,9 +31,9 @@ import (
 
 // GRPCServer - Wrapper xung quanh grpc.Server
 type GRPCServer struct {
-	server   *grpc.Server    // gRPC server instance
-	listener net.Listener    // TCP listener
-	port     int             // Port lắng nghe
+	server   *grpc.Server // gRPC server instance
+	listener net.Listener // TCP listener
+	port     int          // Port lắng nghe
 }
 
 // NewGRPCServer - Khởi tạo gRPC Server với mTLS authentication
@@ -94,7 +94,7 @@ func (s *GRPCServer) Start() error {
 // GracefulStop - Dừng server an toàn
 // Chờ các request đang xử lý hoàn thành trước khi tắt
 func (s *GRPCServer) GracefulStop() {
-	log.Println("[gRPC SERVER] 🛑 Đang graceful shutdown gRPC Server...")
+	log.Println("[gRPC SERVER]  Đang graceful shutdown gRPC Server...")
 	s.server.GracefulStop()
 }
 

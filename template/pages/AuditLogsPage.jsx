@@ -27,7 +27,7 @@ const SourceBadge = ({ source }) => {
     AI: { color: '#06b6d4', bg: 'rgba(6,182,212,0.08)', border: 'rgba(6,182,212,0.2)', label: '🤖 AI' },
     'Human-HITL': { color: '#ff9900', bg: 'rgba(255,153,0,0.08)', border: 'rgba(255,153,0,0.2)', label: '👤 HITL' },
     Manual: { color: '#a855f7', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.2)', label: '🖱 Manual' },
-    SOAR: { color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', label: '🔄 SOAR' },
+    SOAR: { color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', label: ' SOAR' },
   };
   const cfg = map[source] || { color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.2)', label: source };
   return (

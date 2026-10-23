@@ -30,10 +30,10 @@ import (
 // RuleEngine - Bộ máy phát hiện mối đe dọa
 // Thread-safe: sử dụng RWMutex vì thao tác đọc (evaluate) nhiều hơn ghi (reload)
 type RuleEngine struct {
-	mu       sync.RWMutex   // Mutex bảo vệ rules slice
-	rules    []LoadedRule    // Danh sách rules đang active trong memory
-	db       *gorm.DB       // Database connection (cho reload từ DB)
-	yamlDir  string         // Đường dẫn thư mục YAML rules
+	mu         sync.RWMutex // Mutex bảo vệ rules slice
+	rules      []LoadedRule // Danh sách rules đang active trong memory
+	db         *gorm.DB     // Database connection (cho reload từ DB)
+	yamlDir    string       // Đường dẫn thư mục YAML rules
 	loadFromDB bool         // Có tải rules từ DB không
 }
 
@@ -78,7 +78,7 @@ func (e *RuleEngine) LoadAllRules() error {
 // ReloadRules - Hot-reload rules mà không cần restart server
 // Gọi hàm này khi Admin thêm/sửa/xóa Rule qua API
 func (e *RuleEngine) ReloadRules() error {
-	log.Println("[RULE ENGINE] 🔄 Đang hot-reload rules...")
+	log.Println("[RULE ENGINE]  Đang hot-reload rules...")
 	return e.LoadAllRules()
 }
 
@@ -110,6 +110,7 @@ func (e *RuleEngine) GetRuleCount() int {
 // Trả về:
 //   - []*models.Alert: Danh sách tất cả Alert objects được tạo từ các rule match
 //   - bool: true nếu có ít nhất 1 Rule match, false nếu không có
+//
 // ==============================================================================
 func (e *RuleEngine) EvaluateLog(rawLog map[string]interface{}, agentID string) ([]*models.Alert, bool) {
 	e.mu.RLock()
@@ -320,11 +321,11 @@ func getStringField(data map[string]interface{}, field string) (string, bool) {
 // Nếu không map được, trả về event_type gốc
 func mapSeverityToEventType(eventType string) string {
 	mapping := map[string]string{
-		"sysmon_process_create":   "suspicious_process",
-		"sysmon_network_connect":  "network_anomaly",
-		"sysmon_file_create":      "file_integrity",
-		"ddos_event":              "ddos_detected",
-		"phishing_event":          "phishing_detected",
+		"sysmon_process_create":  "suspicious_process",
+		"sysmon_network_connect": "network_anomaly",
+		"sysmon_file_create":     "file_integrity",
+		"ddos_event":             "ddos_detected",
+		"phishing_event":         "phishing_detected",
 	}
 
 	if mapped, ok := mapping[eventType]; ok {

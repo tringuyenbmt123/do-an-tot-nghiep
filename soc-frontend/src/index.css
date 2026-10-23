@@ -11,6 +11,10 @@
    ============================================================ */
 :root,
 [data-theme="dark"] {
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', Consolas, Menlo, monospace;
+  --mono: var(--font-mono);
+
   --bg:       #0d1117;
   --panel:    #161b22;
   --panel2:   #21262d;
@@ -87,8 +91,8 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
-  font-size: 16px;
+  font-family: var(--font-sans);
+  font-size: 14px;
   line-height: 1.55;
   background: var(--bg);
   color: var(--text);
@@ -99,8 +103,13 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-button { font-family: inherit; cursor: pointer; border: none; background: none; }
-input, select, textarea { font-family: inherit; }
+button, input, select, textarea {
+  font-family: var(--font-sans);
+}
+
+code, kbd, samp, pre, .mono, td.m, .wql, .cond {
+  font-family: var(--font-mono);
+}
 
 img, svg { display: block; }
 
@@ -259,7 +268,7 @@ img, svg { display: block; }
 /* ============================================================
    MAIN CONTENT
    ============================================================ */
-main {
+.shell > main {
   grid-column: 2;
   overflow-y: auto;
   padding: 24px;

@@ -159,7 +159,7 @@
     {
       "parameters": {
         "chatId": "5407528909",
-        "text": "=✅ IP UNBLOCKED\n🟢 IP: {{ $json.src_ip }}\n🕐 Time: {{ $json.timestamp }}\nℹ️ Firewall rule đã được gỡ bỏ tự động sau thời gian timeout",
+        "text": "=✅ IP UNBLOCKED\n🟢 IP: {{ $json.src_ip }}\n🕐 Time: {{ $json.timestamp }}\n Firewall rule đã được gỡ bỏ tự động sau thời gian timeout",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
@@ -704,7 +704,7 @@
       "parameters": {
         "operation": "sendAndWait",
         "chatId": "5407528909",
-        "message": "=🚨 YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\n Hành động: {{ $json.action }}\n\n Thông tin cảnh báo:\n- Event: {{ $json.description }}\n- Severity: {{ $json.severity }}\n- Time: {{ $json.timestamp }}\n\n• URL: {{ $json.url || 'N/A' }}\n• Domain: {{ $json.domain || 'N/A' }}\n• IP nhân viên: {{ $json.employee_ip || $json.src_ip || 'N/A' }}\n\n\n Confidence: {{ $json.ai_confidence }}\n\n Lý do: {{ $json.reason }}\n\n⚠️ Hành động sẽ được thực hiện sau khi phê duyệt.",
+        "message": "= YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\n Hành động: {{ $json.action }}\n\n Thông tin cảnh báo:\n- Event: {{ $json.description }}\n- Severity: {{ $json.severity }}\n- Time: {{ $json.timestamp }}\n\n• URL: {{ $json.url || 'N/A' }}\n• Domain: {{ $json.domain || 'N/A' }}\n• IP nhân viên: {{ $json.employee_ip || $json.src_ip || 'N/A' }}\n\n\n Confidence: {{ $json.ai_confidence }}\n\n Lý do: {{ $json.reason }}\n\n⚠️ Hành động sẽ được thực hiện sau khi phê duyệt.",
         "approvalOptions": {
           "values": {
             "approvalType": "double"

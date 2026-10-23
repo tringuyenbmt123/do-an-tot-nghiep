@@ -73,7 +73,7 @@ async def seed_cases_data():
             await session.commit()
             logger.info(f"[SEED] ✅ Đã bổ sung thành công {len(REAL_CASES)} Incident Cases mẫu vào Database!")
         else:
-            logger.info("[SEED] ℹ️ Đã có dữ liệu Cases trong Database.")
+            logger.info("[SEED]  Đã có dữ liệu Cases trong Database.")
 
 if __name__ == "__main__":
     asyncio.run(seed_cases_data())

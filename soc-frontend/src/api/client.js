@@ -8,7 +8,10 @@ const BASE_URL = import.meta.env.VITE_API_URL || ''
 const client = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+  },
 })
 
 // Token store with localStorage/sessionStorage persistence

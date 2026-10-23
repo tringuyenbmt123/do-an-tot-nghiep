@@ -9,7 +9,7 @@ import Topbar from './Topbar'
 import { useWebSocketContext } from '../../contexts/WebSocketContext'
 import { useToast } from '../../contexts/ToastContext'
 
-export default function Layout({ children, title = 'SOC Console' }) {
+export default function Layout({ children, title = 'SOC Console', noPadding = false, style = {} }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [alertBadge, setAlertBadge] = useState(0)
   const toast = useToast()
@@ -65,11 +65,15 @@ export default function Layout({ children, title = 'SOC Console' }) {
   const toggleSidebar = useCallback(() => setSidebarOpen(v => !v), [])
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
 
+  const mainStyle = noPadding
+    ? { padding: 0, overflow: 'hidden', ...style }
+    : style
+
   return (
     <div className="shell">
       <Sidebar open={sidebarOpen} alertCount={alertBadge} onClose={closeSidebar} />
       <Topbar title={title} onMenuToggle={toggleSidebar} wsStatus={wsStatus} />
-      <main>
+      <main style={mainStyle}>
         {children}
       </main>
     </div>

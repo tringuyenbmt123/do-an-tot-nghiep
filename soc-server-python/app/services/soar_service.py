@@ -129,7 +129,7 @@ class SOARService:
                     backoff = min(2 ** i, 30)
                     await asyncio.sleep(backoff)
 
-        logger.error(f"[SOAR] ❌ Đã thử {max_retries} lần nhưng không thể dispatch Alert '{alert_id}' sang n8n")
+        logger.error(f"[SOAR]  Đã thử {max_retries} lần nhưng không thể dispatch Alert '{alert_id}' sang n8n")
 
     async def handle_callback(self, payload: Dict[str, Any]) -> Tuple[str, str]:
         """
@@ -145,18 +145,16 @@ class SOARService:
 
         logger.info(f"[SOAR] 📥 Nhận Callback từ n8n cho Alert '{alert_id}'. Action: {action}")
 
-        # Lấy AgentID từ alert
-        agent_id = ""
-        stmt = select(Alert.agent_id).where(Alert.id == alert_id)
-        res = await self.db.execute(stmt)
-        row = res.first()
-        if row:
-            agent_id = row[0]
+        # Lấy thông tin Alert
+        stmt_alert = select(Alert).where(Alert.id == alert_id)
+        res_alert = await self.db.execute(stmt_alert)
+        alert_obj = res_alert.scalar_one_or_none()
+        agent_id = alert_obj.agent_id if alert_obj else ""
 
         # 1. Tự động tạo Case nếu n8n quyết định đây là sự cố thực sự
         case_id = ""
         if action != "ignore":
-            title = f"SOAR Escalated Alert: {alert_id}"
+            title = (alert_obj.title if alert_obj and alert_obj.title else "") or f"SOAR Escalated Alert: {alert_id}"
             desc = (
                 f"## AI Analysis Reason\n{ai_reason}\n\n"
                 f"**Confidence**: {confidence:.2f}\n"
@@ -167,7 +165,7 @@ class SOARService:
                     alert_id=alert_id,
                     title=title,
                     description=desc,
-                    assigned_to="soar_automation",
+                    assigned_to=None,
                 )
                 case_id = new_case.id
 

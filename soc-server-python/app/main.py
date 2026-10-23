@@ -113,7 +113,7 @@ async def alert_cleanup_loop():
                 alert_service = AlertService(session)
                 await alert_service.run_cleanup(retention_days)
         except Exception as e:
-            logger.error(f"[CLEANUP JOB] ❌ Lỗi dọn dẹp alert: {e}")
+            logger.error(f"[CLEANUP JOB]  Lỗi dọn dẹp alert: {e}")
         await asyncio.sleep(24 * 3600)
 
 
@@ -140,9 +140,9 @@ async def agent_healthcheck_loop():
 
                 if has_update:
                     await session.commit()
-                    logger.info("[AGENT HEALTHCHECK] 🔄 Đã cập nhật agent mất kết nối về offline")
+                    logger.info("[AGENT HEALTHCHECK]  Đã cập nhật agent mất kết nối về offline")
         except Exception as e:
-            logger.error(f"[AGENT HEALTHCHECK] ❌ Lỗi kiểm tra trạng thái agent: {e}")
+            logger.error(f"[AGENT HEALTHCHECK]  Lỗi kiểm tra trạng thái agent: {e}")
         await asyncio.sleep(30)
 
 
@@ -179,7 +179,7 @@ async def lifespan(app: FastAPI):
                     if soar.should_dispatch_to_n8n(tmp_alert):
                         soar.dispatch_to_n8n(tmp_alert)
         except Exception as e:
-            logger.error(f"[ALERT CALLBACK] ❌ Lỗi xử lý alert mới: {e}")
+            logger.error(f"[ALERT CALLBACK]  Lỗi xử lý alert mới: {e}")
 
     # 4. Khởi động gRPC Agent Server trên port 50051 (giữ nguyên port Go)
     grpc_server = await start_grpc_server(
@@ -198,9 +198,9 @@ async def lifespan(app: FastAPI):
     # Graceful shutdown
     cleanup_task.cancel()
     healthcheck_task.cancel()
-    logger.info("[gRPC SERVER] 🛑 Đang graceful shutdown gRPC Server...")
+    logger.info("[gRPC SERVER]  Đang graceful shutdown gRPC Server...")
     await grpc_server.stop(grace=5)
-    logger.info("🛑 SOC Server Python đã dừng.")
+    logger.info(" SOC Server Python đã dừng.")
 
 
 # Tạo FastAPI Application

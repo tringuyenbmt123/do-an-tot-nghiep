@@ -168,10 +168,16 @@ func (s *CaseService) CreateManualCase(title, description string, assignedTo str
 
 // AssignCase - Gán Case cho Analyst
 func (s *CaseService) AssignCase(id string, assignedTo string, actor string) error {
-	result := s.db.Model(&models.Case{}).Where("id = ?", id).Update("assigned_to", assignedTo)
-	if result.RowsAffected == 0 {
+	var c models.Case
+	if err := s.db.First(&c, "id = ?", id).Error; err != nil {
 		return fmt.Errorf("không tìm thấy Case '%s'", id)
 	}
+
+	updates := map[string]interface{}{"assigned_to": assignedTo}
+	if c.Status != models.CaseStatusClosed {
+		updates["status"] = models.CaseStatusInProgress
+	}
+	result := s.db.Model(&models.Case{}).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}

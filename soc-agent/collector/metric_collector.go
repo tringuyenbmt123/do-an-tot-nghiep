@@ -26,15 +26,15 @@ import (
 
 // SystemMetricSnapshot - Struct chứa snapshot toàn diện về tình trạng máy
 type SystemMetricSnapshot struct {
-	CPUUsagePercent    float64           `json:"cpu_usage_percent"`
-	MemoryUsagePercent float64           `json:"memory_usage_percent"`
-	MemoryUsedMB       uint64            `json:"memory_used_mb"`
-	MemoryTotalMB      uint64            `json:"memory_total_mb"`
-	BytesSent          uint64            `json:"bytes_sent"`
-	BytesRecv          uint64            `json:"bytes_recv"`
-	ActiveConnCount    int               `json:"active_connections_count"`
-	TopProcesses       []ProcessSummary  `json:"top_processes,omitempty"`
-	Timestamp          int64             `json:"timestamp"`
+	CPUUsagePercent    float64          `json:"cpu_usage_percent"`
+	MemoryUsagePercent float64          `json:"memory_usage_percent"`
+	MemoryUsedMB       uint64           `json:"memory_used_mb"`
+	MemoryTotalMB      uint64           `json:"memory_total_mb"`
+	BytesSent          uint64           `json:"bytes_sent"`
+	BytesRecv          uint64           `json:"bytes_recv"`
+	ActiveConnCount    int              `json:"active_connections_count"`
+	TopProcesses       []ProcessSummary `json:"top_processes,omitempty"`
+	Timestamp          int64            `json:"timestamp"`
 }
 
 // ProcessSummary - Tóm tắt thông tin các tiến trình tiêu biểu
@@ -47,10 +47,10 @@ type ProcessSummary struct {
 
 // MetricCollector - Bộ thu thập metric định kỳ
 type MetricCollector struct {
-	cfg        *config.AgentConfig
-	eventChan  chan<- *pb.EventRequest
-	lastNetIO  *netUtil.IOCountersStat
-	mu         sync.Mutex
+	cfg       *config.AgentConfig
+	eventChan chan<- *pb.EventRequest
+	lastNetIO *netUtil.IOCountersStat
+	mu        sync.Mutex
 }
 
 // NewMetricCollector - Khởi tạo collector
@@ -69,7 +69,7 @@ func (c *MetricCollector) Start(ctx context.Context) {
 		interval := c.cfg.GetMetricInterval()
 		select {
 		case <-ctx.Done():
-			log.Println("[COLLECTOR] 🛑 Metric Collector đã dừng an toàn.")
+			log.Println("[COLLECTOR]  Metric Collector đã dừng an toàn.")
 			return
 		case <-time.After(interval):
 			c.collectAndSend()

@@ -1,0 +1,2259 @@
+{
+  "name": "SOC SOAR Unified Platform v9 (DDoS + Phishing + Wazuh + TheHive + MISP + AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ddos-alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        368,
+        464
+      ],
+      "id": "3694c9f0-816c-4bd0-b3f8-ba62a2b7cfa5",
+      "name": "DDoS Alert Webhook1",
+      "webhookId": "529d9d3c-4cb7-4804-9ba1-0230ae8ad25c"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "phishing-alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        432,
+        128
+      ],
+      "id": "9f760489-e468-4cd7-b50c-e1fa73a56f3d",
+      "name": "Phishing Alert Webhook1",
+      "webhookId": "8232d585-87bf-4c13-aa62-2bd019605ac6"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 4,
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        656,
+        528
+      ],
+      "id": "4937cc4c-0886-4b72-bb82-92e4b3a6fc2c",
+      "name": "Merge Webhooks1"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst body = $json.body || $json;\n\nfunction pick(...vals){\n  for (const v of vals){ if (v !== undefined && v !== null && v !== '') return v; }\n  return null;\n}\n\n// Một số nguồn Wazuh bọc dữ liệu gốc trong \"all_fields\"\nconst af = body.all_fields || body;\n\nconst rule  = af.rule  || {};\nconst agent = af.agent || {};\nconst data  = af.data  || {};\nconst syscheck = af.syscheck || data.syscheck || {};\nconst vt = data.virustotal || af.virustotal || {};\nconst win = data.win?.eventdata || {};\nconst sysmon = data.sysmon?.eventdata || {};\n\n// ---- event_type ----\nlet event_type = body.event_type\n  ?? (rule.id !== undefined || rule.level !== undefined ? 'wazuh_alert' : null)\n  ?? 'unknown';\n\n// ---- severity (text + numeric cho TheHive 1-4) ----\nconst ruleLevel = rule.level;\nlet severity = body.severity ?? body.risk_level\n  ?? (ruleLevel >= 12 ? 'critical' : ruleLevel >= 10 ? 'high' : ruleLevel >= 7 ? 'medium' : ruleLevel !== undefined ? 'low' : 'medium');\n\nlet severity_num = ruleLevel !== undefined\n  ? (ruleLevel >= 14 ? 4 : ruleLevel >= 10 ? 3 : ruleLevel >= 6 ? 2 : 1)\n  : (severity === 'critical' ? 4 : severity === 'high' ? 3 : severity === 'low' ? 1 : 2);\n\n// ---- src_ip: thử mọi nguồn khả dĩ (dashboard, wazuh rút gọn, wazuh raw EDR) ----\nconst src_ip = pick(\n  body.src_ip, body.target,\n  data.srcip, win.ipAddress, win.sourceIp, sysmon.sourceIp,\n  agent.ip, 'N/A'\n);\n\n// ---- process / endpoint info (chỉ có ở Wazuh raw EDR) ----\nconst process_id = pick(win.processId, sysmon.processId, data.process?.pid, body.process_id, null);\nconst command_line = pick(win.commandLine, sysmon.commandLine, data.object?.process?.cmdline, null);\nconst file_hash = pick(syscheck.sha256_after, syscheck.sha256, vt.source?.sha256, vt.sha256, null);\n\n// ---- MITRE ATT&CK ----\nconst mitre = rule.mitre || {};\nconst mitre_tactic = Array.isArray(mitre.tactic) ? mitre.tactic.join(', ') : (mitre.tactic || 'N/A');\nconst mitre_id = Array.isArray(mitre.id) ? mitre.id.join(', ') : (mitre.id || 'N/A');\n\nconst description = pick(body.attack_type, body.detection_type, body.verdict, rule.description, body.title, 'N/A');\nconst timestamp = body.timestamp ?? $now.toISO();\nconst reported_by = body.reported_by ?? 'system';\nconst wazuh_host = body.infrastructure?.wazuh_host ?? 'wazuh-server';\nconst agent_id = pick(agent.id, body.agent_id, '001');\nconst agent_name = agent.name ?? 'N/A';\nconst rule_groups = Array.isArray(rule.groups) ? rule.groups : [];\nconst confidence = body.confidence ?? 'N/A';\n\n// ---- Markdown: PARSED EVENT FIELDS (flatten đệ quy, lọc field rác) ----\nfunction flattenToMd(obj) {\n  const blacklist = ['providerName','providerGuid','version','task','opcode','keywords',\n    'eventRecordID','threadID','channel','severityValue','message','level','eventID','systemTime','computer'];\n  let result = ''; let count = 0; const MAX = 40;\n  function sanitize(v){ return String(v).replace(/`/g, \"'\").replace(/\\n/g, ' ').replace(/\\r/g, ' '); }\n  function walk(o){\n    for (const k in o){\n      if (count >= MAX) return;\n      if (blacklist.includes(k)) continue;\n      const v = o[k];\n      if (typeof v === 'object' && v !== null && !Array.isArray(v)) { walk(v); }\n      else if (v !== '' && v !== null && v !== undefined) {\n        result += '* **' + k + ':** `' + sanitize(v) + '`\\n';\n        count++;\n      }\n    }\n  }\n  walk(obj || {});\n  return result || '*(Không có dữ liệu chi tiết)*';\n}\n\nconst eventDataForFlatten = (data && Object.keys(data).length) ? data\n  : (syscheck && Object.keys(syscheck).length) ? syscheck\n  : (af.parameters || {});\nconst parsed_fields_md = flattenToMd(eventDataForFlatten);\nconst raw_json_md = JSON.stringify((af && Object.keys(af).length) ? af : body, null, 2);\n\nreturn [{ json: {\n  event_type, severity, severity_num, src_ip, confidence, description, timestamp,\n  reported_by, wazuh_host, agent_id, agent_name, process_id, command_line, file_hash,\n  rule_id: rule.id ?? 'N/A', rule_level: ruleLevel ?? 'N/A', rule_groups, mitre_tactic, mitre_id,\n  parsed_fields_md, raw_json_md, _raw_body: JSON.stringify(body)\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        560
+      ],
+      "id": "83472029-fc99-4cd3-9833-c4af6c382c18",
+      "name": "Normalize Payload1",
+      "notes": "Chuẩn hóa payload từ 4 nguồn khác nhau (DDoS/Phishing dashboard, Wazuh rút gọn, Wazuh RAW EDR) về 1 schema chung. Trích sâu Sysmon/Windows EventData, hash, command line, MITRE ATT&CK khi có."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "ddos_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ddos-rule-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DDoS Detected"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "phishing_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "phish-rule-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Phishing Detected"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "ip_unblocked",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "unblock-rule-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "IP Unblocked"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2384,
+        544
+      ],
+      "id": "adc584ae-df9f-4e32-87f7-e4d0204028a5",
+      "name": "Route by Event Type1"
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=✅ IP UNBLOCKED\n🟢 IP: {{ $json.src_ip }}\n🕐 Time: {{ $json.timestamp }}\n Firewall rule đã được gỡ bỏ tự động sau thời gian timeout",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3360,
+        1056
+      ],
+      "id": "a8a38120-9e6b-4595-a54f-9ae84404ed19",
+      "name": "Send Unblock Notification1",
+      "webhookId": "4409ac52-ead2-4494-9311-90597f3327f3",
+      "credentials": {
+        "telegramApi": {
+          "id": "HA7ccccquKHkvsZf",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/alerts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    agent_id: $json.agent_id,\n    rule_id: $json.rule_id !== 'N/A' ? $json.rule_id : '',\n    event_type: $json.event_type,\n    severity: $json.severity,\n    raw_payload: {\n      src_ip: $json.src_ip,\n      agent_name: $json.agent_name,\n      command_line: $json.command_line,\n      file_hash: $json.file_hash,\n      parsed_fields_md: $json.parsed_fields_md,\n      original: $json._raw_body\n    },\n    title: '[' + $json.event_type.toUpperCase() + '] ' + $json.description,\n    description: $json.description,\n    mitre_tactic: $json.mitre_tactic,\n    mitre_technique_id: $json.mitre_id\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2656,
+        608
+      ],
+      "id": "d7527301-aaed-436f-a263-4fec82137a8e",
+      "name": "Create Alert1",
+      "notes": "Tạo Alert trong TheHive 5 qua HTTP API v1 trực tiếp (thay theHive node không tương thích)"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Normalize Payload1').item.json.event_type }}",
+                    "rightValue": "ddos_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "strat-ddos-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rule-based Block"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Normalize Payload1').item.json.event_type }}",
+                    "rightValue": "phishing_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "strat-phish-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rule-based Log Only"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2848,
+        592
+      ],
+      "id": "64d9ce35-bef2-4dcf-991d-ba8a21ebb06c",
+      "name": "Route to Action Strategy1"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? $('Create Alert1').item.json.id ?? null;\nreturn [{ json: {\n  action: 'block_ip',\n  reason: 'DDoS được mô hình AI nội bộ  xác nhận với độ tin cậy cao - phản ứng tức thời, không cần AI tái phân tích.',\n  ai_used: false, ai_verdict: null, ai_confidence: norm.confidence,\n  src_ip: norm.src_ip, agent_id: norm.agent_id, process_id: norm.process_id,\n  alert_id: alertId, timestamp: norm.timestamp, description: norm.description, severity: norm.severity\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        432
+      ],
+      "id": "54084612-8127-4df9-9c80-f37c010c5800",
+      "name": "Set Action - Block (Rule-based)1"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? $('Create Alert1').item.json.id ?? null;\nreturn [{ json: {\n  action: 'log_only',\n  reason: 'Phishing được ghi nhận theo chính sách hiện tại (không tự động chặn, chờ chuyên gia SOC xác minh).',\n  ai_used: false, ai_verdict: null, ai_confidence: norm.confidence,\n  src_ip: norm.src_ip, agent_id: norm.agent_id, process_id: norm.process_id,\n  alert_id: alertId, timestamp: norm.timestamp, description: norm.description, severity: norm.severity\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        608
+      ],
+      "id": "72aa5a8a-3916-44aa-a681-12c0390de580",
+      "name": "Set Action - Log Only (Rule-based)1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? null;\n\n// Thu thập toàn bộ kết quả phân tích Threat Intel từ SOC Server nội bộ\nconst items = $input.all().map(i => i.json);\n\nconst prompt =\n  \"Bạn là chuyên gia phân tích an toàn thông tin Tier 1/2 (SOC Analyst).\\n\" +\n  \"Dựa trên cảnh báo đã chuẩn hóa và dữ liệu Threat Intelligence từ SOC Server nội bộ dưới đây, hãy:\\n\" +\n  \"1) Phân loại True Positive hay False Positive.\\n\" +\n  \"2) Nếu True Positive, đề xuất đúng MỘT hành động theo nguyên tắc Zero-Trust:\\n\" +\n  \"   - \\\"block_ip\\\": tấn công mạng rõ ràng được xác nhận qua network/threat intel (DDoS, Brute-force, Botnet, Scanner).\\n\" +\n  \"   - \\\"kill_process\\\": phát hiện mã độc/tiến trình độc hại đang thực thi trên endpoint (Malware, LOLBins, Ransomware).\\n\" +\n  \"   - \\\"none\\\": lưu lượng/tiến trình hợp lệ hoặc nghi ngờ dương tính giả.\\n\" +\n  \"Chỉ trả lời bằng JSON thuần (không markdown, không giải thích thêm).\\n\" +\n  \"QUAN TRỌNG: giữ nguyên các key (verdict, action, reason, confidence) và các giá trị enum (true_positive/false_positive, block_ip/kill_process/none) bằng tiếng Anh như mẫu bên dưới, NHƯNG riêng nội dung field \\\"reason\\\" BẮT BUỘC phải viết bằng tiếng Việt, không được viết bằng tiếng Anh:\\n\" +\n  \"{\\\"verdict\\\": \\\"true_positive|false_positive\\\", \\\"action\\\": \\\"block_ip|kill_process|none\\\", \\\"reason\\\": \\\"(viết lý do bằng tiếng Việt tại đây)\\\", \\\"confidence\\\": 0.0}\\n\\n\" +\n  \"SỰ KIỆN (đã chuẩn hóa): \" + JSON.stringify(norm) + \"\\n\";\n\nreturn [{ json: {\n  prompt, alert_id: alertId, src_ip: norm.src_ip, agent_id: norm.agent_id, agent_name: norm.agent_name,\n  process_id: norm.process_id, command_line: norm.command_line, file_hash: norm.file_hash,\n  description: norm.description, severity: norm.severity, timestamp: norm.timestamp,\n  parsed_fields_md: norm.parsed_fields_md, raw_json_md: norm.raw_json_md\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        800
+      ],
+      "id": "52f701b2-0e29-47d7-b88e-548d879bf720",
+      "name": "Data_Parser_&_AI_Prep1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"model\": \"gemma3:4b\", \"prompt\": $json.prompt, \"stream\": false, \"format\": \"json\", \"options\": { \"temperature\": 0.0, \"num_ctx\": 4096 } } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3568,
+        800
+      ],
+      "id": "f83c3b8c-41e0-477e-b390-7c5af3ac0e20",
+      "name": "Ollama1",
+      "notes": "Gọi LLM Qwen cục bộ qua Ollama (AI Server 192.168.1.12) để phân tích cảnh báo Wazuh + MISP và đề xuất hành động Zero-Trust."
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('Data_Parser_&_AI_Prep1').item.json;\n\n// --- Bắt lỗi kết nối Ollama ---\nconst errorData = $json.error;\nif (errorData) {\n  let reason = errorData.message || 'Không xác định';\n  if (errorData.code === 'ECONNREFUSED') reason = 'Ollama chưa bật hoặc sai port.';\n  if (errorData.code === 'ETIMEDOUT') reason = 'Ollama quá tải, không trả lời kịp.';\n  if (errorData.code === 'ENOTFOUND') reason = 'Không tìm thấy địa chỉ IP của Ollama.';\n  return [{ json: {\n    action: 'log_only', reason: '⚠️ Lỗi kết nối AI: ' + reason,\n    ai_used: true, ai_verdict: 'unknown', ai_confidence: 0,\n    src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n    alert_id: prep.alert_id, timestamp: prep.timestamp, description: prep.description, severity: prep.severity\n  } }];\n}\n\nlet rawOutput = ($json.response ?? '').toString();\nrawOutput = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();\n\nlet parsed;\nif (!rawOutput) {\n  parsed = { verdict: 'false_positive', action: 'none', reason: 'Ollama không trả về dữ liệu.', confidence: 0 };\n} else {\n  try { parsed = JSON.parse(rawOutput); }\n  catch (e) { parsed = { verdict: 'false_positive', action: 'none', reason: 'AI trả lời sai định dạng JSON: ' + e.message, confidence: 0 }; }\n}\n\nconst action = (parsed.action ?? 'none') === 'none' ? 'log_only' : parsed.action;\n\n// Làm sạch chuỗi reason, loại bỏ các ký tự dấu huyền hoặc ký tự đặc biệt Markdown gây lỗi Telegram (Bad Request 400)\nlet cleanReason = parsed.reason ?? 'N/A';\nif (cleanReason) {\n  cleanReason = cleanReason.replace(/[`_*[\\]()~>#+=|{}.!-]/g, ' ');\n}\n\nreturn [{ json: {\n  action, \n  reason: cleanReason,\n  ai_used: true, \n  ai_verdict: parsed.verdict ?? 'false_positive', \n  ai_confidence: parsed.confidence ?? 0,\n  src_ip: prep.src_ip, \n  agent_id: prep.agent_id, \n  process_id: prep.process_id,\n  alert_id: prep.alert_id, \n  timestamp: prep.timestamp, \n  description: prep.description, \n  severity: prep.severity\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3792,
+        800
+      ],
+      "id": "9da00d26-ea6c-491c-b9e8-98f4cf6cba38",
+      "name": "Parse_AI_Result1"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        3536,
+        448
+      ],
+      "id": "267c3381-c923-4b33-a163-079e42de5e56",
+      "name": "Merge Decision Paths1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "block_ip",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "act-block-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Block IP"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "kill_process",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "act-kill-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Kill Process"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "fce360e9-c8ae-4b6e-bffb-eab3eb0bbaa6",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "block_url",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Block URL"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3824,
+        432
+      ],
+      "id": "12b53e75-549e-43e4-a5c4-ffa432ee45ca",
+      "name": "Action Switch1"
+    },
+    {
+      "parameters": {
+        "chatId": "6094178234",
+        "text": "= IP BLOCKED: {{ $('Action Switch1').item.json.src_ip }}\n Nguồn quyết định: {{ $('Action Switch1').item.json.ai_used ? ' AI (Ollama)' : 'Rule-based (ML/Wazuh)' }}\n Lý do: {{ $('Action Switch1').item.json.reason }}\n Độ tin cậy: {{ $('Action Switch1').item.json.ai_confidence }}\n Time: {{ $('Action Switch1').item.json.timestamp }}\n\n",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4896,
+        240
+      ],
+      "id": "52bf6993-72b0-403e-a1ab-dfad281ba995",
+      "name": "Telegram_Send_Block_Alert1",
+      "webhookId": "c8f0c01f-2149-42c2-b69f-0178aa7f57bd",
+      "credentials": {
+        "telegramApi": {
+          "id": "HA7ccccquKHkvsZf",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'http://host.docker.internal:8080/api/v1/alerts/' +\n$('Create Alert1').item.json.id +\n'/status' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Save Token (DDoS)').item?.json?._jwt_token || $('Save JWT Token1').item?.json?._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \n  status: 'in_progress', \n  tags: [($('Route by Event Type1').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'auto-blocked', 'soar'], \n  description: '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ CHẶN IP\\n\\n* **Hành động hệ thống:** Đã thực thi firewall-drop600 chặn IP ' + $('Route by Event Type1').item.json.src_ip + ' qua Wazuh Active Response.\\n* **Nguồn quyết định:** ' + ($('Route by Event Type1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based (ML/Wazuh)') + '\\n* **Lý do:** ' + $('Route by Event Type1').item.json.description + '\\n* **Thời gian xử lý:** ' + $('Route by Event Type1').item.json.timestamp \n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5152,
+        240
+      ],
+      "id": "1906ae92-a89f-4488-ac8c-e07fc422447d",
+      "name": "Update Alert - Block1",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Cập nhật Alert TheHive 5 sau khi block IP"
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=💀 PROCESS KILLED: PID {{ $('Action Switch1').item.json.process_id }} (Agent {{ $('Action Switch1').item.json.agent_id }})\n🧭 Nguồn quyết định: {{ $('Action Switch1').item.json.ai_used ? '🤖 AI (Ollama)' : '📐 Rule-based' }}\n📋 Lý do: {{ $('Action Switch1').item.json.reason }}\n📊 Độ tin cậy: {{ $('Action Switch1').item.json.ai_confidence }}\n🕐 Time: {{ $('Action Switch1').item.json.timestamp }}\n\n✅ Wazuh Active Response: kill-process600",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4736,
+        448
+      ],
+      "id": "2b278213-5ade-4c64-997c-89d0e137ba30",
+      "name": "Telegram_Send_Execute_Kill1",
+      "webhookId": "5c2aa31d-193f-4ba6-bcb3-9ad978216cd7",
+      "credentials": {
+        "telegramApi": {
+          "id": "HA7ccccquKHkvsZf",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'http://host.docker.internal:8080/api/v1/alerts/' +\n$('Create Alert1').item.json.id +\n'/status' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $('Save Token (DDoS)').item?.json?._jwt_token || $('Save JWT Token1').item?.json?._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  status: 'in_progress',\n  tags: [($('Action Switch1').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'auto-killed-process', 'soar'],\n  description: '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ KILL PROCESS\\n\\n* **Hành động hệ thống:** Đã thực thi kill-process600 chấm dứt tiến trình PID ' + $('Action Switch1').item.json.process_id + ' trên Agent ' + $('Action Switch1').item.json.agent_id + '.\\n* **Nguồn quyết định:** ' + ($('Action Switch1').item.json.ai_used ? 'AI (Ollama)' : 'Rule-based') + '\\n* **Lý do:** ' + $('Action Switch1').item.json.reason + '\\n* **Độ tin cậy:** ' + $('Action Switch1').item.json.ai_confidence + '\\n* **Thời gian xử lý:** ' + $('Action Switch1').item.json.timestamp\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4992,
+        480
+      ],
+      "id": "df4c816d-2c06-4826-88ee-fb00c9b609d5",
+      "name": "Update Alert - Kill1",
+      "disabled": true,
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Cập nhật Alert TheHive 5 sau khi kill process"
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=📋 LOGGED — KHÔNG TỰ ĐỘNG HÀNH ĐỘNG\n🔗 IP/Target: {{ $json.src_ip }}\n📝 Mô tả: {{ $json.description }}\n📋 Lý do: {{ $json.reason }}\n📊 Độ tin cậy: {{ $json.ai_confidence }}\n🕐 Time: {{ $json.timestamp }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4128,
+        672
+      ],
+      "id": "a08117e3-1e07-40d5-898c-05b5e6a15018",
+      "name": "Send Log-Only Alert1",
+      "webhookId": "86ca562d-4ff6-4d18-9a75-19c0c097143b",
+      "credentials": {
+        "telegramApi": {
+          "id": "HA7ccccquKHkvsZf",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=={{ 'http://192.168.1.8:8080/api/v1/alerts/' +\n$('Create Alert1').item.json.id +\n'/status' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $json.domain + '-' + Date.now(),\n  title: 'URL phishing bị từ chối chặn (Log Only): ' + $('Restore Alert Data - Rejected').item.json.domain,\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — CHỈ GHI NHẬN (LOG ONLY)\\n\\n' +\n    '* **Domain:** ' + $('Restore Alert Data - Rejected').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Alert Data - Rejected').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Alert Data - Rejected').item.json.employee_ip + '\\n' +\n    '* **Độ tin cậy:** ' + $('Restore Alert Data - Rejected').item.json.ai_confidence + '\\n' +\n    '* **Lý do:** ' + $('Restore Alert Data - Rejected').item.json.reason + '\\n' +\n    '* **Thời gian:** ' + $('Restore Alert Data - Rejected').item.json.timestamp + '\\n\\n' +\n    '⚠️ Cảnh báo này đã bị từ chối chặn (Decline) — cần chuyên gia SOC xác minh thủ công.',\n  severity: 2,\n  tlp: 2,\n  tags: [($('Restore Alert Data - Rejected').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'log-only', 'pending-soc-review'],\n  status: 'new'\n}) }}",
+        "options": {
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4384,
+        672
+      ],
+      "id": "cf2d5d60-b622-43a2-bdb1-03035114b74e",
+      "name": "Update Alert - Log Only1",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Cập nhật Alert TheHive 5 khi chỉ ghi log, chờ SOC xác minh"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "ddos_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DDoS Alert"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1152,
+        560
+      ],
+      "id": "0a949b7c-e7cd-4b06-942e-fa56d0c8db6c",
+      "name": "Check if DDoS Alert"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c27cbc6d-addb-4999-a854-bc0684fe61d0",
+              "leftValue": "={{ $json.ai_confidence }}",
+              "rightValue": 0.9,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3424,
+        48
+      ],
+      "id": "9b4cbdbb-5a98-4c26-ba16-0072e3f7e487",
+      "name": "Check Approval Level"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "5407528909",
+        "message": "=🚨 YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\n Hành động: {{ $json.action }}\n\n Thông tin cảnh báo:\n- Event: {{ $json.description }}\n- Severity: {{ $json.severity }}\n- Time: {{ $json.timestamp }}\n\n• URL: {{ $json.url || 'N/A' }}\n• Domain: {{ $json.domain || 'N/A' }}\n• IP nhân viên: {{ $json.employee_ip || $json.src_ip || 'N/A' }}\n\n\n Confidence: {{ $json.ai_confidence }}\n\n Lý do: {{ $json.reason }}\n\n⚠️ Hành động sẽ được thực hiện sau khi phê duyệt.",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 10,
+              "resumeUnit": "minutes"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3920,
+        0
+      ],
+      "id": "5bd3b181-e274-40bd-92f5-5ef2a6f4807d",
+      "name": "Request Approval",
+      "webhookId": "616aa29a-c08d-48ec-889f-e5db4ef1d224",
+      "credentials": {
+        "telegramApi": {
+          "id": "HA7ccccquKHkvsZf",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "74bcd487-53ce-4336-b43f-d4a299909a14",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4256,
+        -16
+      ],
+      "id": "784a6d67-7247-479e-a48b-5e8fa6380a5f",
+      "name": "Check Approval Result]"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $('Check Approval Level').item.json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3792,
+        176
+      ],
+      "id": "cbcb37bd-42b1-481e-a93f-9c4a226a067b",
+      "name": "Restore Alert Data"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $('Check Approval Level').item.json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4656,
+        0
+      ],
+      "id": "1a85863e-f22c-46f9-a6e5-530aeb022a8e",
+      "name": "Restore Alert Data - Rejected"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nreturn [{\n  json: {\n    url: body.url,\n    employee_ip: body.src_ip,\n    user: body.user,\n    timestamp: body.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        96
+      ],
+      "id": "6fd69cba-55a3-4cab-860e-a4f63d54e462",
+      "name": "Extract Phishing Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5001/api/url/predict",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"url\": $json.url } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        896,
+        96
+      ],
+      "id": "221b4e35-eed0-4da4-b85b-c1eda942c6d5",
+      "name": "Call Phishing Detection Model"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8b951d11-97af-4146-b015-46ea87fe3ce5",
+              "leftValue": "={{ $json.prediction }}",
+              "rightValue": "phishing",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1104,
+        96
+      ],
+      "id": "f21c5714-3acc-4f87-93b3-87e5edecfff9",
+      "name": "Check Phishing Verdict"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\n     \"action\": \"none\",\n     \"ai_used\": true,\n     \"ai_confidence\": ($json.legitimate_probability || 0) / 100,\n     \"reason\": \"Model AI đánh giá URL hợp lệ, không phải phishing.\",\n     \"url\": $('Extract Phishing Payload').item.json.url,\n     \"employee_ip\": $('Extract Phishing Payload').item.json.employee_ip,\n     \"timestamp\": $('Extract Phishing Payload').item.json.timestamp\n   } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1328,
+        160
+      ],
+      "id": "09199acb-00fe-4af0-92d1-38d321d5bc49",
+      "name": "Log Clean URL (No Action)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Extract Phishing Payload').all();\nconst payload = (items && items.length > 0) ? items[0].json : {};\nlet url = (payload.url || '').trim();\n\n// Nếu URL không có http:// hoặc https:// ở đầu, tự động thêm vào để trích xuất domain an toàn\nif (url && !/^https?:\\/\\//i.test(url)) {\n  url = 'http://' + url;\n}\n\nconst match = url.match(/^https?:\\/\\/([^\\/\\s:]+)/i);\nconst domain = match ? match[1] : null;\n\nif (!domain) {\n  throw new Error('Không lấy được domain từ URL. Payload nhận được: ' + JSON.stringify(payload));\n}\n\nreturn [{ json: { \n  ...$json, \n  url: payload.url, \n  employee_ip: payload.employee_ip, \n  timestamp: payload.timestamp, \n  domain \n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        16
+      ],
+      "id": "35df2f91-36c6-4680-9956-c5cf11efba29",
+      "name": "Extract Domain from URL"
+    },
+    {
+      "parameters": {
+        "url": "=https://dns.google/resolve?name={{ $json.domain }}&type=A",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1536,
+        16
+      ],
+      "id": "6c7fc4d4-b2ea-4053-a130-d97e7f12cfdc",
+      "name": "Resolve Domain to IP"
+    },
+    {
+      "parameters": {
+        "jsCode": "const dns = $json;\nconst prev = $('Extract Domain from URL').item.json;\nlet ips = [];\nif (dns.Answer && dns.Answer.length) {\n  // Lọc lấy toàn bộ bản ghi A (type === 1)\n  ips = dns.Answer.filter(r => r.type === 1).map(a => a.data);\n}\nreturn [{ json: { ...prev, resolved_ips: ips } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        16
+      ],
+      "id": "7743718f-4951-42c3-a8e9-2c8604a82303",
+      "name": "Parse DNS Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lấy dữ liệu trực tiếp từ node gọi AI model thay vì dùng $json chung chung\nconst aiModelData = $('Call Phishing Detection Model').first().json;\nconst extracted = $('Extract Domain from URL').first().json;\n\nconst rawProb = aiModelData.phishing_probability ?? 0;\n\nconst confidence = rawProb / 100;\nconst percentText = rawProb;\n\nconst reason = `Model AI nội bộ phát hiện URL phishing (xác suất ${percentText}%). Domain: ${extracted.domain}.`;\n\nreturn [{ json: {\n  action: 'block_url',\n  ai_used: true,\n  ai_verdict: aiModelData.prediction || 'phishing',\n  ai_confidence: confidence,\n  reason,\n  src_ip: (extracted.resolved_ips && extracted.resolved_ips.length > 0) ? extracted.resolved_ips.join(', ') : 'N/A',\n  resolved_ips: extracted.resolved_ips || [],\n  employee_ip: extracted.employee_ip || extracted.user || 'N/A',\n  url: extracted.url || 'N/A',\n  domain: extracted.domain || 'N/A',\n  agent_id: null,\n  process_id: null,\n  file_hash: null,\n  description: `Phishing URL detected: ${extracted.url}`,\n  severity: 'high',\n  timestamp: aiModelData.timestamp || new Date().toISOString()\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3008,
+        16
+      ],
+      "id": "1b9f8e7b-2e98-4a3b-ab2c-8fcff5f10ac8",
+      "name": "Build Phishing Action Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Action Switch1').item.json;\nconst domain = (d.domain || '').toLowerCase().trim();\n\nif (!domain || !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain)) {\n  throw new Error('Domain không hợp lệ, từ chối gửi SSH: ' + domain);\n}\n\n// const FILE = '/var/db/pfblockerng/dnsbl/SOAR_AutoBlock_custom.txt';\nconst FILE = '/var/unbound/pfb_dnsbl_SOAR.conf';\nconst SINKHOLE_IP = '192.168.10.1'; // đổi theo IP sinkhole thực tế \n\n// Escape để tránh domain chứa ký tự lạ làm gãy lệnh shell (dù regex trên đã chặn hầu hết)\nconst safeDomain = domain.replace(/\"/g, '');\n\nconst lineA = `local-data: \\\\\"${safeDomain} 60 IN A ${SINKHOLE_IP}\\\\\"`;\n\nconst command =\n  `grep -q \"${safeDomain}\" ${FILE} 2>/dev/null || echo \"${lineA}\" >> ${FILE}; ` +\n  `/usr/local/sbin/pfSsh.php playback svc restart unbound`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4128,
+        864
+      ],
+      "id": "b8236b57-374d-4abd-bf39-488232f79924",
+      "name": "Build pfSense DNSBL Command1"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ssh_command }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        4384,
+        864
+      ],
+      "id": "a5dd7b9a-66cf-4dd3-a57e-8d601ee5718a",
+      "name": "pfSense SSH - Add DNSBL Domain1",
+      "credentials": {
+        "sshPassword": {
+          "id": "JyVR6L90dqR2DMXj",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "= DOMAIN BLOCKED (DNS Sinkhole): {{ $('Restore Payload After SSH').item.json.domain }}\n URL gốc: {{ $('Restore Payload After SSH').item.json.url }}\n IP nhân viên: {{ $('Restore Payload After SSH').item.json.employee_ip }}\n Lý do: {{ $('Restore Payload After SSH').item.json.reason }}\n Độ tin cậy AI: {{ $('Restore Payload After SSH').item.json.ai_confidence }}\n Time: {{ $('Restore Payload After SSH').item.json.timestamp }}\n\n✅ Đã áp dụng DNS Sinkhole qua pfBlockerNG (Unbound) — chặn toàn công ty",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4944,
+        864
+      ],
+      "id": "a5a5216b-a0c6-4fd8-af26-4967b2d9260c",
+      "name": "Telegram_Send_Block_URL_Alert1",
+      "webhookId": "86ca562d-4ff6-4d18-9a75-19c0c097143b",
+      "credentials": {
+        "telegramApi": {
+          "id": "HA7ccccquKHkvsZf",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'http://host.docker.internal:8080/api/v1/alerts/' + $('Save JWT Token1').item.json.alert_id + '/status' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('SOC Server Login1').item.json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $('Restore Payload After SSH').item.json.domain + '-' + Date.now(),\n\n  title: 'Đã chặn domain phishing (DNS Sinkhole): ' +\n    $('Restore Payload After SSH').item.json.domain,\n\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — ĐÃ CHẶN DOMAIN (DNS SINKHOLE)\\n\\n' +\n    '* **Domain:** ' + $('Restore Payload After SSH').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Payload After SSH').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Payload After SSH').item.json.employee_ip + '\\n' +\n    '* **Lý do:** ' + $('Restore Payload After SSH').item.json.reason + '\\n' +\n    '* **Thời gian xử lý:** ' + $('Restore Payload After SSH').item.json.timestamp,\n\n  severity: 3,\n  status: 'in_progress',\n  tags: ['ai-decision', 'auto-blocked-domain', 'soar']\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5120,
+        864
+      ],
+      "id": "9483c3b1-4281-4546-8e84-7114f9c4bafc",
+      "name": "Update Alert - Block URL1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Build pfSense DNSBL Command1').all();\nconst payload = (items && items.length > 0) ? items[0].json : {};\n\nreturn [{ json: { ...payload, ssh_result: $json } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4592,
+        864
+      ],
+      "id": "e368c000-2dd1-4c7a-a1b5-1c33f17282d2",
+      "name": "Restore Payload After SSH"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Action Switch1').item.json;\nconst ip = (d.src_ip || '').trim();\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\nif (!ipv4Regex.test(ip)) {\n  throw new Error('src_ip không hợp lệ, từ chối block: ' + ip);\n}\n\nconst TABLE = 'SOAR_BlockList';\nconst command = `pfctl -t ${TABLE} -T add ${ip}`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4192,
+        240
+      ],
+      "id": "0ae6d143-2eb7-46c8-9014-e25ffee756f6",
+      "name": "Build pfSense Block IP Command1"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ssh_command }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        4384,
+        240
+      ],
+      "id": "67455c19-50f6-42e1-8df1-9e2a9c3f5e25",
+      "name": "pfSense SSH - Block IP1",
+      "credentials": {
+        "sshPassword": {
+          "id": "JyVR6L90dqR2DMXj",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ip = ($json.src_ip || '').trim();\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\nif (!ipv4Regex.test(ip)) {\n  throw new Error('src_ip không hợp lệ, từ chối unblock: ' + ip);\n}\n\nconst TABLE = 'SOAR_BlockList';\nconst command = `pfctl -t ${TABLE} -T delete ${ip}`;\n\nreturn [{ json: { ...$json, ssh_command: command } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2544,
+        1056
+      ],
+      "id": "9b99d789-f0f4-49db-863e-da3c6ac8d334",
+      "name": "Build pfSense Unblock IP Command1"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ssh_command }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        2816,
+        1056
+      ],
+      "id": "f16b4d60-8232-48f7-8a33-c700396b2976",
+      "name": "pfSense SSH - Unblock IP1",
+      "credentials": {
+        "sshPassword": {
+          "id": "JyVR6L90dqR2DMXj",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Build pfSense Unblock IP Command1').all();\nconst payload = (items && items.length > 0) ? items[0].json : {};\n\nreturn [{ json: { ...payload, ssh_result: $json } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3088,
+        1056
+      ],
+      "id": "99188a13-6349-457c-9883-302d30fc30a6",
+      "name": "Restore Payload After Unblock SSH"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Action Switch1').item.json;\nconst ips = d.resolved_ips || [];\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\n// Lọc ra các IP hợp lệ\nconst validIps = ips.filter(ip => ipv4Regex.test(ip.trim()));\n\nif (validIps.length === 0) {\n  return []; // Dừng nhánh này nếu không có IP hợp lệ\n}\n\nconst TABLE = 'SOAR_Phishing_BlockList';\n// Lệnh pfctl hỗ trợ add nhiều IP bằng cách cách nhau bởi khoảng trắng\nconst command = `pfctl -t ${TABLE} -T add ${validIps.join(' ')}`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4128,
+        1040
+      ],
+      "id": "d93e7ef5-981d-4daa-9a2c-634b5c2f9782",
+      "name": "Build pfSense Phishing Block IP Command"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ssh_command }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        4384,
+        1040
+      ],
+      "id": "9cfed871-051f-4e4e-bd18-69cb72c2c7cb",
+      "name": "pfSense SSH - Block Phishing IP",
+      "credentials": {
+        "sshPassword": {
+          "id": "JyVR6L90dqR2DMXj",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "your-strong-random-secret-here"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    alert_id: $('Action Switch1').item.json.alert_id,\n    action: 'block_ip',\n    target: $('Action Switch1').item.json.src_ip,\n    ai_reason: $('Action Switch1').item.json.reason,\n    confidence: Number(\n      $('Action Switch1').item.json.ai_confidence ||\n      $('Action Switch1').item.json.confidence || 0\n    ),\n    human_approved_by: ''\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4624,
+        240
+      ],
+      "id": "08304836-ecac-4bed-9b7b-f75e5fb78a6d",
+      "name": "SOC App - SOAR Callback - Block IP"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "your-strong-random-secret-here"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    alert_id: $('Action Switch1').item.json.alert_id,\n    action: 'kill_process',\n    target: $('Action Switch1').item.json.process_id,\n    ai_reason: $('Action Switch1').item.json.reason,\n    confidence: Number(\n      $('Action Switch1').item.json.ai_confidence ||\n      $('Action Switch1').item.json.confidence || 0\n    ),\n    human_approved_by: ''\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4496,
+        448
+      ],
+      "id": "b4a50673-567b-44b6-ae8e-735b5d70eb46",
+      "name": "SOC App - SOAR Callback - Kill Process"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/soar/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-SOC-Callback-Secret",
+              "value": "=your-strong-random-secret-here"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    alert_id: $('Save JWT Token1').item.json.alert_id || $('Action Switch1').item.json.alert_id || null,\n    action: 'block_url',\n    target: $('Action Switch1').item.json.domain,\n    ai_reason: $('Action Switch1').item.json.reason,\n    confidence: Number(\n      $('Action Switch1').item.json.ai_confidence ||\n      $('Action Switch1').item.json.confidence || 0\n    ),\n    human_approved_by: ''\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4768,
+        864
+      ],
+      "id": "4fed606d-7206-4822-983b-11b1b8f47e24",
+      "name": "SOC App - SOAR Callback - Block URL"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8080/api/v1/agents/{{ $('Action Switch1').item.json.agent_id }}/response/kill-process",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Save Token (DDoS)').item?.json?._jwt_token || $('Save JWT Token1').item?.json?._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ pid: Number($('Action Switch1').item.json.process_id) }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4160,
+        448
+      ],
+      "id": "6097693c-c237-41ea-9fd0-08cfb58dcaca",
+      "name": "SOC App - Kill Process API",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"username\": \"admin\", \"password\": \"admin123\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2048,
+        16
+      ],
+      "id": "cb108d56-b9c3-46c1-9f9a-6c7cbe070812",
+      "name": "SOC Server Login1",
+      "notes": "Lấy JWT token từ soc-server-python để gọi các API tiếp theo. Đổi username/password theo thực tế."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lưu JWT token và lấy alert_id vừa tạo từ node Create SOC Alert\nconst token = $('SOC Server Login1').item.json.token || $('SOC Server Login1').item.json.access_token || '';\nconst prevData = $('Parse DNS Result').item.json;\nconst alertResponse = $('Create SOC Alert ( gửi alert về SOC)').item.json;\n\nreturn [{ json: {\n  ...prevData,\n  alert_id: alertResponse.id || null,\n  _jwt_token: token\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        16
+      ],
+      "id": "853d481a-f70b-4be5-b926-056b858a0667",
+      "name": "Save JWT Token1",
+      "notes": "Ghép JWT token vào data để dùng ở các bước sau"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/indicators/analyze",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'domain', value: $('Parse DNS Result').item.json.domain }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2608,
+        16
+      ],
+      "id": "d865de26-d126-4bcc-a954-eebd2e27500c",
+      "name": "Analyze IOC (SOC Server)1",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Phân tích IOC qua soc-server-python thay thế Cortex. Trả về verdict, risk_score, detections."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/indicators/restSearch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Save JWT Token1').item.json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ returnFormat: 'json', limit: 10, type: 'domain', value: $('Parse DNS Result').item.json.domain, tag: 'phishing_detected', timestamp: '24h' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2816,
+        16
+      ],
+      "id": "53e3ddd9-d237-4994-9eac-60923790e722",
+      "name": "Search Indicators DB1",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Tìm IOC trong DB soc-server-python thay thế MISP. Tương thích MISP restSearch format."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/alerts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    agent_id: \"endpoint-proxy-01\",\n    event_type: \"phishing_detected\",\n    severity: \"high\",\n    title: \"[HIGH] Phishing URL Detected via Proxy\",\n    description: \"Phishing URL detected from client IP: \" + $('Parse DNS Result').item.json.employee_ip,\n    raw_payload: JSON.stringify($('Parse DNS Result').item.json),\n    status: \"new\"\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2256,
+        16
+      ],
+      "id": "d785f7b8-0317-4153-b9f1-fd95e901c35d",
+      "name": "Create SOC Alert ( gửi alert về SOC)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/indicators/restSearch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Save Token (DDoS)').item.json._jwt_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ returnFormat: 'json', limit: 10, type: 'ip', value: $json.src_ip, tag: 'ddos_detected', timestamp: '24h' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1936,
+        448
+      ],
+      "id": "895d7ca0-5b55-423d-9956-37dbed9329cc",
+      "name": "Search Indicators DB (DDoS)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"username\": \"admin\", \"password\": \"admin123\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1424,
+        448
+      ],
+      "id": "61c6caa0-6082-4cb3-9f00-d93e2b6e17ae",
+      "name": "SOC Server Login ( DDoS)",
+      "notes": "Lấy JWT token từ soc-server-python để gọi các API tiếp theo. Đổi username/password theo thực tế."
+    },
+    {
+      "parameters": {
+        "jsCode": "const token = $json.token || $json.access_token || '';\n// Dùng $('Tên Node Trước Đó') để lấy lại data bị ghi đè\nconst prevData = $('Check if DDoS Alert').item.json; \n\nreturn [{ json: { ...prevData, _jwt_token: token } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        448
+      ],
+      "id": "b61a6077-95f6-4c76-b54c-31bb68499923",
+      "name": "Save Token (DDoS)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/indicators/analyze",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json._jwt_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'ip', value: $json.src_ip }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1744,
+        448
+      ],
+      "id": "ff89c27a-f434-447f-90a6-b6c025060348",
+      "name": "Analyze IOC (SOC Server)",
+      "continueOnFail": true,
+      "onError": "continueRegularOutput",
+      "notes": "Phân tích IOC qua soc-server-python thay thế Cortex. Trả về verdict, risk_score, detections."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lấy lại dữ liệu gốc đã chuẩn hóa và Token\nconst original = $('Normalize Payload1').item.json;\nconst tokenInfo = $('Save Token (DDoS)').item.json;\n\n// Lấy kết quả phân tích nội bộ (Enrichment)\nconst analyzeResult = $('Analyze IOC (SOC Server)').item?.json || {};\nconst searchResult = $json;\n\nreturn [{ json: {\n  ...original,\n  _jwt_token: tokenInfo._jwt_token,\n  soc_analyze_result: analyzeResult,\n  soc_db_search: searchResult\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        448
+      ],
+      "id": "c3b2949f-49fc-4a1c-b4b0-1e66fff7ba21",
+      "name": "Restore DDoS Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"username\": \"admin\", \"password\": \"admin123\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1488,
+        736
+      ],
+      "id": "64d70e78-301a-4986-af1f-4a4958bbcfbe",
+      "name": "SOC Server Login ( khác)",
+      "notes": "Lấy JWT token từ soc-server-python để gọi các API tiếp theo. Đổi username/password theo thực tế."
+    },
+    {
+      "parameters": {
+        "jsCode": "const token = $json.token || $json.access_token || '';\n// Dùng $('Tên Node Trước Đó') để lấy lại data bị ghi đè\nconst prevData = $('Check if DDoS Alert').item.json; \n\nreturn [{ json: { ...prevData, _jwt_token: token } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        752
+      ],
+      "id": "e0237615-3f4d-4aed-900e-770fc6a6d3bd",
+      "name": "Save Token  khác"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "DDoS Alert Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Merge Webhooks1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phishing Alert Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Extract Phishing Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Webhooks1": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payload1": {
+      "main": [
+        [
+          {
+            "node": "Check if DDoS Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Event Type1": {
+      "main": [
+        [
+          {
+            "node": "Create Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build pfSense Unblock IP Command1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Alert1": {
+      "main": [
+        [
+          {
+            "node": "Route to Action Strategy1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to Action Strategy1": {
+      "main": [
+        [
+          {
+            "node": "Set Action - Block (Rule-based)1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Action - Log Only (Rule-based)1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Data_Parser_&_AI_Prep1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Action - Block (Rule-based)1": {
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Action - Log Only (Rule-based)1": {
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Data_Parser_&_AI_Prep1": {
+      "main": [
+        [
+          {
+            "node": "Ollama1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama1": {
+      "main": [
+        [
+          {
+            "node": "Parse_AI_Result1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Decision Paths1": {
+      "main": [
+        [
+          {
+            "node": "Check Approval Level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Switch1": {
+      "main": [
+        [
+          {
+            "node": "Build pfSense Block IP Command1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SOC App - Kill Process API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build pfSense DNSBL Command1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build pfSense Phishing Block IP Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Log-Only Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram_Send_Block_Alert1": {
+      "main": [
+        [
+          {
+            "node": "Update Alert - Block1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram_Send_Execute_Kill1": {
+      "main": [
+        [
+          {
+            "node": "Update Alert - Kill1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Log-Only Alert1": {
+      "main": [
+        [
+          {
+            "node": "Update Alert - Log Only1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if DDoS Alert": {
+      "main": [
+        [
+          {
+            "node": "SOC Server Login ( DDoS)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SOC Server Login ( khác)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse_AI_Result1": {
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Check Approval Level": {
+      "main": [
+        [
+          {
+            "node": "Action Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Request Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Approval": {
+      "main": [
+        [
+          {
+            "node": "Check Approval Result]",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approval Result]": {
+      "main": [
+        [
+          {
+            "node": "Restore Alert Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Restore Alert Data - Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Alert Data": {
+      "main": [
+        [
+          {
+            "node": "Action Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Alert Data - Rejected": {
+      "main": [
+        [
+          {
+            "node": "Send Log-Only Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Phishing Payload": {
+      "main": [
+        [
+          {
+            "node": "Call Phishing Detection Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Phishing Detection Model": {
+      "main": [
+        [
+          {
+            "node": "Check Phishing Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Phishing Verdict": {
+      "main": [
+        [
+          {
+            "node": "Extract Domain from URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Clean URL (No Action)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Domain from URL": {
+      "main": [
+        [
+          {
+            "node": "Resolve Domain to IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Domain to IP": {
+      "main": [
+        [
+          {
+            "node": "Parse DNS Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse DNS Result": {
+      "main": [
+        [
+          {
+            "node": "SOC Server Login1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Phishing Action Payload": {
+      "main": [
+        [
+          {
+            "node": "Merge Decision Paths1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Build pfSense DNSBL Command1": {
+      "main": [
+        [
+          {
+            "node": "pfSense SSH - Add DNSBL Domain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pfSense SSH - Add DNSBL Domain1": {
+      "main": [
+        [
+          {
+            "node": "Restore Payload After SSH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram_Send_Block_URL_Alert1": {
+      "main": [
+        [
+          {
+            "node": "Update Alert - Block URL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Payload After SSH": {
+      "main": [
+        [
+          {
+            "node": "SOC App - SOAR Callback - Block URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build pfSense Block IP Command1": {
+      "main": [
+        [
+          {
+            "node": "pfSense SSH - Block IP1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build pfSense Unblock IP Command1": {
+      "main": [
+        [
+          {
+            "node": "pfSense SSH - Unblock IP1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pfSense SSH - Unblock IP1": {
+      "main": [
+        [
+          {
+            "node": "Restore Payload After Unblock SSH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Payload After Unblock SSH": {
+      "main": [
+        [
+          {
+            "node": "Send Unblock Notification1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build pfSense Phishing Block IP Command": {
+      "main": [
+        [
+          {
+            "node": "pfSense SSH - Block Phishing IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOC App - SOAR Callback - Block IP": {
+      "main": [
+        [
+          {
+            "node": "Telegram_Send_Block_Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pfSense SSH - Block IP1": {
+      "main": [
+        [
+          {
+            "node": "SOC App - SOAR Callback - Block IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOC App - SOAR Callback - Kill Process": {
+      "main": [
+        [
+          {
+            "node": "Telegram_Send_Execute_Kill1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOC App - SOAR Callback - Block URL": {
+      "main": [
+        [
+          {
+            "node": "Telegram_Send_Block_URL_Alert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOC App - Kill Process API": {
+      "main": [
+        [
+          {
+            "node": "SOC App - SOAR Callback - Kill Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOC Server Login1": {
+      "main": [
+        [
+          {
+            "node": "Create SOC Alert ( gửi alert về SOC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save JWT Token1": {
+      "main": [
+        [
+          {
+            "node": "Analyze IOC (SOC Server)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze IOC (SOC Server)1": {
+      "main": [
+        [
+          {
+            "node": "Search Indicators DB1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Indicators DB1": {
+      "main": [
+        [
+          {
+            "node": "Build Phishing Action Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create SOC Alert ( gửi alert về SOC)": {
+      "main": [
+        [
+          {
+            "node": "Save JWT Token1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOC Server Login ( DDoS)": {
+      "main": [
+        [
+          {
+            "node": "Save Token (DDoS)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Token (DDoS)": {
+      "main": [
+        [
+          {
+            "node": "Analyze IOC (SOC Server)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Indicators DB (DDoS)": {
+      "main": [
+        [
+          {
+            "node": "Restore DDoS Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze IOC (SOC Server)": {
+      "main": [
+        [
+          {
+            "node": "Search Indicators DB (DDoS)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore DDoS Payload": {
+      "main": [
+        [
+          {
+            "node": "Route by Event Type1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOC Server Login ( khác)": {
+      "main": [
+        [
+          {
+            "node": "Save Token  khác",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Token  khác": {
+      "main": [
+        [
+          {
+            "node": "Route by Event Type1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "dc44f8de-1b47-4a78-8a6e-300e4198e861",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "21399e13cb7cdfb4a79c9d03f04dfafb61ff44b72a62691a2cf92968cd5aed57"
+  },
+  "nodeGroups": [],
+  "id": "MLhmIDEjZLZKgjmy",
+  "tags": []
+}

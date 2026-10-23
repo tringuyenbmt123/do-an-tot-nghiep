@@ -17,7 +17,7 @@ run:
 
 # Sinh mã code Golang từ file proto
 proto:
-	@echo "🔄 Sinh mã gRPC từ proto/agent.proto..."
+	@echo " Sinh mã gRPC từ proto/agent.proto..."
 	@mkdir -p internal/generated/proto
 	@protoc --go_out=./internal/generated/proto --go_opt=paths=source_relative \
 		--go-grpc_out=./internal/generated/proto --go-grpc_opt=paths=source_relative \

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Case – 086155cc | SOC Console</title>
+<style>
+:root{
+  --bg:#f4f6f9; --card:#fff; --bdr:#e3e8ef; --text:#1b2433; --muted:#6b7686;
+  --primary:#2563eb; --crit:#d92d20; --crit-bg:#fdecea; --new:#0e7490; --new-bg:#e0f2f7;
+  --ok:#16a34a; --hover:#f0f3f8; --code:#f1f4f9;
+  --lw:230px; --rw:300px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1117; --card:#161b22; --bdr:#2a313c; --text:#e6edf3; --muted:#8b95a3;
+    --primary:#4c8dff; --crit:#ff6b60; --crit-bg:rgba(248,81,73,.14); --new:#4cc3de; --new-bg:rgba(76,195,222,.13);
+    --ok:#3fb950; --hover:#1d242d; --code:#0f141a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1117; --card:#161b22; --bdr:#2a313c; --text:#e6edf3; --muted:#8b95a3;
+  --primary:#4c8dff; --crit:#ff6b60; --crit-bg:rgba(248,81,73,.14); --new:#4cc3de; --new-bg:rgba(76,195,222,.13);
+  --ok:#3fb950; --hover:#1d242d; --code:#0f141a;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Be Vietnam Pro","Segoe UI",system-ui,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.mono{font-family:"JetBrains Mono",Consolas,monospace}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+/* Header */
+.top{background:var(--card);border-bottom:1px solid var(--bdr);padding:12px 20px}
+.crumb{font-size:12px;color:var(--muted);margin-bottom:6px}
+.crumb a{color:var(--muted);text-decoration:none}.crumb a:hover{color:var(--primary)}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.titlerow h1{margin:0;font-size:18px;line-height:1.35;word-break:break-all}
+.titlerow .id{font-size:12px;color:var(--muted);margin-top:2px}
+.badges{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.badge{display:inline-block;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:.03em}
+.b-crit{background:var(--crit-bg);color:var(--crit)}
+.b-new{background:var(--new-bg);color:var(--new)}
+.b-tag{background:var(--code);color:var(--muted);font-weight:500}
+.actions{display:flex;gap:8px}
+.btn{border:1px solid var(--bdr);background:var(--card);border-radius:7px;padding:6px 12px;font-size:13px}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.danger{color:var(--crit)}
+
+/* 3-column workspace */
+.ws{display:grid;grid-template-columns:var(--lw) 6px minmax(0,1fr) 6px var(--rw);height:calc(100vh - 118px);min-height:560px}
+.col{overflow-y:auto;padding:16px}
+.col.left{background:var(--card);border-right:1px solid var(--bdr)}
+.col.right{background:var(--card);border-left:1px solid var(--bdr)}
+.split{cursor:col-resize;background:transparent;position:relative}
+.split:hover,.split.drag{background:var(--primary);opacity:.5}
+
+/* Left nav */
+.nav{list-style:none;margin:0 0 18px;padding:0}
+.nav button{width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:7px;display:flex;justify-content:space-between;color:var(--muted)}
+.nav button:hover{background:var(--hover)}
+.nav button.on{background:var(--hover);color:var(--text);font-weight:600;box-shadow:inset 3px 0 0 var(--primary)}
+.nav .n{font-size:11px;background:var(--code);border-radius:10px;padding:0 7px}
+.kv{display:grid;gap:10px;font-size:13px}
+.kv dt{font-size:11px;color:var(--muted);margin:0}
+.kv dd{margin:0;word-break:break-all}
+.kv div{margin:0}
+.sla{height:5px;border-radius:3px;background:var(--code);overflow:hidden;margin-top:4px}
+.sla i{display:block;height:100%;width:35%;background:var(--ok)}
+h3.sec{font-size:12px;color:var(--muted);font-weight:600;margin:0 0 10px}
+
+/* Middle */
+.panel{background:var(--card);border:1px solid var(--bdr);border-radius:10px;margin-bottom:16px}
+.panel>header{padding:10px 14px;border-bottom:1px solid var(--bdr);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.panel .body{padding:14px 16px}
+.md h4{margin:0 0 6px;font-size:14px}
+.md p{margin:0 0 10px}
+.md .meta{display:grid;grid-template-columns:120px 1fr;gap:4px 12px;background:var(--code);border-radius:8px;padding:10px 12px;font-size:13px}
+.md .meta span:nth-child(odd){color:var(--muted)}
+.tabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--bdr)}
+.tabs button{border:0;background:none;padding:10px 12px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--text);font-weight:600;border-color:var(--primary)}
+.feed{display:flex;flex-direction:column;gap:14px}
+.item{display:flex;gap:10px}
+.av{flex:none;width:28px;height:28px;border-radius:50%;background:var(--new-bg);color:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:700}
+.bubble{flex:1;border:1px solid var(--bdr);border-radius:8px;padding:8px 12px}
+.bubble .h{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
+.bubble .h b{color:var(--text)}
+.sys{font-size:12px;color:var(--muted);padding-left:38px;position:relative}
+.sys:before{content:"";position:absolute;left:12px;top:7px;width:6px;height:6px;border-radius:50%;background:var(--bdr)}
+.empty{text-align:center;color:var(--muted);padding:18px;border:1px dashed var(--bdr);border-radius:8px}
+.composer{margin-top:14px}
+textarea{width:100%;min-height:84px;resize:vertical;border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;background:var(--bg);color:var(--text);font:inherit}
+.composer .row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.hint{font-size:12px;color:var(--muted)}
+
+/* Alert details + Raw JSON */
+.dgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
+.dgrid .r{display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:13px}
+.dgrid .r:nth-last-child(-n+2){border-bottom:0}
+.dgrid .r.full{grid-column:1/-1}
+.dgrid .k{color:var(--muted)}
+.dgrid .v{word-break:break-all}
+.pill{display:inline-block;padding:0 7px;border-radius:4px;font-size:12px;background:var(--code)}
+.pill.blk{background:var(--new-bg);color:var(--new);font-weight:600}
+.pill.lv{background:var(--crit-bg);color:var(--crit);font-weight:700}
+.jhead{display:flex;gap:6px}
+.jhead .btn{padding:2px 9px;font-size:12px;font-weight:400}
+.json{margin:0;background:var(--code);border-radius:0 0 10px 10px;overflow:auto;max-height:460px;padding:10px 0;font-size:12.5px;line-height:1.6}
+.json.collapsed{max-height:180px}
+.json .ln{display:flex}
+.json .no{flex:none;width:44px;text-align:right;padding-right:12px;color:var(--muted);user-select:none;opacity:.7}
+.json .tx{white-space:pre;padding-right:16px}
+.jk{color:var(--primary)}.js{color:#16a34a}.jn{color:#d97706}.jb{color:#c026d3}
+:root[data-theme="dark"] .js{color:#7ee787}
+:root[data-theme="dark"] .jn{color:#ffa657}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .js{color:#7ee787}:root:not([data-theme="light"]) .jn{color:#ffa657}}
+@media (max-width:700px){.dgrid{grid-template-columns:1fr}.dgrid .r:nth-last-child(2){border-bottom:1px solid var(--bdr)}}
+
+/* Right */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:600}
+select{width:100%;padding:7px 10px;border:1px solid var(--bdr);border-radius:7px;background:var(--bg);color:var(--text);font:inherit}
+.assignee{display:flex;align-items:center;gap:10px}
+.assignee .link{margin-left:auto;font-size:12px;color:var(--primary);background:none;border:0;padding:0}
+.agent{border:1px solid var(--bdr);border-radius:9px;padding:12px;margin-bottom:16px}
+.agent .hd{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.agent dl{margin:0;display:grid;grid-template-columns:86px 1fr;gap:5px 8px;font-size:12.5px}
+.agent dt{color:var(--muted)}.agent dd{margin:0;word-break:break-all}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+
+@media (max-width:980px){
+  .ws{display:block;height:auto}
+  .split{display:none}
+  .col{overflow:visible;border:0!important}
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="crumb"><a href="#">Sự cố</a> / <span class="mono">086155cc</span></div>
+  <div class="titlerow">
+    <div>
+      <h1>SOAR Escalated Alert: b2c670ea-8a6a-42a0-ad0b-1f6a4f0789fe</h1>
+      <div class="id mono">086155cc-3c97-45a8-aa03-7e53d9ef553d</div>
+      <div class="badges">
+        <span class="badge b-crit">NGHIÊM TRỌNG</span>
+        <span class="badge b-new">MỚI</span>
+        <span class="badge b-tag">DDoS</span>
+        <span class="badge b-tag">AI Auto</span>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn">← Danh sách</button>
+      <button class="btn danger">Đóng case</button>
+    </div>
+  </div>
+</div>
+
+<div class="ws" id="ws">
+  <!-- LEFT -->
+  <aside class="col left">
+    <ul class="nav" role="tablist">
+      <li><button class="on">Tổng quan</button></li>
+      <li><button>Ghi chú <span class="n" id="navCount">0</span></button></li>
+      <li><button>Observables <span class="n">0</span></button></li>
+      <li><button>Tasks <span class="n">0</span></button></li>
+      <li><button>Tệp đính kèm <span class="n">0</span></button></li>
+      <li><button>Dòng thời gian</button></li>
+    </ul>
+    <h3 class="sec">Thông tin nhanh</h3>
+    <dl class="kv">
+      <div><dt>Tạo lúc</dt><dd>20/10/2026 12:03</dd></div>
+      <div><dt>Cập nhật</dt><dd>20/10/2026 12:03</dd></div>
+      <div><dt>Nguồn</dt><dd>SOAR Automation</dd></div>
+      <div><dt>Alert gốc</dt><dd class="mono" style="font-size:12px"><a href="#" style="color:var(--primary)">b2c670ea-8a6a-…</a></dd></div>
+      <div><dt>SLA phản hồi</dt><dd>Còn 2h 10m<div class="sla"><i></i></div></dd></div>
+    </dl>
+  </aside>
+
+  <div class="split" data-side="l" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
+  <!-- MIDDLE -->
+  <main class="col">
+    <section class="panel">
+      <header>Mô tả ban đầu</header>
+      <div class="body md">
+        <h4>AI Analysis Reason</h4>
+        <p>DDoS được mô hình AI nội bộ xác nhận với độ tin cậy cao – phản ứng tức thời, không cần AI tái phân tích.</p>
+        <div class="meta">
+          <span>Confidence</span><span>0.91</span>
+          <span>Approved By</span><span>AI Auto</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <header>Chi tiết cảnh báo</header>
+      <div class="body dgrid">
+        <div class="r"><span class="k">Thời gian</span><span class="v mono">2026-09-14 11:34:08 (UTC+0)</span></div>
+        <div class="r"><span class="k">Alert ID</span><span class="v mono">1789356848.4699</span></div>
+        <div class="r"><span class="k">Rule</span><span class="v">Infected File Detected in Fortigate <span class="mono">(100207)</span></span></div>
+        <div class="r"><span class="k">Rule level</span><span class="v"><span class="pill lv">12</span></span></div>
+        <div class="r"><span class="k">Source IP</span><span class="v mono">192.168.71.161:49429 <span class="pill">United States</span></span></div>
+        <div class="r"><span class="k">Destination IP</span><span class="v mono">69.41.166.28:443</span></div>
+        <div class="r"><span class="k">Hành động</span><span class="v"><span class="pill blk">blocked</span></span></div>
+        <div class="r"><span class="k">Hướng</span><span class="v">incoming · TCP (6)</span></div>
+        <div class="r"><span class="k">Tên agent</span><span class="v mono">lsh-vn-siem-wazuh.int.darklab.hk</span></div>
+        <div class="r"><span class="k">Agent ID</span><span class="v mono">000</span></div>
+        <div class="r"><span class="k">Log source</span><span class="v mono">VSA-D7-FW</span></div>
+        <div class="r"><span class="k">Decoder</span><span class="v mono">fortigate-firewall-v5</span></div>
+        <div class="r"><span class="k">ATT&amp;CK stage</span><span class="v">Initial Access</span></div>
+        <div class="r"><span class="k">ATT&amp;CK category</span><span class="v">Exploit Public-Facing Application</span></div>
+        <div class="r full"><span class="k">URL</span><span class="v mono">https://xg.chuhzatumbeki.com/xNqfHITExgbNQ/148107</span></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <header>
+        Raw Alert
+        <span class="jhead">
+          <button class="btn" id="jToggle">Mở rộng</button>
+          <button class="btn" id="jCopy">Sao chép</button>
+        </span>
+      </header>
+      <pre class="json mono collapsed" id="jbox" aria-label="Raw alert JSON"></pre>
+    </section>
+
+    <section class="panel">
+      <div class="tabs">
+        <button class="on">Bình luận</button>
+        <button>Hoạt động</button>
+        <button>Tất cả</button>
+      </div>
+      <div class="body">
+        <div class="feed" id="feed">
+          <div class="empty" id="empty">Chưa có ghi chú điều tra nào.</div>
+        </div>
+        <div class="composer">
+          <textarea id="note" placeholder="Ghi lại các phát hiện, hành động ngăn chặn hoặc cập nhật mới nhất…"></textarea>
+          <div class="row">
+            <span class="hint">Hỗ trợ Markdown · Ctrl+Enter để gửi</span>
+            <button class="btn primary" id="send" disabled>Gửi ghi chú</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="split" data-side="r" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
+  <!-- RIGHT -->
+  <aside class="col right">
+    <div class="field">
+      <label>NGƯỜI PHỤ TRÁCH</label>
+      <div class="assignee">
+        <span class="av">S</span><span>soar_automation</span>
+        <button class="link" id="assignMe">Gán cho tôi</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="st">TRẠNG THÁI</label>
+      <select id="st"><option selected>Mới</option><option>Đang xử lý</option><option>Chờ</option><option>Đóng</option></select>
+    </div>
+    <div class="field">
+      <label for="sv">MỨC ĐỘ</label>
+      <select id="sv"><option selected>Nghiêm trọng</option><option>Cao</option><option>Trung bình</option><option>Thấp</option></select>
+    </div>
+
+    <h3 class="sec">Máy agent liên quan</h3>
+    <div class="agent">
+      <div class="hd"><span class="dot"></span> lsh-vn-siem-wazuh</div>
+      <dl>
+        <dt>Agent ID</dt><dd class="mono">000</dd>
+        <dt>IP</dt><dd class="mono">192.168.71.161</dd>
+        <dt>OS</dt><dd>Wazuh Manager (cluster: wazuh)</dd>
+        <dt>Trạng thái</dt><dd>Active</dd>
+        <dt>Lần cuối</dt><dd>2 phút trước</dd>
+      </dl>
+      <button class="btn" style="width:100%;margin-top:10px">Xem chi tiết agent</button>
+    </div>
+
+    <h3 class="sec">MITRE ATT&amp;CK</h3>
+    <div class="chips field"><span class="badge b-tag">T1498</span><span class="badge b-tag">T1499</span></div>
+
+    <h3 class="sec">Tags</h3>
+    <div class="chips"><span class="badge b-tag">ddos</span><span class="badge b-tag">soar</span></div>
+  </aside>
+</div>
+
+<script>
+// Kéo thay đổi độ rộng cột trái/phải
+(function(){
+  var root=document.documentElement, KEY="case-cols";
+  try{var s=JSON.parse(localStorage.getItem(KEY)||"null");if(s){root.style.setProperty("--lw",s.l+"px");root.style.setProperty("--rw",s.r+"px")}}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify({l:parseInt(getComputedStyle(root).getPropertyValue("--lw")),r:parseInt(getComputedStyle(root).getPropertyValue("--rw"))}))}catch(e){}}
+  document.querySelectorAll(".split").forEach(function(h){
+    h.addEventListener("pointerdown",function(ev){
+      ev.preventDefault();h.classList.add("drag");h.setPointerCapture(ev.pointerId);
+      var ws=document.getElementById("ws").getBoundingClientRect();
+      function mv(e){
+        if(h.dataset.side==="l"){root.style.setProperty("--lw",Math.min(380,Math.max(180,e.clientX-ws.left))+"px")}
+        else{root.style.setProperty("--rw",Math.min(460,Math.max(240,ws.right-e.clientX))+"px")}
+      }
+      function up(){h.classList.remove("drag");h.removeEventListener("pointermove",mv);h.removeEventListener("pointerup",up);save()}
+      h.addEventListener("pointermove",mv);h.addEventListener("pointerup",up);
+    });
+  });
+})();
+
+// Raw alert JSON: số dòng + tô màu (thay RAW bằng case.raw_alert từ API)
+var RAW={"timestamp":"2026-09-14T11:34:08.192+0000","rule":{"level":12,"description":"Infected File Detected in Fortigate","id":"100207","firedtimes":1,"mail":true,"groups":["pwc_caas","fortigate","syslog","firewall","attack_stage_Initial_Access","group_by_data.analyticsccksum","attack_category_Exploit_Public-Facing_Application"]},"agent":{"id":"000","name":"lsh-vn-siem-wazuh.int.darklab.hk","labels":{"customer":"vsa"}},"manager":{"name":"lsh-vn-siem-wazuh.int.darklab.hk"},"id":"1789356848.4699","cluster":{"name":"wazuh","node":"lsh-vn-siem-wazuh.int.darklab.hk"},"full_log":"Sep 14 11:34:06 static.vnpt.vn date=2026-09-14 time=10:34:06 devname=\"VSA-D7-FW\" devid=\"F6200FT923986096\" action=\"blocked\"","predecoder":{"timestamp":"Sep 14 11:34:06","hostname":"static.vnpt.vn"},"decoder":{"name":"fortigate-firewall-v5"},"data":{"protocol":"6","action":"blocked","srcip":"192.168.71.161","srcport":"49429","dstip":"69.41.166.28","dstport":"443","url":"https://xg.chuhzatumbeki.com/xNqfHITExgbNQ/148107","date":"2026-09-14","direction":"incoming","time":"10:34:06","sessionid":"866948295","vd":"root","srccountry":"United States","srcintf":"LACP_SW","srcintfrole":"lan","device_name":"VSA-D7-FW","logsource":"VSA-D7-FW","devid":"F6200FT923986096"}};
+(function(){
+  var box=document.getElementById("jbox");
+  var txt=JSON.stringify(RAW,null,2);
+  function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+  function hl(l){
+    return esc(l).replace(/^(\s*)("(?:[^"\\]|\\.)*")(:)/,'$1<span class="jk">$2</span>$3')
+      .replace(/(:\s|^\s*)("(?:[^"\\]|\\.)*")(,?)$/,'$1<span class="js">$2</span>$3')
+      .replace(/(:\s)(-?\d+(?:\.\d+)?)(,?)$/,'$1<span class="jn">$2</span>$3')
+      .replace(/(:\s)(true|false|null)(,?)$/,'$1<span class="jb">$2</span>$3');
+  }
+  box.innerHTML=txt.split("\n").map(function(l,i){
+    return '<div class="ln"><span class="no">'+(i+1)+'</span><span class="tx">'+hl(l)+'</span></div>';
+  }).join("");
+  document.getElementById("jToggle").addEventListener("click",function(){
+    var c=box.classList.toggle("collapsed");this.textContent=c?"Mở rộng":"Thu gọn";
+  });
+  document.getElementById("jCopy").addEventListener("click",function(){
+    var b=this;
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){b.textContent="Đã chép"},function(){b.textContent="Không chép được"});
+    setTimeout(function(){b.textContent="Sao chép"},1500);
+  });
+})();
+
+// Demo: gửi ghi chú
+var note=document.getElementById("note"),send=document.getElementById("send"),feed=document.getElementById("feed"),cnt=0;
+note.addEventListener("input",function(){send.disabled=!note.value.trim()});
+function post(){
+  var t=note.value.trim();if(!t)return;
+  var e=document.getElementById("empty");if(e)e.remove();
+  var d=document.createElement("div");d.className="item";
+  var now=new Date().toISOString().replace("T"," ").slice(0,19);
+  d.innerHTML='<span class="av">A</span><div class="bubble"><div class="h"><b>analyst</b><span></span></div><div></div></div>';
+  d.querySelector(".h span").textContent=now;
+  d.querySelector(".bubble>div:last-child").textContent=t;
+  feed.appendChild(d);note.value="";send.disabled=true;
+  document.getElementById("navCount").textContent=++cnt;
+}
+send.addEventListener("click",post);
+note.addEventListener("keydown",function(e){if(e.ctrlKey&&e.key==="Enter")post()});
+document.getElementById("assignMe").addEventListener("click",function(){
+  var a=document.querySelector(".assignee");a.querySelector(".av").textContent="A";a.querySelector("span:nth-child(2)").textContent="analyst";
+});
+</script>
+</body>
+</html>

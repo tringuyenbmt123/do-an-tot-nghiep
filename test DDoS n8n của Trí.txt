@@ -23,5 +23,5 @@ $n8nResp = Invoke-RestMethod `
     -ContentType "application/json" `
     -Body $webhookBody
 
-Write-Host "✅ Gửi cảnh báo thành công tới n8n!" -ForegroundColor Green
-Write-Host "📌 Response từ n8n: $($n8nResp | ConvertTo-Json -Depth 3)" -ForegroundColor Cyan
+Write-Host "Gửi cảnh báo thành công tới n8n!" -ForegroundColor Green
+Write-Host "Response từ n8n: $($n8nResp | ConvertTo-Json -Depth 3)" -ForegroundColor Cyan

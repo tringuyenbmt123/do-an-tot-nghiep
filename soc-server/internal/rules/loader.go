@@ -25,16 +25,16 @@ import (
 // LoadedRule - Struct nội bộ chứa Rule đã parse sẵn conditions
 // Dùng trong memory của Rule Engine để evaluate nhanh
 type LoadedRule struct {
-	ID               string                  // ID Rule
-	Name             string                  // Tên Rule
-	Severity         string                  // Mức độ: critical, high, medium, low
-	EventType        string                  // Loại event áp dụng
-	Description      string                  // Mô tả chi tiết
-	MITRETactic      string                  // MITRE ATT&CK Tactic
-	MITRETechniqueID string                  // MITRE ATT&CK Technique ID
-	IsActive         bool                    // Trạng thái bật/tắt
-	Source           string                  // Nguồn: "yaml_file" hoặc "database"
-	Conditions       []models.RuleCondition  // Danh sách điều kiện đã parse
+	ID               string                 // ID Rule
+	Name             string                 // Tên Rule
+	Severity         string                 // Mức độ: critical, high, medium, low
+	EventType        string                 // Loại event áp dụng
+	Description      string                 // Mô tả chi tiết
+	MITRETactic      string                 // MITRE ATT&CK Tactic
+	MITRETechniqueID string                 // MITRE ATT&CK Technique ID
+	IsActive         bool                   // Trạng thái bật/tắt
+	Source           string                 // Nguồn: "yaml_file" hoặc "database"
+	Conditions       []models.RuleCondition // Danh sách điều kiện đã parse
 }
 
 // LoadRulesFromYAML - Tải rules từ thư mục chứa file YAML
@@ -60,7 +60,7 @@ func LoadRulesFromYAML(yamlDir string) ([]LoadedRule, error) {
 	for _, filePath := range files {
 		rule, err := parseYAMLFile(filePath)
 		if err != nil {
-			log.Printf("[RULE LOADER] ❌ Lỗi parse file '%s': %v", filePath, err)
+			log.Printf("[RULE LOADER]  Lỗi parse file '%s': %v", filePath, err)
 			continue // Bỏ qua file lỗi, tiếp tục parse file khác
 		}
 
@@ -124,7 +124,7 @@ func LoadRulesFromDB(db *gorm.DB) ([]LoadedRule, error) {
 		var conditions []models.RuleCondition
 		if dbRule.Conditions != "" && dbRule.Conditions != "[]" {
 			if err := json.Unmarshal([]byte(dbRule.Conditions), &conditions); err != nil {
-				log.Printf("[RULE LOADER] ❌ Lỗi parse conditions cho rule '%s': %v", dbRule.ID, err)
+				log.Printf("[RULE LOADER]  Lỗi parse conditions cho rule '%s': %v", dbRule.ID, err)
 				continue
 			}
 		}

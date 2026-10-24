@@ -32,7 +32,7 @@ class CaseService:
     ) -> Tuple[List[Case], int]:
         """Lấy danh sách cases với phân trang, filter và eager load alert"""
         filters = filters or {}
-        stmt = select(Case).options(joinedload(Case.alert).joinedload(Alert.agent))
+        stmt = select(Case).options(selectinload(Case.alert).selectinload(Alert.agent))
         count_stmt = select(func.count(Case.id))
 
         if filters.get("status"):
@@ -56,7 +56,7 @@ class CaseService:
         """Lấy case chi tiết theo ID (load alert và agent)"""
         stmt = (
             select(Case)
-            .options(joinedload(Case.alert).joinedload(Alert.agent))
+            .options(selectinload(Case.alert).selectinload(Alert.agent))
             .where(Case.id == case_id)
         )
         res = await self.db.execute(stmt)

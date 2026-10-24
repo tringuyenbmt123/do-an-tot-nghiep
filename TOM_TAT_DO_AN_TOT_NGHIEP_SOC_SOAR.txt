@@ -1,0 +1,431 @@
+====================================================================================================
+TÀI LIỆU TỔNG HỢP VÀ TÓM TẮT TOÀN DIỆN ĐỒ ÁN TỐT NGHIỆP
+HỆ THỐNG GIÁM SÁT AN NINH MẠNG (SOC), ĐIỀU PHỐI VÀ PHẢN ỨNG SỰ CỐ TỰ ĐỘNG (SOAR / EDR) HỢP NHẤT
+(Tài liệu chuẩn mực kỹ thuật dành cho AI tổng hợp và soạn thảo báo cáo / khóa luận tốt nghiệp)
+====================================================================================================
+
+I. THÔNG TIN CHUNG VỀ ĐỀ TÀI
+----------------------------------------------------------------------------------------------------
+1. Tên đề tài:
+   "Nghiên cứu, thiết kế và xây dựng Nền tảng Giám sát An ninh mạng (SOC), Điều phối và Phản ứng Sự cố 
+   Tự động (SOAR / EDR) hợp nhất ứng dụng gRPC, Trí tuệ Nhân tạo (AI) và Nền tảng Tự động hóa n8n".
+
+2. Mục tiêu và Lý do chọn đề tài:
+   - Thực trạng: Trong các trung tâm SOC truyền thống, quy trình từ lúc phát hiện sự cố (SIEM), làm giàu
+     dữ liệu mối đe dọa (Threat Intel/MISP), quản lý ticket/vụ việc (TheHive) đến can thiệp cô lập máy trạm 
+     (EDR/Firewall) diễn ra rất rời rạc. Chuyên viên phân tích bậc 1 (Tier 1 SOC Analyst) bị quá tải bởi số
+     lượng cảnh báo khổng lồ (Alert Fatigue), dẫn đến thời gian trung bình phát hiện (MTTD) và thời gian 
+     trung bình xử lý sự cố (MTTR) kéo dài.
+   - Giải pháp của đồ án: Xây dựng một nền tảng SOC/SOAR/EDR khép kín ("All-in-One Closed-loop Platform"):
+     + Endpoint Agent siêu nhẹ thu thập log và thực thi lệnh phản ứng qua kênh nhị phân bảo mật gRPC mTLS.
+     + SOC Server hiệu năng cao tích hợp sẵn Rule Engine thời gian thực, quản lý Vụ việc (Ticketing / Case 
+       Management thay thế TheHive), và Threat Intelligence (thay thế MISP/Cortex).
+     + Tự động hóa quy trình điều tra và xử lý sự cố qua SOAR n8n kết hợp Trí tuệ nhân tạo (LLM Ollama 
+       Zero-Trust và Machine Learning Phishing/DDoS).
+     + Cơ chế phê duyệt của con người (Human-in-the-Loop - HITL) qua Telegram Bot tương tác 1 chạm.
+     + Phản ứng chủ động (Active Response): Tự động cô lập IP qua Firewall và diệt tiến trình độc (Kill Process).
+
+
+II. KIẾN TRÚC HỆ THỐNG VÀ LUỒNG DỮ LIỆU ĐÓNG (CLOSED-LOOP ARCHITECTURE)
+----------------------------------------------------------------------------------------------------
+Hệ thống gồm 4 phân tầng chính hoạt động tương hỗ theo vòng tròn khép kín:
+
+[ Phân tầng 1: Monitored Endpoints (Windows / Linux) ]
+   └── soc-agent (Python/Go Service chạy nền):
+       ├── Thu thập System Metrics (CPU, RAM, Disk qua psutil).
+       ├── File Integrity Monitoring (FIM qua watchdog/fsnotify giám sát thư mục trọng yếu).
+       ├── Process Monitor & Network Monitor (bắt lệnh thực thi nghi vấn, kết nối Socket).
+       ├── Log Tailer (đọc log thời gian thực: Sysmon, Event Log, Syslog).
+       └── Command Executor (Nhận lệnh từ Server: Diệt Process, Chặn IP Firewall, Chặn URL).
+
+                  ▲ │ 1. gRPC Bidirectional Stream (Port 50051)
+                  │ │    - Upstream: EventRequest (Log/Sysmon/FIM) + Heartbeat
+                  │ ▼    - Downstream: CommandResponse (Active Response)
+
+[ Phân tầng 2: SOC Core Server (FastAPI Python / Gin Golang) ]
+   ├── gRPC Server Gateway (:50051) & Connection Manager (quản lý kết nối streaming các Agent).
+   ├── Real-time Rule Engine: Đánh giá sự kiện theo thời gian thực (In-memory, hỗ trợ Hot-Reload).
+   ├── Alert & Case Life-cycle Engine: Tự động gắn tag MITRE ATT&CK, quản lý Ticket vụ việc.
+   ├── Threat Intel & IOC Engine: Lưu trữ Blacklist (IP, Domain, URL, Hash), phân tích VirusTotal.
+   ├── WebSocket Event Hub (:8080/ws/alerts): Bắn sự kiện thời gian thực tới UI.
+   ├── REST API Engine (JWT Authentication, RBAC, Swagger Docs tại :8080/docs).
+   └── Cơ sở hạ tầng dữ liệu: MySQL 8.0 (Lưu trữ toàn bộ thực thể) & Redis (Cache liveness).
+
+                  ▲ │ 2. Webhook Event Dispatch & Callback
+                  │ ▼ 
+
+[ Phân tầng 3: SOAR Orchestration & AI Layer (n8n + AI + Telegram + pfSense) ]
+   ├── n8n Workflow Automation Platform (Điều phối luồng công việc tự động).
+   ├── AI Engine:
+   │   ├── Ollama LLM (Llama 3 / Mistral / Phi-3 / Qwen): Đánh giá phân tích ngữ cảnh Zero-Trust.
+   │   └── Phishing AI V6 / DDoS ML Detectors: Mô hình học máy chấm điểm mức độ độc hại.
+   ├── Human-in-the-Loop (HITL): Telegram Bot gửi tin nhắn cảnh báo kèm nút bấm "Chặn IP / Diệt Process".
+   └── Network Gateway Response: pfSense Firewall (chặn IP tầng biên qua SSH/API) song song với Agent.
+
+                  ▲ │ 3. WebSocket Realtime & REST API Client
+                  │ ▼ 
+
+[ Phân tầng 4: SOC Portal Web Dashboard (React 18 + Vite + Tailwind CSS) ]
+   ├── Cyberpunk Dark Mode UI: Bảng điều khiển tác chiến SOC chuyên nghiệp.
+   ├── Real-time Live Alert Feed (Hiệu ứng flash khi có alert mới).
+   ├── Case Management (Ticketing TheHive: Phân công Analyst, Timeline, AI reason, Ghi chú Markdown).
+   ├── MITRE ATT&CK Matrix Navigator (Bản đồ trực quan hóa độ phủ kỹ thuật tấn công).
+   ├── Detection Rules Studio (Tạo rule, chỉnh sửa biểu thức logic, import/export YAML).
+   ├── Threat Intelligence & IOC Center (Tra cứu và quản lý chỉ số nguy hại).
+   └── EDR Fleet Control (Quản lý trạng thái Agent, gửi lệnh can thiệp thủ công từ xa).
+
+
+III. CÔNG NGHỆ, NGÔN NGỮ VÀ GIAO THỨC SỬ DỤNG TRONG ĐỒ ÁN
+----------------------------------------------------------------------------------------------------
+1. Ngôn ngữ lập trình:
+   - Python 3.10+ (Được sử dụng cho SOC Server Backend FastAPI, SOC Agent Python, và Phishing AI Model).
+   - Go (Golang) 1.22+ (Có mã nguồn song song cho soc-server hiệu năng cao và soc-agent dạng daemon service).
+   - JavaScript (React 18, JSX, Node.js) trên nền công cụ đóng gói Vite.
+   - Shell Script / PowerShell (deploy.ps1, install-agent.ps1, install-server.sh phục vụ CI/CD và triển khai).
+
+2. Kỹ thuật giao tiếp gRPC và Protocol Buffers (Điểm cốt lõi giữa Server và Agent):
+   - Lý do chọn gRPC:
+     + Thay thế giao thức HTTP Polling truyền thống giúp giảm 90% overhead mạng.
+     + Kênh truyền nhị phân bảo mật với mã hóa Mutual TLS (mTLS).
+     + Hỗ trợ Bidirectional Streaming (Luồng 2 chiều): Giúp Agent liên tục gửi log/event lên Server mà 
+       không cần ngắt kết nối; đồng thời Server có thể đẩy ngược (Push) các lệnh khẩn cấp (Active Response) 
+       ngay lập tức xuống Agent mà Agent không cần mở bất kỳ cổng lắng nghe nào (vượt qua NAT/Firewall an toàn).
+   - Định nghĩa Service trong file `agent.proto`:
+     + `rpc StreamEvents(stream EventRequest) returns (stream CommandResponse)`: Kênh truyền sự kiện và lệnh.
+     + `rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse)`: Kênh báo cáo nhịp sống định kỳ (30s) 
+       kèm thông số CPU/RAM usage của máy trạm.
+   - Các lệnh CommandType hỗ trợ trong Proto:
+     + `KILL_PROCESS`: Ép dừng tiến trình theo PID hoặc tên file.
+     + `BLOCK_IP`: Thêm rule tường lửa chặn toàn bộ kết nối đến/từ IP.
+     + `BLOCK_URL`: Chặn truy cập trang web hoặc tên miền lừa đảo.
+     + `QUARANTINE_FILE`: Di dời và cách ly file nghi ngờ mã độc.
+     + `COLLECT_FORENSIC`: Kích hoạt Agent thu thập chi tiết bộ nhớ/tiến trình để điều tra số.
+     + `ISOLATE_NETWORK`: Ngắt toàn bộ kết nối mạng của Endpoint, chỉ duy trì luồng gRPC về SOC Server.
+
+3. Backend Framework & Thư viện:
+   - FastAPI (Python) & Gin-Gonic (Go): REST API chuẩn OpenAPI/Swagger tại `/docs`.
+   - SQLAlchemy 2.0 Async (kết hợp aiomysql): Truy vấn CSDL MySQL bất đồng bộ tốc độ cao.
+   - WebSockets API: Truyền phát tức thì các sự kiện Alert, Case, Audit Log tới giao diện người dùng.
+   - HTTPX / Requests: Giao tiếp Webhook bất đồng bộ với n8n, hỗ trợ Exponential Backoff Retry.
+   - Pydantic v2: Kiểm thực schema dữ liệu đầu vào.
+   - PyJWT: Xác thực người dùng bằng JWT Token có gắn Role-Based Access Control (RBAC).
+
+4. Cơ sở dữ liệu và Caching:
+   - MySQL 8.0: Lưu trữ bền vững dữ liệu quan hệ (Bảng: users, agents, alerts, cases, case_notes, 
+     rules, indicators, audit_logs, assets, vulns, firewall_rules, playbooks, reports, settings).
+   - Redis 7.0: Lưu trữ bộ nhớ đệm (Cache liveness của Agent, TTL heartbeat, hàng đợi xử lý sự kiện).
+
+5. Frontend Web Portal:
+   - React 18 & Vite: Tốc độ dựng giao diện cực nhanh, hỗ trợ Hot-Module Replacement.
+   - Tailwind CSS: Xây dựng giao diện Dark Mode Cyberpunk đẳng cấp trung tâm giám sát an ninh.
+   - Recharts: Vẽ biểu đồ xu hướng tấn công (AreaChart), phân bổ mức độ (PieChart), Top Agents (BarChart).
+   - Lucide React: Hệ thống biểu tượng an ninh mạng chuyên nghiệp.
+   - Axios & Custom React Hooks (`useWebSocket`, `useDashboardStats`).
+
+6. Tự động hóa SOAR, AI và Tích hợp ngoại vi:
+   - n8n Automation Engine (Chạy trên Docker): Điều phối luồng xử lý sự cố qua visual node canvas.
+   - Ollama (Local AI): Chạy các mô hình nguồn mở (Llama 3, Mistral, Qwen, Phi-3) để đánh giá câu lệnh 
+     đáng ngờ, phân tích ngữ cảnh tấn công, tính toán độ tin cậy (Confidence Score) theo tư duy Zero-Trust.
+   - Phishing AI Detection Engine: Mô hình học máy phân loại URL dựa trên đặc trưng từ vựng và cấu trúc URL.
+   - Telegram Bot API: Gửi thông báo khẩn cấp kèm bàn phím tương tác (Inline Keyboard) cho chuyên viên SOC.
+   - pfSense Firewall: Giao tiếp qua SSH để thực thi lệnh pfctl chặn IP ở mức cổng ngõ mạng (Network Gateway).
+   - Docker & Docker Compose: Đóng gói và khởi chạy toàn bộ giải pháp với chỉ 1 câu lệnh (`docker-compose up -d`).
+
+
+IV. CÁC NGUỒN CẢNH BÁO ĐẦU VÀO VÀ LOG INGESTION (HOÀN TOÀN TỰ XÂY DỰNG, KHÔNG DÙNG WAZUH)
+----------------------------------------------------------------------------------------------------
+Toàn bộ hệ thống giám sát và phát hiện cảnh báo được thu thập trực tiếp từ các cảm biến tự xây dựng 
+và EDR Agent nội bộ phát triển qua gRPC (Hệ thống độc lập 100%, không phụ thuộc vào Wazuh):
+
+1. `ddos-alert` (Cảnh báo Tấn công Từ chối Dịch vụ):
+   - Nguồn phát hiện: Cảm biến giám sát lưu lượng mạng kết hợp mô hình học máy ML DDoS Detector / Dashboard.
+   - Dấu hiệu nhận diện: Tấn công SYN Flood, UDP Flood, HTTP Request Spike, lưu lượng gói tin bất thường.
+   - Thuộc tính dữ liệu: `src_ip`, `target`, `attack_type`, `confidence`, `reported_by`.
+
+2. `phishing-alert` (Cảnh báo Tên miền & Đường dẫn Lừa đảo):
+   - Nguồn phát hiện: Mô hình học máy Phishing AI V6 (PhishingAI Detection System) và Agent giám sát kết nối URL.
+   - Dấu hiệu nhận diện: Tên miền giả mạo (Typosquatting), URL lừa đảo đánh cắp thông tin, liên kết độc hại.
+   - Thuộc tính dữ liệu: `url`, `employee_ip`, `confidence`, `reported_by`.
+
+3. `endpoint-edr-alert` (Cảnh báo Giám sát Tiến trình & Hành vi Độc hại từ EDR Agent qua gRPC):
+   - Nguồn phát hiện: Tác tử EDR Agent (soc-agent) thu thập các sự kiện tiến trình (Process Events, Sysmon, Event Log) 
+     và stream liên tục qua kênh nhị phân gRPC (`StreamEvents`) lên SOC Server.
+   - Dấu hiệu nhận diện phân tích sâu:
+     + Thực thi tiến trình độc hại: PowerShell chạy ẩn mã hóa (`-WindowStyle Hidden -EncodedCommand`), CMD, 
+       công cụ tải mã độc (`certutil`, `bitsadmin`).
+     + Hành vi trích xuất bộ nhớ xác thực: Quét bộ nhớ LSASS, trích xuất SAM Database.
+     + Né tránh phòng thủ (Defense Evasion): Xóa vết log hệ thống (Event ID 1102 / `wevtutil cl`), tắt Firewall, tắt Defender.
+     + Kết nối Command & Control (C2): Thiết lập socket ra các IP nguy hiểm bên ngoài.
+
+4. `fim-alert` (Cảnh báo Toàn vẹn Tệp tin - File Integrity Monitoring từ EDR Agent):
+   - Nguồn phát hiện: Module `fim_watcher.py` trên EDR Agent (sử dụng thư viện giám sát thời gian thực watchdog/fsnotify)
+     theo dõi liên tục các thư mục trọng yếu hệ thống (`C:\Windows\System32`, `C:\Users\Public`, `/etc/`, `/var/www/`).
+   - Dấu hiệu nhận diện:
+     + Sửa đổi, tạo mới, xóa hoặc đổi tên tệp tin nhạy cảm của hệ điều hành.
+     + Dấu hiệu hành vi của Ransomware (hàng loạt file bị đổi định dạng hoặc mã hóa trong thời gian ngắn).
+     + Hành vi cấy mã độc duy trì khởi động (Startup Folder, Run Keys) hoặc tạo Web Shell trên máy chủ.
+
+
+V. BỘ MÁY ĐÁNH GIÁ LUẬT PHÁT HIỆN THỜI GIAN THỰC (DETECTION RULE ENGINE)
+----------------------------------------------------------------------------------------------------
+1. Cơ chế vận hành:
+   - Hoạt động hoàn toàn trong bộ nhớ (In-memory Engine), giúp đánh giá hàng ngàn sự kiện mỗi giây 
+     với độ trễ dưới 2 mili-giây.
+   - Tự động nạp danh sách luật từ Database khi khởi động (Seed tự động từ các file YAML mẫu).
+   - Hỗ trợ cơ chế **Hot-Reload**: Khi chuyên viên thêm, sửa hoặc Bật/Tắt (Toggle) một Rule trên 
+     Web Dashboard, Rule Engine ngay lập tức cập nhật lại bộ nhớ mà không cần khởi động lại Server.
+
+2. Cấu trúc một Rule:
+   - `id`: Mã định danh UUID hoặc mã chuẩn (ví dụ: `rule_powershell_encoded`, `rule_fim_system32`).
+   - `name`: Tên quy tắc phát hiện dễ hiểu.
+   - `event_type`: Loại sự kiện áp dụng (`sysmon_process_create`, `file_integrity`, `ddos_detected`, ...).
+   - `severity`: Mức độ cảnh báo (`critical`, `high`, `medium`, `low`).
+   - `conditions`: Cấu hình biểu thức lọc logic (AND/OR), hỗ trợ các toán tử:
+     + `equals`: So sánh bằng tuyệt đối.
+     + `contains`: Chuỗi con (ví dụ: chứa `-EncodedCommand`, `mimikatz`, `powershell`).
+     + `regex`: So khớp biểu thức chính quy phức tạp.
+     + `in`: Nằm trong danh sách giá trị.
+     + `gt` / `lt`: So sánh lớn hơn / bé hơn (áp dụng cho đếm số lần, dung lượng, cổng mạng).
+   - `mitre_tactic` & `mitre_technique_id`: Ánh xạ chuẩn MITRE ATT&CK.
+
+
+VI. TÍCH HỢP KHUNG MA TRẬN MITRE ATT&CK
+----------------------------------------------------------------------------------------------------
+1. Ý nghĩa:
+   Khung MITRE ATT&CK đóng vai trò là "ngôn ngữ chung" giúp chuẩn hóa toàn bộ hành vi tấn công, 
+   hỗ trợ chuyên viên SOC nhận diện kẻ tấn công đang ở giai đoạn nào trong chuỗi Cyber Kill Chain.
+
+2. Ánh xạ các Tactics & Techniques cụ thể trong đồ án:
+   - **Initial Access (Thâm nhập ban đầu)**:
+     + T1566 / T1566.001: Phishing / Spearphishing Attachment (Bắt các URL lừa đảo, email độc hại).
+   - **Execution (Thực thi mã độc)**:
+     + T1059.001: PowerShell (Phát hiện PowerShell chạy ẩn `-WindowStyle Hidden -EncodedCommand`).
+     + T1059.003: Windows Command Shell (cmd.exe tạo tiến trình con bất thường).
+     + T1204.002: Malicious File Execution (Thực thi file khả nghi tải về từ Internet).
+   - **Persistence (Duy trì truy cập)**:
+     + T1547.001: Registry Run Keys / Startup Folder (Ghi đè khóa khởi động Windows Registry).
+     + T1053.005: Scheduled Task (Tạo tác vụ hẹn giờ lặp lại).
+     + T1543.003: Windows Service / T1543.002: Systemd Service (Cài đặt service chạy nền).
+   - **Privilege Escalation (Leo thang đặc quyền)**:
+     + T1548.001 / T1548.003: Setuid, Setgid, Sudo Caching (Lợi dụng quyền root/administrator).
+   - **Defense Evasion (Né tránh phòng thủ)**:
+     + T1070.001: Clear Windows Event Logs (Lệnh xóa vết nhật ký `wevtutil cl Security`).
+     + T1562.001: Disable or Modify Tools (Tắt Windows Defender, Antivirus).
+     + T1562.004: Disable System Firewall (Tắt tường lửa qua `netsh advfirewall set currentprofile state off`).
+     + T1036 / T1036.005: Masquerading (Đổi tên tiến trình độc giả dạng tiến trình hệ thống như svchost.exe).
+   - **Credential Access (Đánh cắp thông tin xác thực)**:
+     + T1003.001: LSASS Memory Dumping (Trích xuất mật khẩu bộ nhớ qua công cụ Mimikatz hoặc ProcDump).
+     + T1552.001: Credentials in Files (Quét tìm mật khẩu lưu trong file plaintext).
+   - **Discovery (Thăm dò mạng & hệ thống)**:
+     + T1046: Network Service Discovery (Hành vi quét cổng nội bộ).
+     + T1087.002: Domain Account Discovery (Liệt kê tài khoản người dùng trong Active Directory).
+   - **Impact (Tác động phá hoại)**:
+     + T1486: Data Encrypted for Impact (Hành vi của Ransomware mã hóa hàng loạt file FIM).
+     + T1490: Inhibit System Recovery (Xóa bản sao lưu hệ thống Shadow Copies qua `vssadmin delete shadows`).
+
+3. Trực quan hóa ma trận trên Web Dashboard:
+   - Module `MITRE.jsx` trên Frontend hiển thị Heatmap ma trận ATT&CK. Từng ô kỹ thuật được tô màu 
+     theo số lượng cảnh báo thực tế kích hoạt, giúp đội ngũ quản trị đánh giá chính xác lỗ hổng phòng thủ.
+
+
+VII. HỆ THỐNG QUẢN LÝ VỤ VIỆC & VÒNG ĐỜI SỰ CỐ (TICKETING / CASE MANAGEMENT)
+----------------------------------------------------------------------------------------------------
+1. Thay thế TheHive bằng giải pháp bản địa (Built-in Case Engine):
+   - Thay vì phải cài đặt và bảo trì TheHive (vốn tốn tài nguyên và khó đồng bộ), đồ án xây dựng phân 
+     hệ Case Management tích hợp trực tiếp trong Core Server và giao diện React.
+   - Tự động hoặc thủ công nâng cấp (Escalate) một Alert thành một Case điều tra chính thức.
+
+2. Cấu trúc một Case (Incident Ticket):
+   - `id`: Mã định danh vụ việc.
+   - `alert_id`: Khóa ngoại tham chiếu tới Alert nguồn gây ra vụ việc.
+   - `title`: Tiêu đề vụ việc (Ví dụ: "Điều tra tấn công SYN Flood từ IP 185.220.101.45").
+   - `description`: Nội dung mô tả chi tiết (hỗ trợ định dạng chuẩn Markdown).
+   - `severity_num`: Thang đo mức độ (1 = Critical, 2 = High, 3 = Medium, 4 = Low).
+   - `status`: Vòng đời trạng thái gồm 4 bước chuẩn mực SOC:
+     + `New`: Vụ việc mới tạo, chưa có người thụ lý.
+     + `InProgress`: Đang được chuyên viên phân tích điều tra.
+     + `Closed`: Đã xử lý xong, sự cố được khắc phục hoàn toàn.
+     + `Rejected`: Báo động giả (False Positive) hoặc bị từ chối phê duyệt.
+   - `assigned_to`: Tên tài khoản chuyên viên SOC phụ trách (Analyst).
+   - `tags`: Nhãn phân loại dạng mảng JSON (ví dụ: `["DDoS", "SYN-Flood", "Critical", "External"]`).
+   - `soar_status`: Trạng thái xử lý của n8n (`pending`, `analyzing`, `completed`, `failed`).
+   - `ai_reason`: Lập luận chi tiết do AI sinh ra (Ví dụ: giải thích tại sao câu lệnh bị đánh giá là độc).
+   - `human_approved_by`: Định danh người dùng Telegram đã bấm phê duyệt can thiệp.
+   - `confidence`: Tỷ lệ phần trăm độ tin cậy của AI (từ 0.0 đến 1.0).
+
+3. Quản lý Ghi chú Điều tra (Case Notes):
+   - Chuyên viên có thể thêm nhiều ghi chú (`CaseNote`) theo thời gian thực để ghi chép quá trình Forensics, 
+     đính kèm chứng cứ và bàn giao ca trực trực quan.
+
+
+VIII. QUẢN LÝ THREAT INTELLIGENCE & IOC (THAY THẾ MISP VÀ CORTEX)
+----------------------------------------------------------------------------------------------------
+1. Thay thế MISP & Cortex:
+   - Lưu trữ danh sách đen (Blacklist / Indicators of Compromise) tập trung trong cơ sở dữ liệu.
+   - Cung cấp API chuẩn tương thích node MISP trong n8n:
+     + `POST /api/v1/indicators/restSearch`: n8n gửi IP/Domain/Hash sang tra cứu; Server phản hồi ngay 
+       lập tức xem IOC này có nằm trong danh sách mối đe dọa đã biết hay không.
+     + `POST /api/v1/indicators/analyze`: Tương đương chức năng Cortex Analyzer (tích hợp tra cứu danh tiếng 
+       trên VirusTotal API, kiểm tra số lượng engine đánh giá độc hại).
+     + `POST /api/v1/indicators`: Tự động nạp các IOC độc mới phát hiện vào cơ sở dữ liệu tri thức.
+
+
+IX. CƠ CHẾ ĐIỀU PHỐI SOAR VÀ PHẢN ỨNG TÍCH CỰC (ACTIVE RESPONSE)
+----------------------------------------------------------------------------------------------------
+1. Quy trình điều phối tự động qua n8n (SOAR Pipeline):
+   - Bước 1: Khi SOC Server ghi nhận Alert nghiêm trọng (hoặc thuộc loại DDoS, Phishing, Sysmon độc hại), 
+     hàm `dispatch_to_n8n()` sẽ bắn Webhook sang n8n kèm chữ ký xác thực.
+   - Bước 2 (Normalize & Threat Intel): n8n chuẩn hóa dữ liệu, tự động gọi API `/api/v1/indicators/restSearch` 
+     và `/analyze` để làm giàu thông tin (Enrichment).
+   - Bước 3 (AI Zero-Trust Evaluation): n8n gửi thông tin sang mô hình Ollama LLM để phân tích hành vi 
+     và đưa ra khuyến nghị (Recommendation: Block IP, Kill Process, hoặc Ignore) kèm chỉ số Confidence.
+   - Bước 4 (Human-in-the-Loop - HITL):
+     + n8n định dạng một tin nhắn trực quan gửi tới nhóm Telegram SOC trực ban.
+     + Tin nhắn hiển thị: Tên sự cố, Mức độ, Máy trạm đích, Lập luận của AI, và 2 nút bấm tương tác:
+       [ ✅ Phê duyệt Chặn / Diệt ]  hoặc  [ ❌ Bỏ qua (False Positive) ]
+   - Bước 5 (Thực thi phản ứng Active Response):
+     + Nếu chuyên viên bấm "Phê duyệt" (hoặc AI tự động can thiệp nếu cấu hình Auto-Remediation):
+       n8n gọi SSH sang pfSense chặn IP ở cửa ngõ mạng; đồng thời n8n gọi REST Callback về SOC Server 
+       tại endpoint `POST /api/v1/soar/callback`.
+   - Bước 6 (Agent Enforcement):
+     + SOC Server nhận Callback, tìm đúng AgentID tương ứng trong bảng Connection Manager.
+     + Đẩy lệnh `CommandResponse` (chứa Type = KILL_PROCESS hoặc BLOCK_IP) qua luồng gRPC đang kết nối.
+     + Tác tử `soc-agent` tại máy khách nhận lệnh ngay tức thì (dưới 100ms) và gọi lệnh hệ điều hành:
+       * Trên Windows: `netsh advfirewall firewall add rule name="SOC_BLOCK_IP_..." dir=in action=block remoteip=...`
+       * Trên Linux: `iptables -I INPUT -s ... -j DROP`
+       * Diệt tiến trình: Tìm process theo PID và gọi `proc.kill()` triệt để.
+     + `soc-agent` gửi tin nhắn phản hồi báo cáo thực thi thành công lên Server.
+   - Bước 7 (Đóng vụ việc & Kiểm toán):
+     + SOC Server tự động cập nhật Case sang trạng thái "Completed", ghi lại AI Reason, người duyệt 
+       Telegram và lưu một bản ghi nhật ký bất biến vào `audit_logs`.
+
+
+X. NHẬT KÝ KIỂM TOÁN HỆ THỐNG BẤT BIẾN (AUDIT LOGGING)
+----------------------------------------------------------------------------------------------------
+- Bảng `audit_logs` lưu lại toàn bộ vết thao tác trong hệ thống nhằm phục vụ công tác thanh tra (Audit) 
+  và điều tra kỹ thuật số (Forensics).
+- Các trường thông tin ghi nhận:
+  + `event_type`: Loại sự kiện kiểm toán (`soar_callback_received`, `rule_created`, `manual_block_ip`, ...).
+  + `source`: Nguồn gốc quyết định (`AI`, `Human-HITL`, `Admin-Web`, `System`).
+  + `action`: Hành động thực hiện (`block_ip`, `kill_process`, `create_case`, `toggle_rule`).
+  + `actor`: Định danh tác tử thực hiện (`n8n_soar_engine`, `admin`, tên Telegram của chuyên viên).
+  + `payload_summary`: Tóm tắt chi tiết tham số và đối tượng bị tác động.
+  + `confidence`: Điểm tin cậy của AI tại thời điểm ra quyết định.
+  + Khóa ngoại liên kết tới: `alert_id`, `case_id`, `agent_id`.
+
+
+XI. DANH SÁCH TÍNH NĂNG TRÊN GIAO DIỆN WEB SOC PORTAL (soc-frontend)
+----------------------------------------------------------------------------------------------------
+Giao diện React được thiết kế với phong cách trung tâm điều hành không gian mạng (Cyberpunk Operations Center), 
+chia thành 14 phân hệ chính:
+1. **Overview / SIEM Dashboard (`Dashboard.jsx` / `SOCOverview.jsx`)**:
+   - Thống kê tổng số Alerts, Cases đang mở, số Agents Online/Offline, số Rules hoạt động.
+   - Biểu đồ biến thiên cảnh báo theo dòng thời gian 24 giờ (AreaChart).
+   - Biểu đồ phân bổ tỷ lệ mức độ nghiêm trọng Critical/High/Medium/Low (PieChart).
+   - Danh sách Top 5 máy trạm bị nhắm mục tiêu nhiều nhất (BarChart).
+   - Live Alert Feed: Bảng danh sách cảnh báo thời gian thực tự động cuộn và nhấp nháy khi có sự kiện mới.
+
+2. **Quản lý Cảnh báo (`Alerts.jsx`)**:
+   - Bộ lọc đa chiều: Lọc theo Severity, Trạng thái (New/Acknowledged/Resolved), Loại sự kiện, AgentID.
+   - Alert Detail Drawer: Mở rộng xem chi tiết JSON thô có tô màu cú pháp (Syntax Highlight), xem kỹ thuật 
+     MITRE ATT&CK liên quan, nút bấm kích hoạt nhanh luồng SOAR n8n, nút tạo Case điều tra.
+
+3. **Quản lý Vụ việc / Ticketing (`Cases.jsx`)**:
+   - Hiển thị danh sách vụ việc dạng danh sách hoặc Kanban.
+   - Xem chi tiết Case: Phân công chuyên viên, đổi trạng thái (New -> InProgress -> Closed), xem Timeline 
+     phản ứng tự động, xem AI Reasoning và bằng chứng Telegram HITL, soạn thảo ghi chú Markdown.
+
+4. **Quản lý Agent EDR (`Agents.jsx` / `SOCAgents.jsx`)**:
+   - Giám sát toàn bộ đội ngũ máy trạm (Fleet Management): Hostname, IP, OS (Windows/Linux), Version, 
+     thời điểm Heartbeat cuối cùng.
+   - Bảng điều khiển can thiệp khẩn cấp từ xa: Nút gửi lệnh Kill Process theo PID, nút Block IP tức thì.
+
+5. **Trung tâm Triển khai Tác tử (`SOCDeploy.jsx`)**:
+   - Cung cấp sẵn lệnh cài đặt Agent siêu tốc (1-Click Install Command) qua PowerShell (Windows) 
+     và cURL/Bash (Linux), tự động cấu hình địa chỉ IP máy chủ và kết nối gRPC.
+
+6. **Ma trận MITRE ATT&CK (`MITRE.jsx`)**:
+   - Trực quan hóa 14 chiến thuật (Tactics) và hàng chục kỹ thuật (Techniques) tấn công.
+   - Đánh dấu màu sắc các kỹ thuật đã phát hiện trong hệ thống, phân tích mức độ bao phủ phòng thủ.
+
+7. **Bộ quy tắc phát hiện (`DetectionRules.jsx`)**:
+   - Quản lý danh sách luật phát hiện trong CSDL: Thêm mới, chỉnh sửa điều kiện logic, bật/tắt (Toggle) 
+     quy tắc tức thời với tính năng Hot-reload.
+   - Hỗ trợ Import / Export quy tắc phát hiện ra định dạng YAML chuẩn mực.
+
+8. **Kho tình báo mối đe dọa (`ThreatIntel.jsx`)**:
+   - Quản lý danh sách đen chỉ số nguy hại (Blacklist IOCs: IP, Domain, Hash, URL).
+   - Tích hợp công cụ phân tích IOC trực quan qua VirusTotal.
+
+9. **Tường lửa & Danh sách chặn (`Firewall.jsx`)**:
+   - Quản lý tập trung các quy tắc tường lửa Active Response đã áp dụng trên các Agent và pfSense.
+   - Cho phép gỡ chặn IP (Unblock IP) chỉ với 1 click chuột.
+
+10. **Quản lý Tài sản công nghệ (`Assets.jsx`)**:
+    - Quản lý danh mục máy chủ, máy trạm nội bộ, phân loại mức độ quan trọng (Criticality Level).
+
+11. **Quản lý Lỗ hổng bảo mật (`Vulns.jsx`)**:
+    - Theo dõi các lỗ hổng CVE đã ghi nhận trên hệ thống và tiến độ vá lỗi.
+
+12. **Trình hiển thị Playbook SOAR (`Playbooks.jsx`)**:
+    - Trực quan hóa quy trình xử lý tự động của các kịch bản mẫu (DDoS Playbook, Phishing Playbook, 
+      Malware Playbook).
+
+13. **Báo cáo An ninh mạng (`Reports.jsx`)**:
+    - Xuất báo cáo tổng quan tình hình an ninh mạng định kỳ dành cho cấp quản lý (Executive Summary) 
+      và đội ngũ kỹ thuật (Technical Detailed Report).
+
+14. **Cài đặt & Nhật ký Kiểm toán (`AuditSettings.jsx`)**:
+    - Xem bảng nhật ký kiểm toán bất biến (Audit Logs) ghi nhận toàn bộ hoạt động của AI và người dùng.
+    - Cấu hình tham số hệ thống: Thời gian lưu trữ log (Retention Days), Webhook URL, Chu kỳ Heartbeat.
+
+
+XII. DANH MỤC CÁC CỔNG MẠNG VÀ ĐỊA CHỈ IP HỆ THỐNG CẦN THIẾT
+----------------------------------------------------------------------------------------------------
+1. Danh mục Cổng mạng Docker Container:
+| Tên Dịch vụ           | Container Name  | Cổng Mạng (Port)     | Giao thức / Mục đích sử dụng               |
+|-----------------------|-----------------|----------------------|--------------------------------------------|
+| SOC Web Frontend      | soc-frontend    | 80:80                | HTTP (Nginx phục vụ giao diện React)       |
+| SOC Backend Server    | soc-server      | 8080:8080            | HTTP / WebSocket (REST API & Live Alerts)  |
+| SOC gRPC Gateway      | soc-server      | 50051:50051          | gRPC nhị phân mTLS (Agent giao tiếp)       |
+| MySQL Database        | soc-mysql       | 3306:3306            | MySQL Protocol (Lưu trữ CSDL chính)        |
+| Redis Cache           | soc-redis       | 6379:6379            | RESP Protocol (Heartbeat Cache & Pub/Sub)  |
+| n8n SOAR Platform     | soc-n8n         | 5678:5678            | HTTP (Visual Workflow Orchestration)       |
+| Ollama Local LLM      | ollama          | 11434:11434          | HTTP REST (Zero-Trust AI Model Inference)  |
+| Phishing AI Detector  | phishing-ai     | 5001:5001            | HTTP REST (Machine Learning URL Prediction)|
+
+2. Danh mục Địa chỉ IP và URL Quan trọng của Đề tài:
+- pfSense Management IP: 192.168.221.221
+- Đường dẫn Log Squid Proxy: /var/squid/logs/access.log (theo dõi URL truy cập của nhân viên).
+- Ngrok Base URL: https://undegenerate-alisia-farsightedly.ngrok-free.dev (giải quyết bài toán NAT/Firewall, cho phép Telegram Bot bắn callback HITL về n8n).
+- Máy chủ SOC Host: 192.168.1.28 (hoặc 192.168.1.194) chạy Frontend (:80/:5173), Backend REST/WebSocket (:8080), gRPC (:50051), n8n (:5678).
+- Máy chủ AI LLM Ollama: host.docker.internal:11434 (hoặc server AI riêng 192.168.1.12:11434).
+- Phishing AI Engine: host.docker.internal:5001/api/url/predict.
+- Máy trạm Endpoint Windows 11 (soc-agent): 192.168.1.194 / 192.168.221.220.
+- Máy trạm Endpoint Linux (CentOS/Ubuntu): 192.168.91.158.
+- Máy nhân viên bị tấn công Phishing (Victim): 192.168.10.25 / 192.168.1.34.
+- Máy chủ mục tiêu bị tấn công DDoS (Target Server): 192.168.91.100.
+- IP kẻ tấn công giả lập DDoS (External Attacker): 185.220.101.45.
+- Máy tấn công Pentest / Quét lỗ hổng (Kali Linux): 192.168.91.136 (hoặc 192.168.91.13).
+
+
+
+XIII. TỔNG KẾT NHỮNG ĐIỂM NỔI BẬT ĐỂ ĐƯA VÀO BÁO CÁO TỐT NGHIỆP
+----------------------------------------------------------------------------------------------------
+1. Tính Thực tiễn và Đột phá:
+   - Đồ án giải quyết trọn vẹn bài toán nhức nhối của các trung tâm giám sát an ninh mạng: "Alert Fatigue" 
+     và thời gian phản ứng chậm trễ của con người.
+   - Thay thế thành công các giải pháp thương mại đắt đỏ hoặc cồng kềnh (TheHive, MISP, Cortex) bằng 
+     một hệ thống hợp nhất, tối ưu hiệu năng và dễ dàng triển khai chỉ với 1 câu lệnh Docker.
+
+2. Tính Sáng tạo Kỹ thuật:
+   - Ứng dụng công nghệ gRPC 2 chiều (Bidirectional Streaming) vào giám sát Endpoint, đảm bảo khả năng 
+     thu thập log thời gian thực và đẩy lệnh phản xạ (Active Response) tức thì dưới 100ms.
+   - Kết hợp nhịp nhàng giữa Trí tuệ nhân tạo (LLM Ollama Zero-Trust) và Chuyên viên con người 
+     (Telegram Human-in-the-Loop) giúp tự động hóa tối đa nhưng vẫn đảm bảo an toàn tuyệt đối, 
+     tránh việc hệ thống tự động ngăn chặn nhầm các dịch vụ trọng yếu của doanh nghiệp.
+   - Chuẩn hóa hoàn toàn theo khung tri thức an ninh mạng quốc tế MITRE ATT&CK Enterprise.
+
+====================================================================================================
+(HẾT TÀI LIỆU TỔNG HỢP - SỬ DỤNG VĂN BẢN NÀY LÀM DỮ LIỆU ĐẦU VÀO CHO AI SOẠN BÁO CÁO TỐT NGHIỆP)
+====================================================================================================

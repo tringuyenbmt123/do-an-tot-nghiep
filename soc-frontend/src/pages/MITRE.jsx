@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Grid, RefreshCw, Search, ChevronDown, ChevronUp, Shield, Target, Eye, AlertCircle, Info } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { getMitreCoverage } from '../api/mitre'
+import { useTheme } from '../contexts/ThemeContext'
 
 // Full MITRE ATT&CK Enterprise tactic list (ordered)
 const ALL_TACTICS = [
@@ -58,42 +59,72 @@ const DEMO_TECHNIQUES = [
   { id: 'T1485', name: 'Data Destruction', tactic: 'Impact', hits: 3 },
 ]
 
-function HeatCell({ technique, maxHits, onClick, selected }) {
+function HeatCell({ technique, maxHits, onClick, selected, isDark }) {
   const intensity = maxHits > 0 ? technique.hits / maxHits : 0
-  const bg = technique.hits === 0
-    ? 'rgba(30,41,59,0.8)'
-    : `rgba(239,68,68,${0.08 + intensity * 0.7})`
-  const border = technique.hits === 0
-    ? '1px solid rgba(51,65,85,0.5)'
-    : `1px solid rgba(239,68,68,${0.2 + intensity * 0.6})`
+  const isHit = technique.hits > 0
+  const isHighIntensity = intensity > 0.35
+
+  let bg = 'var(--panel2)'
+  let border = '1px solid var(--line)'
+  let idColor = 'var(--muted)'
+  let nameColor = 'var(--text)'
+  let hitsColor = 'var(--muted)'
+
+  if (isHit) {
+    if (isHighIntensity) {
+      bg = `rgba(239, 68, 68, ${Math.min(0.92, 0.55 + intensity * 0.4)})`
+      border = '1px solid rgba(239, 68, 68, 0.95)'
+      idColor = 'rgba(255, 255, 255, 0.85)'
+      nameColor = '#ffffff'
+      hitsColor = '#ffffff'
+    } else {
+      bg = isDark
+        ? `rgba(239, 68, 68, ${0.18 + intensity * 0.28})`
+        : `rgba(239, 68, 68, ${0.12 + intensity * 0.22})`
+      border = isDark
+        ? `1px solid rgba(239, 68, 68, ${0.4 + intensity * 0.3})`
+        : `1px solid rgba(239, 68, 68, ${0.35 + intensity * 0.25})`
+      idColor = isDark ? '#fca5a5' : '#b91c1c'
+      nameColor = 'var(--text)'
+      hitsColor = isDark ? '#f87171' : '#dc2626'
+    }
+  }
 
   return (
     <div
       onClick={() => onClick(technique)}
       title={`${technique.id}: ${technique.name} (${technique.hits} hits)`}
       style={{
-        padding: '5px 7px',
-        borderRadius: 5,
-        background: selected ? 'rgba(59,130,246,0.3)' : bg,
-        border: selected ? '1px solid rgba(59,130,246,0.7)' : border,
+        padding: '6px 7px',
+        borderRadius: 6,
+        background: selected ? (isDark ? 'rgba(59,130,246,0.35)' : 'rgba(59,130,246,0.18)') : bg,
+        border: selected ? '1px solid var(--accent)' : border,
+        boxShadow: selected ? '0 0 0 1px var(--accent)' : 'none',
         cursor: 'pointer',
-        transition: 'all 0.15s',
+        transition: 'all 0.15s ease',
         minWidth: 0,
       }}
       onMouseEnter={e => {
-        if (!selected) e.currentTarget.style.transform = 'scale(1.05)'
+        if (!selected) {
+          e.currentTarget.style.transform = 'translateY(-2px)'
+          e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
+        }
         e.currentTarget.style.zIndex = '10'
       }}
       onMouseLeave={e => {
-        if (!selected) e.currentTarget.style.transform = 'scale(1)'
+        if (!selected) {
+          e.currentTarget.style.transform = 'translateY(0)'
+          e.currentTarget.style.boxShadow = 'none'
+        }
         e.currentTarget.style.zIndex = '1'
       }}
     >
-      <div style={{ fontSize: 9, color: '#64748b', fontWeight: 600, marginBottom: 1 }}>{technique.id}</div>
+      <div style={{ fontSize: 9.5, color: idColor, fontWeight: 700, marginBottom: 2 }}>{technique.id}</div>
       <div style={{
-        fontSize: 10,
-        color: technique.hits > 0 ? '#e2e8f0' : '#475569',
-        lineHeight: 1.3,
+        fontSize: 10.5,
+        color: nameColor,
+        fontWeight: isHit ? 600 : 500,
+        lineHeight: 1.35,
         overflow: 'hidden',
         display: '-webkit-box',
         WebkitLineClamp: 2,
@@ -103,10 +134,10 @@ function HeatCell({ technique, maxHits, onClick, selected }) {
       </div>
       {technique.hits > 0 && (
         <div style={{
-          fontSize: 9,
+          fontSize: 9.5,
           fontWeight: 700,
-          color: `rgba(252,165,165,${0.7 + intensity * 0.3})`,
-          marginTop: 2,
+          color: hitsColor,
+          marginTop: 3,
         }}>
           {technique.hits} hits
         </div>
@@ -116,6 +147,7 @@ function HeatCell({ technique, maxHits, onClick, selected }) {
 }
 
 export default function MITRE() {
+  const { isDark } = useTheme()
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -203,7 +235,7 @@ export default function MITRE() {
                   transition: 'all 0.2s',
                 }}
               >
-                {v === 'heatmap' ? '🗺 Heatmap' : '📋 Danh sách'}
+                {v === 'heatmap' ? 'Heatmap' : 'Danh sách'}
               </button>
             ))}
           </div>
@@ -225,8 +257,8 @@ export default function MITRE() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ padding: 8, borderRadius: 8, background: `${s.color}15` }}>{s.icon}</div>
               <div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#f8fafc' }}>{s.value.toLocaleString()}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{s.sub}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{s.value.toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>{s.sub}</div>
               </div>
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{s.label}</div>
@@ -272,7 +304,7 @@ export default function MITRE() {
                 borderRadius: 8,
                 border: '1px solid rgba(59,130,246,0.4)',
                 background: 'rgba(59,130,246,0.1)',
-                color: '#60a5fa',
+                color: 'var(--accent)',
                 fontSize: 13,
                 cursor: 'pointer',
               }}
@@ -311,30 +343,30 @@ export default function MITRE() {
                     padding: '8px 6px',
                     borderRadius: 6,
                     background: filterTactic === tactic.name
-                      ? `${tactic.color}30`
-                      : `${tactic.color}12`,
+                      ? `${tactic.color}25`
+                      : `${tactic.color}10`,
                     border: filterTactic === tactic.name
-                      ? `1px solid ${tactic.color}80`
-                      : `1px solid ${tactic.color}25`,
+                      ? `1.5px solid ${tactic.color}`
+                      : `1px solid ${tactic.color}35`,
                     cursor: 'pointer',
                     textAlign: 'center',
                     transition: 'all 0.2s',
                   }}
                 >
-                  <div style={{ fontSize: 9, color: tactic.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <div style={{ fontSize: 9.5, color: tactic.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     {tactic.id}
                   </div>
-                  <div style={{ fontSize: 10, color: '#e2e8f0', fontWeight: 600, marginTop: 2, lineHeight: 1.3 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text)', fontWeight: 600, marginTop: 2, lineHeight: 1.3 }}>
                     {tactic.name}
                   </div>
-                  <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                  <div style={{ fontSize: 9.5, color: 'var(--muted)', marginTop: 2 }}>
                     {tactic.short}
                   </div>
                   <div style={{
                     marginTop: 4,
                     fontSize: 10,
                     fontWeight: 700,
-                    color: byTactic[tactic.name]?.length > 0 ? tactic.color : '#475569'
+                    color: byTactic[tactic.name]?.length > 0 ? tactic.color : 'var(--muted)'
                   }}>
                     {byTactic[tactic.name]?.length || 0} kỹ thuật
                   </div>
@@ -351,16 +383,18 @@ export default function MITRE() {
                       maxHits={maxHits}
                       selected={selected?.id === tech.id}
                       onClick={setSelected}
+                      isDark={isDark}
                     />
                   ))}
                   {(!byTactic[tactic.name] || byTactic[tactic.name].length === 0) && (
                     <div style={{
-                      padding: '10px 6px',
-                      borderRadius: 5,
-                      border: '1px dashed rgba(51,65,85,0.5)',
+                      padding: '12px 6px',
+                      borderRadius: 6,
+                      border: '1px dashed var(--line)',
+                      background: 'var(--panel2)',
                       textAlign: 'center',
-                      fontSize: 10,
-                      color: '#334155',
+                      fontSize: 10.5,
+                      color: 'var(--muted)',
                     }}>
                       Chưa có dữ liệu
                     </div>
@@ -374,8 +408,9 @@ export default function MITRE() {
           {selected && (
             <div className="card" style={{
               padding: 20,
-              background: 'linear-gradient(135deg, rgba(30,41,59,0.8), rgba(15,23,42,0.95))',
-              border: '1px solid rgba(59,130,246,0.3)',
+              background: 'var(--panel)',
+              border: '1px solid var(--line)',
+              boxShadow: 'var(--shadow-md)',
               marginBottom: 16,
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
@@ -383,38 +418,38 @@ export default function MITRE() {
                   <div style={{
                     width: 48, height: 48,
                     borderRadius: 10,
-                    background: 'rgba(59,130,246,0.15)',
+                    background: 'rgba(59,130,246,0.12)',
                     border: '1px solid rgba(59,130,246,0.3)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 11, fontWeight: 700, color: '#60a5fa',
+                    fontSize: 11, fontWeight: 700, color: 'var(--accent)',
                     flexShrink: 0,
                   }}>
                     {selected.id}
                   </div>
                   <div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc', marginBottom: 4 }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
                       {selected.name}
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{
                         padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
-                        background: 'rgba(99,102,241,0.15)', color: '#a5b4fc',
-                        border: '1px solid rgba(99,102,241,0.3)',
+                        background: 'rgba(99,102,241,0.12)', color: isDark ? '#a5b4fc' : '#4f46e5',
+                        border: '1px solid rgba(99,102,241,0.25)',
                       }}>
                         {selected.tactic}
                       </span>
                       <span style={{
                         padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
-                        background: selected.hits > 0 ? 'rgba(239,68,68,0.15)' : 'rgba(51,65,85,0.5)',
-                        color: selected.hits > 0 ? '#fca5a5' : '#64748b',
-                        border: '1px solid ' + (selected.hits > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(51,65,85,0.5)'),
+                        background: selected.hits > 0 ? (isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.1)') : 'var(--panel2)',
+                        color: selected.hits > 0 ? (isDark ? '#fca5a5' : '#dc2626') : 'var(--muted)',
+                        border: '1px solid ' + (selected.hits > 0 ? 'rgba(239,68,68,0.3)' : 'var(--line)'),
                       }}>
-                        {selected.hits > 0 ? `${selected.hits} events detected` : 'Chưa phát hiện'}
+                        {selected.hits > 0 ? `${selected.hits} sự kiện phát hiện` : 'Chưa phát hiện'}
                       </span>
                       {selected.rule_count !== undefined && (
                         <span style={{
                           padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
-                          background: 'rgba(59,130,246,0.1)', color: '#60a5fa',
+                          background: 'rgba(59,130,246,0.1)', color: 'var(--accent)',
                           border: '1px solid rgba(59,130,246,0.3)',
                         }}>
                           {selected.rule_count} detection rules
@@ -422,7 +457,7 @@ export default function MITRE() {
                       )}
                     </div>
                     {selected.description && (
-                      <div style={{ fontSize: 12.5, color: '#94a3b8', marginTop: 8, lineHeight: 1.4 }}>
+                      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.4 }}>
                         {selected.description}
                       </div>
                     )}
@@ -434,7 +469,7 @@ export default function MITRE() {
                   rel="noopener noreferrer"
                   style={{
                     padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                    background: 'rgba(59,130,246,0.1)', color: '#60a5fa',
+                    background: 'rgba(59,130,246,0.1)', color: 'var(--accent)',
                     border: '1px solid rgba(59,130,246,0.3)',
                     textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6,
                   }}
@@ -450,10 +485,10 @@ export default function MITRE() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Mức độ phát hiện:</span>
               {[
-                { label: 'Không có dữ liệu', bg: 'rgba(30,41,59,0.8)', border: 'rgba(51,65,85,0.5)' },
-                { label: 'Thấp (1–10)', bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)' },
-                { label: 'Trung bình (11–30)', bg: 'rgba(239,68,68,0.4)', border: 'rgba(239,68,68,0.5)' },
-                { label: 'Cao (>30)', bg: 'rgba(239,68,68,0.75)', border: 'rgba(239,68,68,0.8)' },
+                { label: 'Không có dữ liệu', bg: 'var(--panel2)', border: 'var(--line)' },
+                { label: 'Thấp (1–10)', bg: isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)' },
+                { label: 'Trung bình (11–30)', bg: isDark ? 'rgba(239,68,68,0.45)' : 'rgba(239,68,68,0.35)', border: 'rgba(239,68,68,0.55)' },
+                { label: 'Cao (>30)', bg: isDark ? 'rgba(239,68,68,0.85)' : 'rgba(239,68,68,0.75)', border: 'rgba(239,68,68,0.9)' },
               ].map((l, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{
@@ -461,7 +496,7 @@ export default function MITRE() {
                     background: l.bg,
                     border: `1px solid ${l.border}`,
                   }} />
-                  <span style={{ fontSize: 11, color: '#64748b' }}>{l.label}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{l.label}</span>
                 </div>
               ))}
             </div>
@@ -495,7 +530,7 @@ export default function MITRE() {
                       <td>
                         <span style={{
                           fontFamily: 'monospace', fontSize: 12, fontWeight: 700,
-                          color: '#60a5fa',
+                          color: 'var(--accent)',
                           padding: '2px 6px',
                           background: 'rgba(59,130,246,0.1)',
                           borderRadius: 4,
@@ -503,13 +538,13 @@ export default function MITRE() {
                           {tech.id}
                         </span>
                       </td>
-                      <td style={{ fontWeight: 500, color: '#e2e8f0' }}>{tech.name}</td>
+                      <td style={{ fontWeight: 500, color: 'var(--text)' }}>{tech.name}</td>
                       <td>
                         <span style={{
                           fontSize: 11, padding: '2px 8px', borderRadius: 999,
                           background: tactic ? `${tactic.color}15` : 'rgba(100,116,139,0.15)',
-                          color: tactic?.color || '#94a3b8',
-                          border: `1px solid ${tactic ? tactic.color + '30' : 'rgba(100,116,139,0.3)'}`,
+                          color: tactic?.color || 'var(--muted)',
+                          border: `1px solid ${tactic ? tactic.color + '30' : 'var(--line)'}`,
                           fontWeight: 600,
                         }}>
                           {tech.tactic}
@@ -524,10 +559,10 @@ export default function MITRE() {
                               background: `linear-gradient(90deg, rgba(239,68,68,0.6), rgba(239,68,68,0.9))`,
                               borderRadius: 3,
                             }} />
-                            <span style={{ fontSize: 12, fontWeight: 600, color: '#fca5a5' }}>{tech.hits}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: isDark ? '#fca5a5' : '#dc2626' }}>{tech.hits}</span>
                           </div>
                         ) : (
-                          <span style={{ fontSize: 12, color: '#334155' }}>—</span>
+                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>
                         )}
                       </td>
                       <td>

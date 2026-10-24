@@ -72,4 +72,4 @@ python main.py -config path/to/config.json
 | Command Executor | ✅ | ✅ |
 | Auto-Reconnect | ✅ Exponential Backoff | ✅ Exponential Backoff |
 | Backpressure Buffer | ✅ | ✅ |
-| Windows Service | ✅ | ❌ (chạy console/script) |
+| Windows Service | ✅ |  (chạy console/script) |

@@ -32,7 +32,7 @@ class CaseService:
     ) -> Tuple[List[Case], int]:
         """Lấy danh sách cases với phân trang, filter và eager load alert"""
         filters = filters or {}
-        stmt = select(Case).options(joinedload(Case.alert))
+        stmt = select(Case).options(joinedload(Case.alert).joinedload(Alert.agent))
         count_stmt = select(func.count(Case.id))
 
         if filters.get("status"):
@@ -152,15 +152,17 @@ class CaseService:
         )
         return new_case
 
-    async def assign_case(self, case_id: str, assigned_to: str, actor: str) -> bool:
-        """Gán Case cho Analyst"""
+    async def assign_case(self, case_id: str, assigned_to: str, actor: str):
+        """Gán Case cho Analyst. Tự động đổi trạng thái sang progress nếu đang là new"""
         stmt = select(Case).where(Case.id == case_id)
         res = await self.db.execute(stmt)
         c = res.scalar_one_or_none()
         if not c:
-            return False
+            return None
 
         c.assigned_to = assigned_to
+        if (c.status or "").lower() != "closed":
+            c.status = "progress"
         c.updated_at = datetime.utcnow()
         await self.db.commit()
 
@@ -169,10 +171,10 @@ class CaseService:
             source="Manual",
             action="update_case",
             actor=actor,
-            payload_summary=f"Gán case cho {assigned_to}",
+            payload_summary=f"Gán case cho {assigned_to} (trạng thái: {c.status})",
             case_id=case_id,
         )
-        return True
+        return c
 
     async def add_case_note(self, case_id: str, note: str, actor: str) -> bool:
         """Thêm ghi chú vào Case description"""
@@ -199,12 +201,17 @@ class CaseService:
         return True
 
     async def update_case_status(self, case_id: str, status: str, actor: str) -> bool:
-        """Cập nhật trạng thái của Case"""
+        """Cập nhật trạng thái của Case. Chưa assign thì không được đổi sang closed"""
         stmt = select(Case).where(Case.id == case_id)
         res = await self.db.execute(stmt)
         c = res.scalar_one_or_none()
         if not c:
             return False
+
+        if status == "closed":
+            is_unassigned = not c.assigned_to or c.assigned_to in ("soar_automation", "unassigned")
+            if is_unassigned:
+                raise ValueError("Không thể đóng case khi chưa phân công người phụ trách")
 
         c.status = status
         c.updated_at = datetime.utcnow()

@@ -146,7 +146,7 @@ class ProcessMonitor:
         if not self._is_suspicious(name, exe, cmdline):
             return
 
-        logger.info("[PROCESS] 🚨 Process đáng ngờ từ path bất thường: %s (exe=%s)", name, exe)
+        logger.info("[PROCESS]  Process đáng ngờ từ path bất thường: %s (exe=%s)", name, exe)
 
         raw = json.dumps(
             {

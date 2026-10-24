@@ -41,13 +41,13 @@ func main() {
 	// 1. Tải cấu hình
 	cfg, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {
-		log.Fatalf("❌ Lỗi cấu hình: %v", err)
+		log.Fatalf(" Lỗi cấu hình: %v", err)
 	}
 
 	// 2. Khởi tạo Database (MySQL)
 	db, err := database.InitMySQL(&cfg.Database)
 	if err != nil {
-		log.Fatalf("❌ Lỗi Database: %v", err)
+		log.Fatalf(" Lỗi Database: %v", err)
 	}
 
 	// 3. Thực hiện AutoMigrate các bảng
@@ -62,13 +62,13 @@ func main() {
 		&models.AuditLog{},
 	)
 	if err != nil {
-		log.Fatalf("❌ Lỗi AutoMigrate: %v", err)
+		log.Fatalf(" Lỗi AutoMigrate: %v", err)
 	}
 
 	// 4. Khởi tạo Redis (cho trạng thái Agent)
 	redisClient, err := database.InitRedis(&cfg.Redis)
 	if err != nil {
-		log.Fatalf("❌ Lỗi Redis: %v", err)
+		log.Fatalf(" Lỗi Redis: %v", err)
 	}
 	defer redisClient.Close()
 
@@ -79,7 +79,7 @@ func main() {
 	// 6. Khởi tạo Detection Rule Engine
 	ruleEngine, err := rules.NewRuleEngine(db, cfg.Rules.YAMLDir, cfg.Rules.LoadFromDB)
 	if err != nil {
-		log.Fatalf("❌ Lỗi Rule Engine: %v", err)
+		log.Fatalf(" Lỗi Rule Engine: %v", err)
 	}
 
 	// 7. Khởi tạo Services Layer
@@ -170,7 +170,7 @@ func main() {
 			if err := db.Create(&adminUser).Error; err == nil {
 				log.Println("[SEED] ✅ Đã tạo tài khoản Admin mặc định (user: admin / pass: admin123)")
 			} else {
-				log.Printf("[SEED] ❌ Lỗi tạo tài khoản Admin: %v", err)
+				log.Printf("[SEED]  Lỗi tạo tài khoản Admin: %v", err)
 			}
 		}
 	}
@@ -181,7 +181,7 @@ func main() {
 	// 9. Khởi tạo gRPC Server & Handler
 	grpcServer, err := agent_grpc.NewGRPCServer(cfg)
 	if err != nil {
-		log.Fatalf("❌ Lỗi tạo gRPC Server: %v", err)
+		log.Fatalf(" Lỗi tạo gRPC Server: %v", err)
 	}
 
 	// Hàm callback: khi có Alert mới từ gRPC → Broadcast WS + Gửi n8n
@@ -231,7 +231,7 @@ func main() {
 	// 11. Bật goroutine chạy gRPC Server
 	go func() {
 		if err := grpcServer.Start(); err != nil {
-			log.Fatalf("❌ gRPC Server ngưng hoạt động: %v", err)
+			log.Fatalf(" gRPC Server ngưng hoạt động: %v", err)
 		}
 	}()
 
@@ -243,7 +243,7 @@ func main() {
 		log.Printf("[REST API] 🚀 Server đang lắng nghe trên port :%d", cfg.Server.RESTPort)
 		httpServer.Addr = ":8080"
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("❌ REST API Server ngưng hoạt động: %v", err)
+			log.Fatalf(" REST API Server ngưng hoạt động: %v", err)
 		}
 	}()
 
@@ -252,7 +252,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("\n🛑 Nhận tín hiệu tắt Server. Đang tiến hành dọn dẹp...")
+	log.Println("\n Nhận tín hiệu tắt Server. Đang tiến hành dọn dẹp...")
 	grpcServer.GracefulStop()
 	if err := httpServer.Close(); err != nil {
 		log.Printf("⚠️ Lỗi đóng HTTP server: %v", err)

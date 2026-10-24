@@ -356,7 +356,7 @@ func (s *AlertService) runCleanup(retentionDays int) {
 	).Delete(&models.Alert{})
 
 	if result.Error != nil {
-		log.Printf("[CLEANUP JOB] ❌ Lỗi khi dọn dẹp alert cũ: %v", result.Error)
+		log.Printf("[CLEANUP JOB]  Lỗi khi dọn dẹp alert cũ: %v", result.Error)
 		return
 	}
 	if result.RowsAffected > 0 {

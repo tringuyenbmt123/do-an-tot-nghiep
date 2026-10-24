@@ -71,8 +71,8 @@ type WSEvent struct {
 // Client - Mỗi client là 1 frontend browser tab kết nối WebSocket
 type Client struct {
 	hub  *Hub            // Reference tới Hub
-	conn *websocket.Conn  // WebSocket connection
-	send chan []byte       // Channel buffer messages cần gửi cho client
+	conn *websocket.Conn // WebSocket connection
+	send chan []byte     // Channel buffer messages cần gửi cho client
 }
 
 // ==============================================================================
@@ -81,11 +81,11 @@ type Client struct {
 
 // Hub - WebSocket Hub quản lý connections và broadcast
 type Hub struct {
-	mu             sync.RWMutex       // Mutex bảo vệ clients map
-	clients        map[*Client]bool    // Map lưu tất cả clients đang kết nối
-	RegisterChan   chan *Client         // Channel đăng ký client mới
-	UnregisterChan chan *Client         // Channel hủy đăng ký client
-	BroadcastChan  chan []byte          // Channel broadcast message tới tất cả clients
+	mu             sync.RWMutex     // Mutex bảo vệ clients map
+	clients        map[*Client]bool // Map lưu tất cả clients đang kết nối
+	RegisterChan   chan *Client     // Channel đăng ký client mới
+	UnregisterChan chan *Client     // Channel hủy đăng ký client
+	BroadcastChan  chan []byte      // Channel broadcast message tới tất cả clients
 }
 
 // NewHub - Khởi tạo Hub mới
@@ -160,7 +160,7 @@ func (h *Hub) BroadcastJSON(eventType string, payload interface{}) {
 
 	data, err := json.Marshal(event)
 	if err != nil {
-		log.Printf("[WEBSOCKET HUB] ❌ Lỗi marshal JSON để broadcast: %v", err)
+		log.Printf("[WEBSOCKET HUB]  Lỗi marshal JSON để broadcast: %v", err)
 		return
 	}
 
@@ -192,7 +192,7 @@ func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Upgrade HTTP connection lên WebSocket
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("[WEBSOCKET HUB] ❌ Lỗi upgrade WebSocket: %v", err)
+		log.Printf("[WEBSOCKET HUB]  Lỗi upgrade WebSocket: %v", err)
 		return
 	}
 

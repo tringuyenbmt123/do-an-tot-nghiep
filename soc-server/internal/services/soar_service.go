@@ -196,7 +196,7 @@ func (s *SOARService) HandleCallback(payload SOARCallbackPayload) (models.AuditA
 		desc := fmt.Sprintf("## AI Analysis Reason\n%s\n\n**Confidence**: %.2f\n**Approved By**: %s",
 			payload.AIReason, payload.Confidence, payload.HumanApprovedBy)
 
-		newCase, err := s.caseService.CreateCaseFromAlert(payload.AlertID, title, desc, "soar_automation")
+		newCase, err := s.caseService.CreateCaseFromAlert(payload.AlertID, title, desc, "")
 		if err == nil {
 			caseID = newCase.ID
 			// Cập nhật thêm SOAR context vào Case

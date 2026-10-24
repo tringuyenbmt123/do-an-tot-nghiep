@@ -44,10 +44,48 @@ def serialize_case(c) -> dict:
     if hasattr(c, "alert") and c.alert and getattr(c.alert, "severity", None):
         sev = str(c.alert.severity).lower()
 
+    alert_data = None
+    alert_obj = c.__dict__.get("alert")
+    if alert_obj:
+        a = alert_obj
+        agent_data = None
+        ag = a.__dict__.get("agent")
+        if ag:
+            agent_data = {
+                "id": getattr(ag, "id", None),
+                "name": getattr(ag, "hostname", None) or getattr(ag, "name", None),
+                "hostname": getattr(ag, "hostname", None),
+                "ip": getattr(ag, "ip_address", getattr(ag, "ip", None)),
+                "ip_address": getattr(ag, "ip_address", None),
+                "os": getattr(ag, "os", None),
+                "status": getattr(ag, "status", None),
+                "last_seen": ag.last_seen.isoformat() if getattr(ag, "last_seen", None) else None,
+            }
+        alert_data = {
+            "id": a.id,
+            "agent_id": a.agent_id,
+            "rule_id": a.rule_id,
+            "event_type": str(a.event_type) if a.event_type else None,
+            "severity": str(a.severity).lower() if a.severity else None,
+            "raw_payload": a.raw_payload,
+            "status": str(a.status) if a.status else None,
+            "title": a.title,
+            "description": a.description,
+            "mitre_tactic": a.mitre_tactic,
+            "mitre_technique_id": a.mitre_technique_id,
+            "created_at": a.created_at.isoformat() if getattr(a, "created_at", None) else None,
+            "updated_at": a.updated_at.isoformat() if getattr(a, "updated_at", None) else None,
+            "agent": agent_data,
+        }
+
+    case_title = c.title
+    if (not case_title or case_title.startswith("SOAR Escalated Alert:")) and alert_data and alert_data.get("title"):
+        case_title = alert_data["title"]
+
     return {
         "id": c.id,
         "alert_id": c.alert_id,
-        "title": c.title,
+        "title": case_title,
         "description": c.description,
         "severity": sev,
         "severity_num": c.severity_num,
@@ -59,6 +97,7 @@ def serialize_case(c) -> dict:
         "confidence": getattr(c, "confidence", 0.0),
         "created_at": c.created_at.isoformat() if c.created_at else None,
         "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+        "alert": alert_data,
     }
 
 
@@ -153,12 +192,20 @@ async def assign_case(
 ):
     actor = current_user.get("username", "api_user")
     case_service = CaseService(db)
-    success = await case_service.assign_case(case_id, req.assigned_to, actor)
-    if not success:
+    updated_case = await case_service.assign_case(case_id, req.assigned_to, actor)
+    if not updated_case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy Case")
 
-    await ws_hub.broadcast_case_update({"id": case_id, "assigned_to": req.assigned_to})
-    return {"success": True}
+    await ws_hub.broadcast_case_update({
+        "id": case_id,
+        "assigned_to": updated_case.assigned_to,
+        "status": updated_case.status
+    })
+    return {
+        "success": True,
+        "assigned_to": updated_case.assigned_to,
+        "status": updated_case.status
+    }
 
 
 @router.post("/{case_id}/notes")
@@ -186,7 +233,10 @@ async def update_case_status(
 ):
     actor = current_user.get("username", "api_user")
     case_service = CaseService(db)
-    success = await case_service.update_case_status(case_id, req.status, actor)
+    try:
+        success = await case_service.update_case_status(case_id, req.status, actor)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy Case")
 

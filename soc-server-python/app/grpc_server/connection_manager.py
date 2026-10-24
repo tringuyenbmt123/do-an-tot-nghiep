@@ -76,7 +76,7 @@ class ConnectionManager:
 
         if conn is None:
             logger.error(
-                f"[CONN MANAGER] ❌ Agent '{agent_id}' không online "
+                f"[CONN MANAGER]  Agent '{agent_id}' không online "
                 f"hoặc không có kết nối gRPC active"
             )
             return False

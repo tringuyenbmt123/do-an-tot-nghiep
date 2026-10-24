@@ -51,7 +51,7 @@ class AuditService:
             await self.db.refresh(audit_log)
             return audit_log
         except Exception as e:
-            logger.error(f"[AUDIT SERVICE] ❌ Lỗi ghi audit log: {e}")
+            logger.error(f"[AUDIT SERVICE]  Lỗi ghi audit log: {e}")
             await self.db.rollback()
             return None
 

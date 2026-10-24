@@ -79,7 +79,7 @@ func main() {
 			log.Fatalf("Lệnh service không hợp lệ: '%s'. Sử dụng: install | uninstall | start | stop", *serviceCmd)
 		}
 		if err != nil {
-			log.Fatalf("[SERVICE] ❌ Thất bại: %v", err)
+			log.Fatalf("[SERVICE]  Thất bại: %v", err)
 		}
 		return
 	}
@@ -109,7 +109,7 @@ func main() {
 			},
 			func() {
 				// Stop agent logic
-				log.Println("[SERVICE] 🛑 Nhận lệnh dừng Windows Service...")
+				log.Println("[SERVICE]  Nhận lệnh dừng Windows Service...")
 				if cancelFunc != nil {
 					cancelFunc()
 				}
@@ -118,7 +118,7 @@ func main() {
 			},
 		)
 		if err != nil {
-			log.Printf("[SERVICE] ❌ Lỗi chạy Windows Service: %v", err)
+			log.Printf("[SERVICE]  Lỗi chạy Windows Service: %v", err)
 		}
 		return
 	}
@@ -132,7 +132,7 @@ func main() {
 
 	go func() {
 		<-sigChan
-		log.Println("\n[AGENT] 🛑 Nhận tín hiệu tắt Agent. Đang tiến hành Graceful Shutdown...")
+		log.Println("\n[AGENT]  Nhận tín hiệu tắt Agent. Đang tiến hành Graceful Shutdown...")
 		cancel()
 	}()
 

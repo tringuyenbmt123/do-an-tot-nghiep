@@ -35,7 +35,7 @@ async def run_seed():
             await auth.create_user("admin", "admin123", "admin@soc.local", "admin")
             logger.info("✅ Đã tạo tài khoản admin (pass: admin123)")
         else:
-            logger.info("ℹ️ Tài khoản admin đã tồn tại.")
+            logger.info(" Tài khoản admin đã tồn tại.")
 
         # 2. Demo Agents
         res = await session.execute(select(func.count(Agent.id)))
@@ -46,7 +46,7 @@ async def run_seed():
             await session.commit()
             logger.info(f"✅ Đã thêm {len(default_agents())} demo agents")
         else:
-            logger.info("ℹ️ Agents đã tồn tại trong database.")
+            logger.info(" Agents đã tồn tại trong database.")
 
         # 3. Detection Rules
         res = await session.execute(select(func.count(Rule.id)))
@@ -57,7 +57,7 @@ async def run_seed():
             await session.commit()
             logger.info(f"✅ Đã thêm {len(default_rules())} detection rules")
         else:
-            logger.info("ℹ️ Rules đã tồn tại trong database.")
+            logger.info(" Rules đã tồn tại trong database.")
 
         # 4. Indicators (IOCs)
         res = await session.execute(select(func.count(Indicator.id)))
@@ -68,7 +68,7 @@ async def run_seed():
             await session.commit()
             logger.info(f"✅ Đã thêm {len(default_indicators())} IOC indicators")
         else:
-            logger.info("ℹ️ Indicators đã tồn tại trong database.")
+            logger.info(" Indicators đã tồn tại trong database.")
 
         # 5. Demo Alerts
         res = await session.execute(select(func.count(Alert.id)))
@@ -79,7 +79,7 @@ async def run_seed():
             await session.commit()
             logger.info(f"✅ Đã thêm {len(default_alerts())} demo alerts")
         else:
-            logger.info("ℹ️ Alerts đã tồn tại trong database.")
+            logger.info(" Alerts đã tồn tại trong database.")
 
     from app.database import engine
     await engine.dispose()

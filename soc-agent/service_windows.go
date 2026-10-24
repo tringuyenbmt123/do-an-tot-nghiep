@@ -164,6 +164,6 @@ func stopService() error {
 		return fmt.Errorf("không thể dừng service: %w", err)
 	}
 
-	log.Printf("[SERVICE] 🛑 Đã dừng Windows Service '%s'", serviceName)
+	log.Printf("[SERVICE]  Đã dừng Windows Service '%s'", serviceName)
 	return nil
 }

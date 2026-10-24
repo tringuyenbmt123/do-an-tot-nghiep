@@ -75,7 +75,7 @@ func (h *SOARHandler) HandleN8NCallback(c *gin.Context) {
 
 	// 2. Nếu action là loại can thiệp (Active Response), tìm Agent và đẩy lệnh qua gRPC mTLS
 	if auditAction == models.ActionKillProcess || auditAction == models.ActionBlockIP || auditAction == models.ActionBlockURL {
-		
+
 		// Tìm AgentID liên quan đến Alert này
 		alert, err := h.alertService.GetAlertByID(payload.AlertID)
 		if err != nil {
@@ -83,7 +83,7 @@ func (h *SOARHandler) HandleN8NCallback(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"message": "Đã ghi nhận, nhưng không tìm thấy Agent để thực thi lệnh"})
 			return
 		}
-		
+
 		agentID := alert.AgentID
 
 		// Chuẩn bị CommandResponse theo protobuf
@@ -111,7 +111,7 @@ func (h *SOARHandler) HandleN8NCallback(c *gin.Context) {
 
 		// Gọi ConnectionManager để đẩy lệnh xuống luồng gRPC của Agent
 		if err := h.connManager.SendCommand(agentID, cmd); err != nil {
-			log.Printf("[SOAR HANDLER] ❌ Lỗi gửi lệnh %s xuống Agent '%s': %v", cmdType.String(), agentID, err)
+			log.Printf("[SOAR HANDLER]  Lỗi gửi lệnh %s xuống Agent '%s': %v", cmdType.String(), agentID, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể gửi lệnh xuống Agent (có thể offline)"})
 			return
 		}

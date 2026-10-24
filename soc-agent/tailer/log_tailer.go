@@ -73,7 +73,7 @@ func (t *LogTailer) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("[TAILER] 🛑 Log Tailer đã nhận tín hiệu dừng.")
+				log.Println("[TAILER]  Log Tailer đã nhận tín hiệu dừng.")
 				return
 
 			case event, ok := <-t.watcher.Events:
@@ -180,7 +180,7 @@ func (t *LogTailer) handleFileRotate(filePath string) {
 			LastOffset: 0,
 		}
 		_ = t.watcher.Add(filePath)
-		log.Printf("[TAILER] 🔄 Đã reload file sau khi Rotate: %s (size: %d)", filePath, fi.Size())
+		log.Printf("[TAILER]  Đã reload file sau khi Rotate: %s (size: %d)", filePath, fi.Size())
 	}
 }
 

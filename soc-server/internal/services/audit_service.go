@@ -53,7 +53,7 @@ func (s *AuditService) LogAction(
 	}
 
 	if err := s.db.Create(auditLog).Error; err != nil {
-		log.Printf("[AUDIT SERVICE] ❌ Lỗi ghi audit log: %v", err)
+		log.Printf("[AUDIT SERVICE]  Lỗi ghi audit log: %v", err)
 		return err
 	}
 

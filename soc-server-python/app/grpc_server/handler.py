@@ -107,7 +107,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                             continue
                         except Exception as e:
                             logger.error(
-                                f"[STREAM] ❌ Lỗi gửi command xuống Agent '{agent_id}': {e}"
+                                f"[STREAM]  Lỗi gửi command xuống Agent '{agent_id}': {e}"
                             )
                             return
                 except asyncio.CancelledError:
@@ -150,7 +150,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
         except grpc.aio.AbortError:
             pass
         except Exception as e:
-            logger.error(f"[STREAM] ❌ Lỗi stream Agent '{agent_id}': {e}")
+            logger.error(f"[STREAM]  Lỗi stream Agent '{agent_id}': {e}")
         finally:
             # Cleanup khi stream đóng
             if registered and conn:
@@ -229,14 +229,14 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                 return
             try:
                 if os.path.exists(path_str) and os.path.isdir(path_str):
-                    logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục: {path_str}")
+                    logger.info(f"[STREAM]  Bỏ qua FIM modified event trên thư mục: {path_str}")
                     return
             except Exception:
                 pass
             base = os.path.basename(path_str.replace("\\", "/").rstrip("/"))
             KNOWN_NO_EXT_FILES = {"hosts", "passwd", "shadow", "sudoers", "group"}
             if "." not in base and base.lower() not in KNOWN_NO_EXT_FILES and action == "modified":
-                logger.info(f"[STREAM] ℹ️ Bỏ qua FIM modified event trên thư mục (không có extension): {path_str}")
+                logger.info(f"[STREAM]  Bỏ qua FIM modified event trên thư mục (không có extension): {path_str}")
                 return
 
             # 2. Bỏ qua các file tạm thời nhiễu — browser download, IDE, Windows system
@@ -281,19 +281,19 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
 
             # Bỏ qua theo extension
             if ext in FIM_NOISE_EXTENSIONS:
-                logger.info(f"[STREAM] ℹ️ Bỏ qua FIM noise (extension={ext}): {path_str}")
+                logger.info(f"[STREAM]  Bỏ qua FIM noise (extension={ext}): {path_str}")
                 return
 
             # Bỏ qua theo pattern tên file
             for pat in FIM_NOISE_PATTERNS:
                 if re.search(pat, base_lower):
-                    logger.info(f"[STREAM] ℹ️ Bỏ qua FIM noise (pattern={pat}): {path_str}")
+                    logger.info(f"[STREAM]  Bỏ qua FIM noise (pattern={pat}): {path_str}")
                     return
 
             # Bỏ qua theo đường dẫn hệ thống
             for noise_path in FIM_NOISE_PATHS:
                 if noise_path in norm_path:
-                    logger.info(f"[STREAM] ℹ️ Bỏ qua FIM noise (system path): {path_str}")
+                    logger.info(f"[STREAM]  Bỏ qua FIM noise (system path): {path_str}")
                     return
 
             # 3. Debounce: Cùng 1 file nếu nhận liên tiếp các event (created, modified, modified...) trong 3 giây thì chỉ tạo 1 alert
@@ -422,14 +422,14 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                             self._safe_alert_callback(alert_data)
                         )
                 except Exception as e:
-                    logger.error(f"[STREAM] ❌ Lỗi lưu Alert vào database: {e}")
+                    logger.error(f"[STREAM]  Lỗi lưu Alert vào database: {e}")
                     await db.rollback()
                     continue
 
             try:
                 await db.commit()
             except Exception as e:
-                logger.error(f"[STREAM] ❌ Lỗi commit batch alerts: {e}")
+                logger.error(f"[STREAM]  Lỗi commit batch alerts: {e}")
 
     async def _save_siem_only(
         self,
@@ -473,7 +473,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
             else:
                 self.on_new_alert(alert_data)
         except Exception as e:
-            logger.error(f"[STREAM] ❌ Lỗi alert callback: {e}")
+            logger.error(f"[STREAM]  Lỗi alert callback: {e}")
 
     # ==========================================================================
     # Heartbeat - Unary RPC
@@ -549,7 +549,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                 await db.commit()
             except Exception as e:
                 logger.error(
-                    f"[HEARTBEAT] ❌ Không thể lưu Agent '{request.agent_id}': {e}"
+                    f"[HEARTBEAT]  Không thể lưu Agent '{request.agent_id}': {e}"
                 )
                 await db.rollback()
 
@@ -584,7 +584,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                     ))
                 await db.commit()
             except Exception as e:
-                logger.error(f"[STREAM] ❌ Lỗi cập nhật Agent online: {e}")
+                logger.error(f"[STREAM]  Lỗi cập nhật Agent online: {e}")
 
         # Cập nhật Redis
         if self.redis:
@@ -604,7 +604,7 @@ class AgentServiceHandler(agent_pb2_grpc.AgentServiceServicer):
                     agent.status = "offline"
                     await db.commit()
             except Exception as e:
-                logger.error(f"[STREAM] ❌ Lỗi cập nhật Agent offline: {e}")
+                logger.error(f"[STREAM]  Lỗi cập nhật Agent offline: {e}")
 
         # Xóa key Redis
         if self.redis:

@@ -15,6 +15,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Alerts from './pages/Alerts'
 import Cases from './pages/Cases'
+import CaseDetail from './pages/CaseDetail'
 import Agents from './pages/Agents'
 import ThreatIntel from './pages/ThreatIntel'
 import DetectionRules from './pages/DetectionRules'
@@ -61,6 +62,7 @@ export default function App() {
                 <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
                 <Route path="/alerts" element={<PrivateRoute><Alerts /></PrivateRoute>} />
                 <Route path="/cases" element={<PrivateRoute><Cases /></PrivateRoute>} />
+                <Route path="/cases/:id" element={<PrivateRoute><CaseDetail /></PrivateRoute>} />
                 <Route path="/agents" element={<PrivateRoute><Agents /></PrivateRoute>} />
                 <Route path="/intel" element={<PrivateRoute><ThreatIntel /></PrivateRoute>} />
                 <Route path="/rules" element={<PrivateRoute><DetectionRules /></PrivateRoute>} />

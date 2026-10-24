@@ -112,7 +112,7 @@ func (h *AgentServiceHandler) StreamEvents(stream pb.AgentService_StreamEventsSe
 			case cmd := <-conn.CmdChan:
 				// Gửi command xuống Agent qua gRPC stream
 				if err := stream.Send(cmd); err != nil {
-					log.Printf("[STREAM] ❌ Lỗi gửi command xuống Agent '%s': %v", agentID, err)
+					log.Printf("[STREAM]  Lỗi gửi command xuống Agent '%s': %v", agentID, err)
 					return
 				}
 				log.Printf("[STREAM] 📤 Đã gửi command '%s' xuống Agent '%s'",
@@ -133,7 +133,7 @@ func (h *AgentServiceHandler) StreamEvents(stream pb.AgentService_StreamEventsSe
 			return nil
 		}
 		if err != nil {
-			log.Printf("[STREAM] ❌ Lỗi nhận event từ Agent '%s': %v", agentID, err)
+			log.Printf("[STREAM]  Lỗi nhận event từ Agent '%s': %v", agentID, err)
 			return err
 		}
 
@@ -226,7 +226,7 @@ func (h *AgentServiceHandler) processEvent(event *pb.EventRequest, agentID strin
 	// ===== Duyệt qua tất cả Alerts được tạo để lưu DB và dispatch =====
 	for _, alert := range alerts {
 		if err := h.db.Create(alert).Error; err != nil {
-			log.Printf("[STREAM] ❌ Lỗi lưu Alert vào database: %v", err)
+			log.Printf("[STREAM]  Lỗi lưu Alert vào database: %v", err)
 			continue
 		}
 
@@ -300,7 +300,7 @@ func (h *AgentServiceHandler) Heartbeat(ctx context.Context, req *pb.HeartbeatRe
 	if result.Error == gorm.ErrRecordNotFound {
 		// Agent mới → INSERT
 		if err := h.db.Create(&agent).Error; err != nil {
-			log.Printf("[HEARTBEAT] ❌ Không thể đăng ký Agent '%s': %v", req.AgentId, err)
+			log.Printf("[HEARTBEAT]  Không thể đăng ký Agent '%s': %v", req.AgentId, err)
 		} else {
 			log.Printf("[HEARTBEAT] 🆕 Agent mới đã đăng ký: '%s' (%s)", req.AgentId, req.Hostname)
 		}

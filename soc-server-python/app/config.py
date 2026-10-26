@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     SOAR_MAX_RETRIES: int = 3
     SOAR_CALLBACK_SECRET: str = ""
 
-    # Threat Intelligence / Cortex / VirusTotal
+    # Threat Intelligence / VirusTotal
     VIRUSTOTAL_API_KEY: str = "1704eec5b8523df1ed5aed2e974e7053fad61c9ddb67b69f4879740782f4c877"
 
     # Alert

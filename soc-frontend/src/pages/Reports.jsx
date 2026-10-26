@@ -24,7 +24,7 @@ const REPORT_TYPES = [
   {
     id: 'threat_intel',
     label: 'Threat Intelligence',
-    desc: 'Báo cáo IOC, phishing URLs, IP độc hại từ MISP & VirusTotal',
+    desc: 'Báo cáo IOC, phishing URLs, IP độc hại từ Threat Intelligence & VirusTotal',
     icon: <Shield size={20} color="#a855f7" />,
     color: '#a855f7',
     range: 'daily',

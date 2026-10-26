@@ -90,19 +90,26 @@ export default function ThreatIntel() {
     : iocs
 
   const handleCreate = async () => {
+    const val = createForm.value.trim()
     const e = {}
-    if (!createForm.value.trim()) e.value = 'Vui lòng nhập giá trị IOC'
+    if (!val) e.value = 'Vui lòng nhập giá trị IOC'
     if (Object.keys(e).length > 0) { setCreateErrors(e); return }
+
+    // Kiểm tra trùng lặp ngay tại client
+    if (iocs.some(i => (i.value || '').trim().toLowerCase() === val.toLowerCase())) {
+      toast.warn(`Chỉ số IOC '${val}' đã tồn tại trong danh sách đen!`)
+      return
+    }
 
     try {
       await createIndicator(createForm)
-      toast.success('Đã thêm Indicator')
+      toast.success('Đã thêm Indicator vào danh sách đen')
       setShowCreate(false)
       setCreateForm({ type: 'ip-src', value: '', category: 'malware', description: '' })
       setCreateErrors({})
       load()
-    } catch (e) {
-      toast.error(e.message)
+    } catch (err) {
+      toast.error(err.response?.data?.detail || err.message || 'Lỗi khi lưu Indicator')
     }
   }
 
@@ -247,14 +254,80 @@ export default function ThreatIntel() {
                 {quickRes.tags.map(t => <span key={t} className="tag">{t}</span>)}
               </div>
             )}
-            {/* Details */}
-            {quickRes.details && (
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                {quickRes.details.note || quickRes.details.source || ''}
-                {quickRes.details.country && <span> · 🌍 {quickRes.details.country}</span>}
-                {quickRes.details.as_owner && quickRes.details.as_owner !== 'N/A' && <span> · {quickRes.details.as_owner}</span>}
-              </div>
-            )}
+            {/* Details & Quick Action */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+              {quickRes.details && (
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  {quickRes.details.note || quickRes.details.source || ''}
+                  {quickRes.details.country && <span> · 🌍 {quickRes.details.country}</span>}
+                  {quickRes.details.as_owner && quickRes.details.as_owner !== 'N/A' && <span> · {quickRes.details.as_owner}</span>}
+                </div>
+              )}
+              {(() => {
+                const targetVal = (quickRes.value || quickVal || '').trim().toLowerCase()
+                const isAlreadyInBlacklist = iocs.some(i => (i.value || '').trim().toLowerCase() === targetVal)
+
+                if (isAlreadyInBlacklist) {
+                  return (
+                    <span
+                      style={{
+                        fontSize: 12,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '5px 12px',
+                        background: 'rgba(56, 139, 253, 0.12)',
+                        color: '#58a6ff',
+                        border: '1px solid rgba(56, 139, 253, 0.3)',
+                        borderRadius: 6,
+                        fontWeight: 500,
+                        marginLeft: 'auto'
+                      }}
+                    >
+                      ✓ Đã có trong Blacklist
+                    </span>
+                  )
+                }
+
+                if (quickRes.verdict !== 'clean') {
+                  return (
+                    <button
+                      id="add-to-blacklist-btn"
+                      className="b1"
+                      style={{
+                        fontSize: 12,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 12px',
+                        background: 'rgba(248, 81, 73, 0.15)',
+                        color: 'var(--crit, #f85149)',
+                        border: '1px solid rgba(248, 81, 73, 0.4)',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        marginLeft: 'auto'
+                      }}
+                      onClick={() => {
+                        let formType = quickRes.type || 'domain'
+                        if (formType === 'ip') formType = 'ip-src'
+                        setCreateForm({
+                          type: formType,
+                          value: quickRes.value || quickVal,
+                          category: quickRes.tags?.[0] || 'malware',
+                          description: `Phát hiện bởi ${quickRes.analyzer} (Risk: ${quickRes.risk_score}/100, Detections: ${quickRes.detections}/${quickRes.total_engines})`
+                        })
+                        setShowCreate(true)
+                      }}
+                    >
+                      <Plus size={14} /> Thêm vào Blacklist
+                    </button>
+                  )
+                }
+
+                return null
+              })()}
+            </div>
           </div>
         )}
       </div>
@@ -334,7 +407,7 @@ export default function ThreatIntel() {
                         <td style={{ fontSize: 12, color: 'var(--muted)' }}>{ago(i.created_at)}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 4 }}>
-                            <button className="lnk" title="Phân tích (Cortex)" onClick={() => handleAnalyze(i)}>
+                            <button className="lnk" title="Phân tích VirusTotal" onClick={() => handleAnalyze(i)}>
                               <ScanSearch size={14} />
                             </button>
                             <button className="lnk d" title="Xóa" onClick={() => handleDelete(i.id)}>Xóa</button>
@@ -421,7 +494,7 @@ export default function ThreatIntel() {
         {analyzing ? (
           <div className="loading-full">
             <div className="spinner" />
-            <span>Đang gửi yêu cầu phân tích tới Cortex/VirusTotal…</span>
+            <span>Đang gửi yêu cầu phân tích tới VirusTotal…</span>
           </div>
         ) : analyzeRes ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

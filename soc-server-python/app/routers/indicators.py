@@ -136,8 +136,11 @@ async def create_indicator(
     current_user: dict = Depends(get_current_user),
 ):
     indicator_service = IndicatorService(db)
-    ioc = await indicator_service.create_indicator(req.dict())
-    return ioc
+    try:
+        ioc = await indicator_service.create_indicator(req.dict())
+        return ioc
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.put("/{indicator_id}")
@@ -240,7 +243,7 @@ async def analyze_ioc(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Cortex Analyzer - Tích hợp trực tiếp VirusTotal v3 API.
+    Threat Intelligence Analyzer - Tích hợp trực tiếp VirusTotal v3 API.
     Tự động nhận diện IP, Domain, Hash (MD5/SHA1/SHA256), URL.
     Hỗ trợ Whitelist DNS, lọc dải IP nội bộ RFC1918 và fallback cơ sở dữ liệu local.
     """
@@ -250,7 +253,7 @@ async def analyze_ioc(
     # 1. Kiểm tra Whitelist DNS công cộng phổ biến
     if raw_val in TRUSTED_DNS_WHITELIST:
         return {
-            "analyzer": "Cortex_VirusTotal",
+            "analyzer": "VirusTotal_DNS_Whitelist",
             "type": raw_type,
             "value": raw_val,
             "verdict": "clean",
@@ -270,7 +273,7 @@ async def analyze_ioc(
     if raw_type in ["ip", "ip-src", "ip-dst"]:
         if is_private_or_loopback_ip(raw_val):
             return {
-                "analyzer": "Cortex_VirusTotal",
+                "analyzer": "RFC1918_Internal_Net",
                 "type": raw_type,
                 "value": raw_val,
                 "verdict": "clean",
@@ -335,7 +338,7 @@ async def analyze_ioc(
                             reputation = attrs.get("reputation", 0)
 
                             return {
-                                "analyzer": "Cortex_VirusTotal_v3_Live",
+                                "analyzer": "VirusTotal_v3_Live",
                                 "type": raw_type,
                                 "value": raw_val,
                                 "verdict": verdict,
@@ -357,7 +360,7 @@ async def analyze_ioc(
                             local_ioc = await get_local_indicator(raw_val)
                             if local_ioc and local_ioc.is_active:
                                 return {
-                                    "analyzer": "Cortex_Local_ThreatDB",
+                                    "analyzer": "SOC_Threat_Intelligence_DB",
                                     "type": raw_type,
                                     "value": raw_val,
                                     "verdict": "malicious",
@@ -368,7 +371,7 @@ async def analyze_ioc(
                                     "community_score": -30,
                                     "last_analysis": datetime.utcnow().isoformat(),
                                     "details": {
-                                        "source": "Local Threat Intelligence Blacklist (MISP)",
+                                        "source": "SOC Threat Intelligence Blacklist",
                                         "category": local_ioc.category,
                                         "description": local_ioc.description,
                                         "note": "VirusTotal chưa gắn cờ, nhưng IOC đã bị đưa vào Blacklist nội bộ của SOC.",
@@ -379,7 +382,7 @@ async def analyze_ioc(
                             country = attrs.get("country", "UNKNOWN")
                             as_owner = attrs.get("as_owner") or attrs.get("network") or "N/A"
                             return {
-                                "analyzer": "Cortex_VirusTotal_v3_Live",
+                                "analyzer": "VirusTotal_v3_Live",
                                 "type": raw_type,
                                 "value": raw_val,
                                 "verdict": "clean",
@@ -402,7 +405,7 @@ async def analyze_ioc(
                         local_ioc = await get_local_indicator(raw_val)
                         if local_ioc and local_ioc.is_active:
                             return {
-                                "analyzer": "Cortex_Local_ThreatDB",
+                                "analyzer": "SOC_Threat_Intelligence_DB",
                                 "type": raw_type,
                                 "value": raw_val,
                                 "verdict": "malicious",
@@ -413,14 +416,14 @@ async def analyze_ioc(
                                 "community_score": -40,
                                 "last_analysis": datetime.utcnow().isoformat(),
                                 "details": {
-                                    "source": "Local Threat Intelligence Blacklist (MISP)",
+                                    "source": "SOC Threat Intelligence Blacklist",
                                     "category": local_ioc.category,
                                     "description": local_ioc.description,
                                     "note": "VirusTotal chưa lập chỉ mục (404), nhưng IOC nằm trong Blacklist nội bộ của SOC.",
                                 },
                             }
                         return {
-                            "analyzer": "Cortex_VirusTotal_v3_Live",
+                            "analyzer": "VirusTotal_v3_Live",
                             "type": raw_type,
                             "value": raw_val,
                             "verdict": "clean",
@@ -442,7 +445,7 @@ async def analyze_ioc(
     local_ioc = await get_local_indicator(raw_val)
     if local_ioc and local_ioc.is_active:
         return {
-            "analyzer": "Cortex_Local_ThreatDB",
+            "analyzer": "SOC_Threat_Intelligence_DB",
             "type": raw_type,
             "value": raw_val,
             "verdict": "malicious",
@@ -453,7 +456,7 @@ async def analyze_ioc(
             "community_score": -40,
             "last_analysis": datetime.utcnow().isoformat(),
             "details": {
-                "source": "Local Threat Intelligence Blacklist (MISP)",
+                "source": "SOC Threat Intelligence Blacklist",
                 "category": local_ioc.category,
                 "description": local_ioc.description,
             },
@@ -461,7 +464,7 @@ async def analyze_ioc(
 
     # 5. Nếu không thấy trong DB và VT không khả dụng
     return {
-        "analyzer": "Cortex_Heuristic",
+        "analyzer": "SOC_Heuristic_Engine",
         "type": raw_type,
         "value": raw_val,
         "verdict": "clean",
@@ -472,7 +475,7 @@ async def analyze_ioc(
         "community_score": 0,
         "last_analysis": datetime.utcnow().isoformat(),
         "details": {
-            "source": "Heuristic Analyzer",
+            "source": "SOC Heuristic Engine",
             "note": "Không phát hiện dấu hiệu nguy hại trong cơ sở dữ liệu Threat Intel.",
         },
     }

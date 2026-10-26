@@ -101,11 +101,25 @@ class IndicatorService:
         return list(result.scalars().all())
 
     async def create_indicator(self, data: Dict[str, Any]) -> Indicator:
-        """Thêm IOC mới"""
+        """Thêm IOC mới (kiểm tra trùng lặp trước khi thêm)"""
+        val = (data.get("value") or "").strip()
+        if not val:
+            raise ValueError("Giá trị IOC không được để trống")
+
+        # Kiểm tra trùng lặp theo giá trị (case-insensitive)
+        stmt = select(Indicator).where(
+            func.lower(Indicator.value) == val.lower(),
+            Indicator.deleted_at.is_(None)
+        )
+        res = await self.db.execute(stmt)
+        existing = res.scalar_one_or_none()
+        if existing:
+            raise ValueError(f"Chỉ số IOC '{val}' đã tồn tại trong danh sách đen!")
+
         indicator = Indicator(
             id=data.get("id") or str(uuid.uuid4()),
             type=data["type"],
-            value=data["value"],
+            value=val,
             category=data.get("category", "malware"),
             source=data.get("source", "analyst"),
             mitre_tactic=data.get("mitre_tactic"),

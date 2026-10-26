@@ -4,9 +4,11 @@
 # ==============================================================================
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional, Any
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -81,7 +83,6 @@ async def handle_n8n_callback(
     # Cập nhật trạng thái PlaybookRun nếu có
     try:
         from app.models.playbook import PlaybookRun
-        from datetime import timezone
         pb_stmt = select(PlaybookRun).where(PlaybookRun.status == "running").order_by(PlaybookRun.started_at.desc()).limit(1)
         pb_res = await db.execute(pb_stmt)
         latest_run = pb_res.scalar_one_or_none()

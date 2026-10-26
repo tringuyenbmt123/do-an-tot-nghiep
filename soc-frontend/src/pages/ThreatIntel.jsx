@@ -23,12 +23,12 @@ const TYPE_ICONS = {
 }
 
 export default function ThreatIntel() {
-  const [iocs, setIocs]             = useState([])
-  const [total, setTotal]           = useState(0)
-  const [page, setPage]             = useState(1)
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState('')
-  const [search, setSearch]         = useState('')
+  const [iocs, setIocs] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const dSearch = useDebounce(search, 400)
   const toast = useToast()
@@ -38,13 +38,13 @@ export default function ThreatIntel() {
   const [createErrors, setCreateErrors] = useState({})
 
   const [analyzeModal, setAnalyzeModal] = useState(null)
-  const [analyzeRes, setAnalyzeRes]     = useState(null)
-  const [analyzing, setAnalyzing]       = useState(false)
+  const [analyzeRes, setAnalyzeRes] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
 
   // Quick IOC Lookup (tra cứu tự do - gọi VirusTotal trực tiếp)
-  const [quickVal, setQuickVal]         = useState('')
-  const [quickType, setQuickType]       = useState('ip-src')
-  const [quickRes, setQuickRes]         = useState(null)
+  const [quickVal, setQuickVal] = useState('')
+  const [quickType, setQuickType] = useState('ip-src')
+  const [quickRes, setQuickRes] = useState(null)
   const [quickLoading, setQuickLoading] = useState(false)
 
   const handleQuickLookup = async () => {
@@ -83,10 +83,10 @@ export default function ThreatIntel() {
 
   const filtered = dSearch
     ? iocs.filter(i =>
-        (i.value || '').toLowerCase().includes(dSearch.toLowerCase()) ||
-        (i.category || '').toLowerCase().includes(dSearch.toLowerCase()) ||
-        (i.description || '').toLowerCase().includes(dSearch.toLowerCase())
-      )
+      (i.value || '').toLowerCase().includes(dSearch.toLowerCase()) ||
+      (i.category || '').toLowerCase().includes(dSearch.toLowerCase()) ||
+      (i.description || '').toLowerCase().includes(dSearch.toLowerCase())
+    )
     : iocs
 
   const handleCreate = async () => {
@@ -210,8 +210,10 @@ export default function ThreatIntel() {
               {/* Verdict */}
               <div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 2 }}>Kết luận</div>
-                <div style={{ fontSize: 16, fontWeight: 700,
-                  color: quickRes.verdict === 'malicious' ? 'var(--crit)' : quickRes.verdict === 'suspicious' ? 'var(--med)' : 'var(--ok)' }}>
+                <div style={{
+                  fontSize: 16, fontWeight: 700,
+                  color: quickRes.verdict === 'malicious' ? 'var(--crit)' : quickRes.verdict === 'suspicious' ? 'var(--med)' : 'var(--ok)'
+                }}>
                   {quickRes.verdict === 'malicious' ? '🔴 MÃ ĐỘC' : quickRes.verdict === 'suspicious' ? '🟡 ĐÁNG NGHI' : '🟢 SẠCH'}
                 </div>
               </div>
@@ -226,8 +228,10 @@ export default function ThreatIntel() {
               {/* Risk Score */}
               <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: 16 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 2 }}>Risk Score</div>
-                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace',
-                  color: quickRes.risk_score >= 80 ? 'var(--crit)' : quickRes.risk_score >= 50 ? 'var(--med)' : 'var(--ok)' }}>
+                <div style={{
+                  fontSize: 20, fontWeight: 700, fontFamily: 'monospace',
+                  color: quickRes.risk_score >= 80 ? 'var(--crit)' : quickRes.risk_score >= 50 ? 'var(--med)' : 'var(--ok)'
+                }}>
                   {quickRes.risk_score}/100
                 </div>
               </div>

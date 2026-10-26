@@ -201,6 +201,38 @@ TRUSTED_DNS_WHITELIST = {
 }
 
 
+def auto_detect_ioc_type(val: str, given_type: str = "") -> str:
+    """Tự động nhận diện loại IOC từ định dạng chuỗi nếu người dùng chọn sai hoặc để mặc định."""
+    v = (val or "").strip().lower()
+    if v.startswith("http://") or v.startswith("https://"):
+        return "url"
+    # Hex hashes
+    if len(v) in (32, 40, 64) and all(c in "0123456789abcdef" for c in v):
+        if len(v) == 32:
+            return "md5"
+        if len(v) == 40:
+            return "sha1"
+        return "sha256"
+    # IPv4 address
+    parts = v.split(".")
+    if len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
+        return "ip"
+    # Domain / hostname
+    if "." in v and " " not in v and not v.startswith("/") and any(c.isalpha() for c in v):
+        return "domain"
+    
+    cleaned_given = (given_type or "").lower().strip()
+    if cleaned_given in ["ip", "ip-src", "ip-dst"]:
+        return "ip"
+    if cleaned_given in ["domain", "hostname"]:
+        return "domain"
+    if cleaned_given in ["url"]:
+        return "url"
+    if cleaned_given in ["sha256", "sha1", "md5", "hash"]:
+        return cleaned_given
+    return "domain"
+
+
 @router.post("/analyze")
 async def analyze_ioc(
     req: AnalyzeIOCRequest,
@@ -212,15 +244,15 @@ async def analyze_ioc(
     Tự động nhận diện IP, Domain, Hash (MD5/SHA1/SHA256), URL.
     Hỗ trợ Whitelist DNS, lọc dải IP nội bộ RFC1918 và fallback cơ sở dữ liệu local.
     """
-    raw_type = (req.type or "").strip().lower()
     raw_val = (req.value or "").strip()
+    raw_type = auto_detect_ioc_type(raw_val, req.type)
 
     # 1. Kiểm tra Whitelist DNS công cộng phổ biến
     if raw_val in TRUSTED_DNS_WHITELIST:
         return {
             "analyzer": "Cortex_VirusTotal",
-            "type": req.type,
-            "value": req.value,
+            "type": raw_type,
+            "value": raw_val,
             "verdict": "clean",
             "risk_score": 0,
             "detections": 0,
@@ -235,12 +267,12 @@ async def analyze_ioc(
         }
 
     # 2. Kiểm tra IP Private / RFC1918 / Loopback
-    if raw_type in ["ip", "ip-src", "ip-dst"] or (":" not in raw_val and "." in raw_val and raw_val.replace(".", "").isdigit()):
+    if raw_type in ["ip", "ip-src", "ip-dst"]:
         if is_private_or_loopback_ip(raw_val):
             return {
                 "analyzer": "Cortex_VirusTotal",
-                "type": req.type,
-                "value": req.value,
+                "type": raw_type,
+                "value": raw_val,
                 "verdict": "clean",
                 "risk_score": 0,
                 "detections": 0,
@@ -253,6 +285,12 @@ async def analyze_ioc(
                     "note": "Địa chỉ IP thuộc mạng nội bộ hoặc Loopback. An toàn, không có trong danh sách đen quốc tế.",
                 },
             }
+
+    # Helper: Tra cứu trong cơ sở dữ liệu Indicators nội bộ (MISP local)
+    async def get_local_indicator(val: str):
+        stmt = select(Indicator).where(Indicator.value == val)
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
 
     # 3. Gọi VirusTotal v3 API thực tế nếu có cấu hình API Key
     vt_api_key = getattr(settings, "VIRUSTOTAL_API_KEY", "") or ""
@@ -286,42 +324,105 @@ async def analyze_ioc(
                         detections = malicious + suspicious
                         if detections > 0:
                             risk_score = min(100, max(20, int((detections / max(1, total_engines)) * 250) + 20))
+                            verdict = "malicious" if malicious >= 1 else "suspicious"
+
+                            tags = attrs.get("tags") or []
+                            if not tags:
+                                tags = ["threat-detected", "vt-flagged"]
+
+                            country = attrs.get("country", "UNKNOWN")
+                            as_owner = attrs.get("as_owner") or attrs.get("network") or "N/A"
+                            reputation = attrs.get("reputation", 0)
+
+                            return {
+                                "analyzer": "Cortex_VirusTotal_v3_Live",
+                                "type": raw_type,
+                                "value": raw_val,
+                                "verdict": verdict,
+                                "risk_score": risk_score,
+                                "detections": detections,
+                                "total_engines": total_engines,
+                                "tags": tags,
+                                "community_score": reputation,
+                                "last_analysis": datetime.utcnow().isoformat(),
+                                "details": {
+                                    "source": "VirusTotal Official API v3",
+                                    "country": country,
+                                    "as_owner": as_owner,
+                                    "stats": stats,
+                                },
+                            }
                         else:
-                            risk_score = 0
+                            # VT báo 0 detections -> kiểm tra xem có trong Blacklist nội bộ không
+                            local_ioc = await get_local_indicator(raw_val)
+                            if local_ioc and local_ioc.is_active:
+                                return {
+                                    "analyzer": "Cortex_Local_ThreatDB",
+                                    "type": raw_type,
+                                    "value": raw_val,
+                                    "verdict": "malicious",
+                                    "risk_score": local_ioc.risk_score or 85,
+                                    "detections": 12,
+                                    "total_engines": total_engines,
+                                    "tags": [local_ioc.category or "malware", "local_blacklist"],
+                                    "community_score": -30,
+                                    "last_analysis": datetime.utcnow().isoformat(),
+                                    "details": {
+                                        "source": "Local Threat Intelligence Blacklist (MISP)",
+                                        "category": local_ioc.category,
+                                        "description": local_ioc.description,
+                                        "note": "VirusTotal chưa gắn cờ, nhưng IOC đã bị đưa vào Blacklist nội bộ của SOC.",
+                                    },
+                                }
 
-                        verdict = "malicious" if malicious >= 2 else ("suspicious" if (malicious > 0 or suspicious >= 2) else "clean")
+                            # Hoàn toàn an toàn
+                            country = attrs.get("country", "UNKNOWN")
+                            as_owner = attrs.get("as_owner") or attrs.get("network") or "N/A"
+                            return {
+                                "analyzer": "Cortex_VirusTotal_v3_Live",
+                                "type": raw_type,
+                                "value": raw_val,
+                                "verdict": "clean",
+                                "risk_score": 0,
+                                "detections": 0,
+                                "total_engines": total_engines,
+                                "tags": ["clean", "verified-safe"],
+                                "community_score": attrs.get("reputation", 0),
+                                "last_analysis": datetime.utcnow().isoformat(),
+                                "details": {
+                                    "source": "VirusTotal Official API v3",
+                                    "country": country,
+                                    "as_owner": as_owner,
+                                    "stats": stats,
+                                },
+                            }
 
-                        tags = attrs.get("tags") or []
-                        if not tags and detections > 0:
-                            tags = ["threat-detected", "vt-flagged"]
-
-                        country = attrs.get("country", "UNKNOWN")
-                        as_owner = attrs.get("as_owner") or attrs.get("network") or "N/A"
-                        reputation = attrs.get("reputation", 0)
-
-                        return {
-                            "analyzer": "Cortex_VirusTotal_v3_Live",
-                            "type": req.type,
-                            "value": req.value,
-                            "verdict": verdict,
-                            "risk_score": risk_score,
-                            "detections": detections,
-                            "total_engines": total_engines,
-                            "tags": tags,
-                            "community_score": reputation,
-                            "last_analysis": datetime.utcnow().isoformat(),
-                            "details": {
-                                "source": "VirusTotal Official API v3",
-                                "country": country,
-                                "as_owner": as_owner,
-                                "stats": stats,
-                            },
-                        }
                     elif resp.status_code == 404:
+                        # VT không tìm thấy IOC -> Kiểm tra trong Blacklist nội bộ
+                        local_ioc = await get_local_indicator(raw_val)
+                        if local_ioc and local_ioc.is_active:
+                            return {
+                                "analyzer": "Cortex_Local_ThreatDB",
+                                "type": raw_type,
+                                "value": raw_val,
+                                "verdict": "malicious",
+                                "risk_score": local_ioc.risk_score or 85,
+                                "detections": 12,
+                                "total_engines": 70,
+                                "tags": [local_ioc.category or "malware", "local_blacklist"],
+                                "community_score": -40,
+                                "last_analysis": datetime.utcnow().isoformat(),
+                                "details": {
+                                    "source": "Local Threat Intelligence Blacklist (MISP)",
+                                    "category": local_ioc.category,
+                                    "description": local_ioc.description,
+                                    "note": "VirusTotal chưa lập chỉ mục (404), nhưng IOC nằm trong Blacklist nội bộ của SOC.",
+                                },
+                            }
                         return {
                             "analyzer": "Cortex_VirusTotal_v3_Live",
-                            "type": req.type,
-                            "value": req.value,
+                            "type": raw_type,
+                            "value": raw_val,
                             "verdict": "clean",
                             "risk_score": 0,
                             "detections": 0,
@@ -331,22 +432,19 @@ async def analyze_ioc(
                             "last_analysis": datetime.utcnow().isoformat(),
                             "details": {
                                 "source": "VirusTotal",
-                                "note": "Chỉ số IOC chưa từng bị báo cáo độc hại trên VirusTotal.",
+                                "note": "Chỉ số IOC chưa từng bị báo cáo độc hại trên VirusTotal và không có trong Blacklist.",
                             },
                         }
             except Exception as e:
-                # Log lỗi nhưng không crash, fallback xuống local database bên dưới
                 pass
 
-    # 4. Fallback: Tra cứu trong cơ sở dữ liệu Indicators nội bộ (MISP local)
-    stmt = select(Indicator).where(Indicator.value == raw_val)
-    res = await db.execute(stmt)
-    local_ioc = res.scalar_one_or_none()
+    # 4. Fallback khi không gọi được VT: Tra cứu trong cơ sở dữ liệu Indicators nội bộ
+    local_ioc = await get_local_indicator(raw_val)
     if local_ioc and local_ioc.is_active:
         return {
             "analyzer": "Cortex_Local_ThreatDB",
-            "type": req.type,
-            "value": req.value,
+            "type": raw_type,
+            "value": raw_val,
             "verdict": "malicious",
             "risk_score": local_ioc.risk_score or 85,
             "detections": 12,
@@ -355,7 +453,7 @@ async def analyze_ioc(
             "community_score": -40,
             "last_analysis": datetime.utcnow().isoformat(),
             "details": {
-                "source": "Local Threat Intelligence Blacklist",
+                "source": "Local Threat Intelligence Blacklist (MISP)",
                 "category": local_ioc.category,
                 "description": local_ioc.description,
             },
@@ -364,8 +462,8 @@ async def analyze_ioc(
     # 5. Nếu không thấy trong DB và VT không khả dụng
     return {
         "analyzer": "Cortex_Heuristic",
-        "type": req.type,
-        "value": req.value,
+        "type": raw_type,
+        "value": raw_val,
         "verdict": "clean",
         "risk_score": 5,
         "detections": 0,

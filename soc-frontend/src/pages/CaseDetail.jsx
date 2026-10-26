@@ -225,7 +225,7 @@ export default function CaseDetail() {
       if (caseData.status !== 'closed' && caseData.status !== 'progress') {
         try {
           await updateCaseStatus(caseData.id, 'progress')
-        } catch (_) {}
+        } catch (_) { }
       }
       toast.success(`Đã gán case cho ${targetUser} và chuyển trạng thái sang "Đang xử lý"`)
       setCaseData((prev) => ({
@@ -315,11 +315,11 @@ export default function CaseDetail() {
   const { initialDesc, notes: parsedNotes } = parseCaseDescription(caseData.description)
   const notes = (caseData.notes && caseData.notes.length > 0)
     ? caseData.notes.map((n, idx) => ({
-        id: n.id || idx,
-        timestamp: n.created_at ? formatDateTime(n.created_at) : (n.timestamp || ''),
-        author: n.author || 'Analyst',
-        content: n.note || n.content || ''
-      }))
+      id: n.id || idx,
+      timestamp: n.created_at ? formatDateTime(n.created_at) : (n.timestamp || ''),
+      author: n.author || 'Analyst',
+      content: n.note || n.content || ''
+    }))
     : parsedNotes
   const agent = extractAgent(caseData, rawAlert, agentsList)
   const severity = resolveSeverity(caseData)

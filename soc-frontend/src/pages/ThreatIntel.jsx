@@ -41,6 +41,27 @@ export default function ThreatIntel() {
   const [analyzeRes, setAnalyzeRes]     = useState(null)
   const [analyzing, setAnalyzing]       = useState(false)
 
+  // Quick IOC Lookup (tra cứu tự do - gọi VirusTotal trực tiếp)
+  const [quickVal, setQuickVal]         = useState('')
+  const [quickType, setQuickType]       = useState('ip-src')
+  const [quickRes, setQuickRes]         = useState(null)
+  const [quickLoading, setQuickLoading] = useState(false)
+
+  const handleQuickLookup = async () => {
+    const v = quickVal.trim()
+    if (!v) { toast.warn('Vui lòng nhập giá trị IOC cần tra cứu'); return }
+    setQuickLoading(true)
+    setQuickRes(null)
+    try {
+      const res = await analyzeIOC({ type: quickType, value: v })
+      setQuickRes(res.data)
+    } catch (e) {
+      toast.error(e.response?.data?.detail || e.message || 'Lỗi khi gọi VirusTotal')
+    } finally {
+      setQuickLoading(false)
+    }
+  }
+
   const load = useCallback(async () => {
     setError('')
     setLoading(true)
@@ -137,14 +158,111 @@ export default function ThreatIntel() {
         </div>
       )}
 
-      {/* Toolbar */}
+      {/* ── QUICK IOC LOOKUP PANEL (VirusTotal Live) ────────────────── */}
+      <div className="card" style={{ padding: 16, marginBottom: 16, border: '1px solid rgba(88,166,255,0.25)', background: 'linear-gradient(135deg, rgba(88,166,255,0.05) 0%, rgba(163,113,247,0.05) 100%)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <ScanSearch size={16} color="#58a6ff" />
+          <span style={{ fontWeight: 700, fontSize: 14, color: '#58a6ff' }}>Quick IOC Lookup</span>
+          <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 4 }}>— Tra cứu trực tiếp qua VirusTotal v3 API</span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <select
+            id="quick-ioc-type"
+            className="soc-select"
+            value={quickType}
+            onChange={e => setQuickType(e.target.value)}
+            style={{ width: 140, flexShrink: 0 }}
+          >
+            <option value="ip-src">IP (Source)</option>
+            <option value="ip-dst">IP (Dest)</option>
+            <option value="domain">Domain</option>
+            <option value="url">URL</option>
+            <option value="md5">MD5 Hash</option>
+            <option value="sha256">SHA-256</option>
+          </select>
+          <input
+            id="quick-ioc-value"
+            className="soc-input mono"
+            style={{ flex: 1, minWidth: 200 }}
+            placeholder="Nhập IP / Domain / Hash cần tra cứu... (VD: 8.8.8.8, malware.wicar.org)"
+            value={quickVal}
+            onChange={e => setQuickVal(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleQuickLookup()}
+          />
+          <button
+            id="quick-ioc-analyze-btn"
+            className="b1"
+            onClick={handleQuickLookup}
+            disabled={quickLoading}
+            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            {quickLoading
+              ? <RefreshCw size={14} style={{ animation: 'spin .7s linear infinite' }} />
+              : <ScanSearch size={14} />}
+            {quickLoading ? 'Đang phân tích…' : 'Phân tích'}
+          </button>
+        </div>
+
+        {/* Kết quả Quick Lookup */}
+        {quickRes && (
+          <div style={{ marginTop: 14, padding: 14, background: 'var(--panel2)', borderRadius: 8, border: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+              {/* Verdict */}
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 2 }}>Kết luận</div>
+                <div style={{ fontSize: 16, fontWeight: 700,
+                  color: quickRes.verdict === 'malicious' ? 'var(--crit)' : quickRes.verdict === 'suspicious' ? 'var(--med)' : 'var(--ok)' }}>
+                  {quickRes.verdict === 'malicious' ? '🔴 MÃ ĐỘC' : quickRes.verdict === 'suspicious' ? '🟡 ĐÁNG NGHI' : '🟢 SẠCH'}
+                </div>
+              </div>
+              {/* Detections */}
+              <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: 16 }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 2 }}>Engines phát hiện</div>
+                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace' }}>
+                  <span style={{ color: quickRes.detections > 0 ? 'var(--crit)' : 'var(--ok)' }}>{quickRes.detections}</span>
+                  <span style={{ color: 'var(--muted)' }}>/{quickRes.total_engines}</span>
+                </div>
+              </div>
+              {/* Risk Score */}
+              <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: 16 }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 2 }}>Risk Score</div>
+                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace',
+                  color: quickRes.risk_score >= 80 ? 'var(--crit)' : quickRes.risk_score >= 50 ? 'var(--med)' : 'var(--ok)' }}>
+                  {quickRes.risk_score}/100
+                </div>
+              </div>
+              {/* Source */}
+              <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: 16, marginLeft: 'auto' }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 2 }}>Nguồn</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#58a6ff' }}>{quickRes.analyzer}</div>
+              </div>
+            </div>
+            {/* Tags */}
+            {quickRes.tags?.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                {quickRes.tags.map(t => <span key={t} className="tag">{t}</span>)}
+              </div>
+            )}
+            {/* Details */}
+            {quickRes.details && (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {quickRes.details.note || quickRes.details.source || ''}
+                {quickRes.details.country && <span> · 🌍 {quickRes.details.country}</span>}
+                {quickRes.details.as_owner && quickRes.details.as_owner !== 'N/A' && <span> · {quickRes.details.as_owner}</span>}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── BLACKLIST TABLE TOOLBAR ──────────────────────────────────── */}
       <div className="card" style={{ padding: 16, marginBottom: 16 }}>
         <div className="bar2">
           <div className="q-wrap">
             <span className="q-icon"><Search size={16} /></span>
             <input
               className="q"
-              placeholder="Tìm kiếm giá trị IOC…"
+              placeholder="Tìm kiếm trong danh sách đen…"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />

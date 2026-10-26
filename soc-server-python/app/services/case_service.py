@@ -12,7 +12,7 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.case import Case, CaseStatus
+from app.models.case import Case, CaseStatus, CaseNote
 from app.models.alert import Alert, AlertStatus
 from app.services.audit_service import AuditService
 
@@ -30,9 +30,12 @@ class CaseService:
         page_size: int = 20,
         filters: Optional[Dict[str, str]] = None,
     ) -> Tuple[List[Case], int]:
-        """Lấy danh sách cases với phân trang, filter và eager load alert"""
+        """Lấy danh sách cases với phân trang, filter và eager load alert + notes"""
         filters = filters or {}
-        stmt = select(Case).options(selectinload(Case.alert).selectinload(Alert.agent))
+        stmt = select(Case).options(
+            selectinload(Case.alert).selectinload(Alert.agent),
+            selectinload(Case.notes)
+        )
         count_stmt = select(func.count(Case.id))
 
         if filters.get("status"):
@@ -53,10 +56,13 @@ class CaseService:
         return cases, total
 
     async def get_case_by_id(self, case_id: str) -> Optional[Case]:
-        """Lấy case chi tiết theo ID (load alert và agent)"""
+        """Lấy case chi tiết theo ID (load alert, agent và notes)"""
         stmt = (
             select(Case)
-            .options(selectinload(Case.alert).selectinload(Alert.agent))
+            .options(
+                selectinload(Case.alert).selectinload(Alert.agent),
+                selectinload(Case.notes)
+            )
             .where(Case.id == case_id)
         )
         res = await self.db.execute(stmt)
@@ -177,13 +183,24 @@ class CaseService:
         return c
 
     async def add_case_note(self, case_id: str, note: str, actor: str) -> bool:
-        """Thêm ghi chú vào Case description"""
+        """Thêm ghi chú vào Case (tạo bản ghi CaseNote độc lập và đồng bộ description)"""
         stmt = select(Case).where(Case.id == case_id)
         res = await self.db.execute(stmt)
         c = res.scalar_one_or_none()
         if not c:
             return False
 
+        # 1. Tạo bản ghi CaseNote độc lập chuẩn TheHive
+        case_note = CaseNote(
+            id=str(uuid.uuid4()),
+            case_id=case_id,
+            author=actor or "soc_analyst",
+            note=note,
+            created_at=datetime.utcnow(),
+        )
+        self.db.add(case_note)
+
+        # 2. Đồng bộ vào description để tương thích ngược 100%
         ts = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S")
         new_note = f"\n\n---\n**[{ts}] {actor}**: {note}"
         c.description = (c.description or "") + new_note
@@ -195,23 +212,27 @@ class CaseService:
             source="Manual",
             action="update_case",
             actor=actor,
-            payload_summary="Đã thêm ghi chú điều tra",
+            payload_summary="Đã thêm ghi chú điều tra vào CaseNote",
             case_id=case_id,
         )
         return True
 
     async def update_case_status(self, case_id: str, status: str, actor: str) -> bool:
-        """Cập nhật trạng thái của Case. Chưa assign thì không được đổi sang closed"""
+        """Cập nhật trạng thái của Case. Tự động cập nhật closed_at phục vụ tính toán MTTR"""
         stmt = select(Case).where(Case.id == case_id)
         res = await self.db.execute(stmt)
         c = res.scalar_one_or_none()
         if not c:
             return False
 
-        if status == "closed":
+        status_lower = status.lower()
+        if status_lower == "closed":
             is_unassigned = not c.assigned_to or c.assigned_to in ("soar_automation", "unassigned")
             if is_unassigned:
                 raise ValueError("Không thể đóng case khi chưa phân công người phụ trách")
+            c.closed_at = datetime.utcnow()
+        elif status_lower in ["new", "inprogress", "progress"]:
+            c.closed_at = None
 
         c.status = status
         c.updated_at = datetime.utcnow()

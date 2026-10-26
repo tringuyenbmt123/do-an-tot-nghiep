@@ -44,6 +44,39 @@ async def init_db():
             agent, alert, case, rule, indicator, audit_log, user, setting, siem
         )
         await conn.run_sync(Base.metadata.create_all)
+
+        # Migration an toàn: Bổ sung cột closed_at vào cases nếu bảng đã tồn tại từ trước
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE cases ADD COLUMN closed_at DATETIME NULL"))
+        except Exception:
+            pass
+
+        # Migration an toàn: Bổ sung cột deleted_at vào cases nếu chưa có
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE cases ADD COLUMN deleted_at DATETIME NULL"))
+        except Exception:
+            pass
+
+        # Migration an toàn: Tạo bảng case_notes nếu chưa tồn tại
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS case_notes (
+                    id VARCHAR(36) NOT NULL PRIMARY KEY,
+                    case_id VARCHAR(36) NOT NULL,
+                    author VARCHAR(255) NOT NULL DEFAULT 'soc_analyst',
+                    note TEXT NOT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_case_notes_case_id (case_id),
+                    CONSTRAINT fk_case_notes_case_id FOREIGN KEY (case_id)
+                        REFERENCES cases(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """))
+        except Exception:
+            pass
+
     logger.info("[DATABASE] AutoMigrate hoàn tất - Tất cả bảng đã sẵn sàng!")
 
 

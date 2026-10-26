@@ -312,7 +312,15 @@ export default function CaseDetail() {
 
   // Parse details from caseData
   const rawAlert = extractRawAlert(caseData)
-  const { initialDesc, notes } = parseCaseDescription(caseData.description)
+  const { initialDesc, notes: parsedNotes } = parseCaseDescription(caseData.description)
+  const notes = (caseData.notes && caseData.notes.length > 0)
+    ? caseData.notes.map((n, idx) => ({
+        id: n.id || idx,
+        timestamp: n.created_at ? formatDateTime(n.created_at) : (n.timestamp || ''),
+        author: n.author || 'Analyst',
+        content: n.note || n.content || ''
+      }))
+    : parsedNotes
   const agent = extractAgent(caseData, rawAlert, agentsList)
   const severity = resolveSeverity(caseData)
   const displayTitle = resolveCaseTitle(caseData, rawAlert)
@@ -354,13 +362,17 @@ export default function CaseDetail() {
 
   // Filter notes by active tab
   const filteredNotes = notes.filter((n) => {
-    if (activeTab === 'comments') return !n.author.toLowerCase().includes('system')
-    if (activeTab === 'activity') return n.author.toLowerCase().includes('system') || n.content.includes('trạng thái')
+    const author = (n.author || '').toLowerCase()
+    const content = (n.content || '').toLowerCase()
+    if (activeTab === 'comments') return !author.includes('system')
+    if (activeTab === 'activity') return author.includes('system') || content.includes('trạng thái')
     return true
   })
 
-  // SLA visual calculation
+  // SLA and MTTR visual calculation
   const createdTime = new Date(caseData.created_at).getTime()
+  const endTime = caseData.closed_at ? new Date(caseData.closed_at).getTime() : Date.now()
+  const resolveMinutes = Math.max(1, Math.round((endTime - createdTime) / (1000 * 60)))
   const now = Date.now()
   const elapsedHours = (now - createdTime) / (1000 * 60 * 60)
   const slaHours = 4 // standard 4h response window

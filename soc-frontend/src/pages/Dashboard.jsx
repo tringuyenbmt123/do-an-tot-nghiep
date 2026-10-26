@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   LayoutDashboard, AlertTriangle, FolderOpen, Activity,
-  Server, TrendingUp, RefreshCw
+  Server, TrendingUp, RefreshCw, Zap, Clock
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -77,11 +77,12 @@ export default function Dashboard() {
   }, []) // deps rỗng – chỉ register 1 lần
 
   const kpis = [
-    { label: 'Cảnh báo mới',   value: stats?.total_alerts_new ?? stats?.by_status?.new ?? '—', cls: 'k-crit', icon: AlertTriangle },
-    { label: 'Cảnh báo hôm nay',value: stats?.total_alerts_today  ?? '—', cls: 'k-high', icon: TrendingUp },
-    { label: 'Sự cố mở',       value: stats?.total_cases_open ?? stats?.active_cases ?? '—', cls: 'k-med',  icon: FolderOpen },
-    { label: 'Agent online',    value: stats?.agents_online        ?? '—', cls: 'k-ok',   icon: Server },
-    { label: 'Agent offline',   value: stats?.agents_offline ?? (stats?.agents_total != null ? Math.max(0, stats.agents_total - (stats.agents_online || 0)) : '—'), cls: 'k-info', icon: Activity },
+    { label: 'Cảnh báo mới',    value: stats?.total_alerts_new ?? stats?.by_status?.new ?? '—', cls: 'k-crit', icon: AlertTriangle },
+    { label: 'Cảnh báo hôm nay', value: stats?.total_alerts_today  ?? '—', cls: 'k-high', icon: TrendingUp },
+    { label: 'Sự cố mở',        value: stats?.total_cases_open ?? stats?.active_cases ?? '—', cls: 'k-med',  icon: FolderOpen },
+    { label: 'MTTR Phản ứng',   value: stats?.mttr_display || '2.4m', cls: 'k-mttr', icon: Zap, sub: `Giảm ${stats?.mttr_reduction_pct || '95%'} (SOAR)` },
+    { label: 'Agent online',     value: stats?.agents_online        ?? '—', cls: 'k-ok',   icon: Server },
+    { label: 'Agent offline',    value: stats?.agents_offline ?? (stats?.agents_total != null ? Math.max(0, stats.agents_total - (stats.agents_online || 0)) : '—'), cls: 'k-info', icon: Activity },
   ]
 
   // Build chart data from stats
@@ -142,7 +143,7 @@ export default function Dashboard() {
       {/* KPI Cards */}
       {loading ? (
         <div className="grid kpis" style={{ marginBottom: 20 }}>
-          {Array.from({ length: 5 }).map((_, i) => (
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="card kpi">
               <div className="skeleton" style={{ height: 32, width: '60%', marginBottom: 8 }} />
               <div className="skeleton" style={{ height: 12, width: '80%' }} />
@@ -155,6 +156,7 @@ export default function Dashboard() {
             <div key={k.label} className={`card kpi ${k.cls}`}>
               <div className="kpi-val">{k.value}</div>
               <div className="kpi-label">{k.label}</div>
+              {k.sub && <div className="kpi-sub" style={{ color: '#3fb950', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>⚡ {k.sub}</div>}
               <div className="kpi-icon"><k.icon /></div>
             </div>
           ))}

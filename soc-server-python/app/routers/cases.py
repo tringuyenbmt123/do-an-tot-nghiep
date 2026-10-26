@@ -82,6 +82,17 @@ def serialize_case(c) -> dict:
     if (not case_title or case_title.startswith("SOAR Escalated Alert:")) and alert_data and alert_data.get("title"):
         case_title = alert_data["title"]
 
+    notes_list = []
+    if hasattr(c, "notes") and c.notes:
+        for n in c.notes:
+            notes_list.append({
+                "id": n.id,
+                "author": n.author,
+                "note": n.note,
+                "content": n.note,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+            })
+
     return {
         "id": c.id,
         "alert_id": c.alert_id,
@@ -97,6 +108,8 @@ def serialize_case(c) -> dict:
         "confidence": getattr(c, "confidence", 0.0),
         "created_at": c.created_at.isoformat() if c.created_at else None,
         "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+        "closed_at": c.closed_at.isoformat() if getattr(c, "closed_at", None) else None,
+        "notes": notes_list,
         "alert": alert_data,
     }
 
@@ -242,3 +255,28 @@ async def update_case_status(
 
     await ws_hub.broadcast_case_update({"id": case_id, "status": req.status})
     return {"success": True}
+
+
+@router.get("/{case_id}/notes")
+async def get_case_notes(
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Lấy danh sách ghi chú điều tra độc lập của Case (chuẩn TheHive)"""
+    case_service = CaseService(db)
+    case_item = await case_service.get_case_by_id(case_id)
+    if not case_item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy Case")
+
+    return [
+        {
+            "id": n.id,
+            "author": n.author,
+            "note": n.note,
+            "content": n.note,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+        }
+        for n in (case_item.notes or [])
+    ]
+

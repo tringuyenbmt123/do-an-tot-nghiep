@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Bell, FolderOpen, Activity, Shield, AlertTriangle,
-  BookOpen, Server, Flame, FileText, Settings, LogOut, ChevronDown, ChevronRight,
+  BookOpen, Flame, FileText, Settings, LogOut, ChevronDown, ChevronRight,
   Bug, Grid, TerminalSquare, BarChart2, Flag, Cpu, Download
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -28,16 +28,15 @@ const NAV = [
       { to: '/rules',     icon: AlertTriangle,  label: 'Detection Rules' },
       { to: '/mitre',     icon: Grid,           label: 'MITRE ATT&CK' },
       { to: '/vulns',     icon: Bug,            label: 'Lỗ hổng' },
-      { to: '/assets',    icon: Server,         label: 'Tài sản & Endpoint' },
       { to: '/firewall',  icon: Flame,          label: 'Firewall / IDS' },
     ]
   },
   {
     group: 'SOC Console',
     items: [
-      { to: '/wazuh/overview',  icon: Flag,     label: 'Tổng quan SOC' },
-      { to: '/wazuh/endpoints', icon: Cpu,      label: 'Danh sách Agents' },
-      { to: '/wazuh/deploy',    icon: Download, label: 'Triển khai agent' },
+      { to: '/soc/overview',  icon: Flag,     label: 'Tổng quan SOC' },
+      { to: '/soc/endpoints', icon: Cpu,      label: 'Danh sách Agents' },
+      { to: '/soc/deploy',    icon: Download, label: 'Triển khai agent' },
     ]
   },
   {

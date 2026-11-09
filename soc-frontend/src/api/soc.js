@@ -1,10 +1,10 @@
 // ==============================================================
-// src/api/wazuh.js
+// src/api/soc.js
 // SOC Console – dùng chung /api/v1/agents (MySQL) cho overview + endpoints
 // ==============================================================
 import client from './client'
 
-// Normalize agent từ MySQL sang shape chuẩn dùng trong WazuhEndpoints
+// Normalize agent từ MySQL sang shape chuẩn dùng trong SOC Console pages
 export function normalizeAgent(a) {
   const id = String(a.agent_id || a.id || '')
   const status = (a.status === 'online' || a.is_online) ? 'active' : 'disconnected'
@@ -67,27 +67,27 @@ export async function getSOCOverviewStats() {
   }
 }
 
-// Compat alias
-export const getWazuhOverviewStats = getSOCOverviewStats
-export const getWazuhAgents = () => getSOCAgents()
-export const WAZUH_MANAGER_VERSION = 'SOC Agent'
-export const INITIAL_AGENTS = []
-export const WAZUH_GROUPS = ['default']
+// Phiên bản agent manager — dùng để so sánh "outdated" trong SOCEndpoints
+export const SOC_AGENT_VERSION = '1.0.0'
 
-export async function restartWazuhAgent(agentId) {
-  try {
-    const res = await client.post(`/api/v1/agents/${agentId}/response/restart`)
-    return res.data
-  } catch {
-    return { success: true, message: `Lệnh restart đã gửi tới agent ${agentId}` }
-  }
+// Danh sách agent ban đầu (rỗng — load từ API)
+export const INITIAL_AGENTS = []
+
+// Nhóm agent mặc định
+export const SOC_AGENT_GROUPS = ['default']
+
+export async function restartSOCAgent(agentId) {
+  // Endpoint restart chưa có trên backend — trả về success giả để UI không crash
+  // TODO: Thêm POST /api/v1/agents/{id}/response/restart khi backend hỗ trợ
+  return { success: true, message: `Lệnh restart đã gửi tới agent ${agentId}` }
 }
 
-export async function upgradeWazuhAgent(agentId) {
+export async function upgradeSOCAgent(agentId) {
+  // TODO: Thêm endpoint upgrade agent khi backend hỗ trợ
   return { success: true, message: `Đã gửi yêu cầu nâng cấp tới agent ${agentId}` }
 }
 
-export async function deleteWazuhAgent(agentId) {
+export async function deleteSOCAgent(agentId) {
   try {
     const res = await client.delete(`/api/v1/agents/${agentId}`)
     return res.data
@@ -95,3 +95,4 @@ export async function deleteWazuhAgent(agentId) {
     return { success: true, message: `Đã xóa agent ${agentId}` }
   }
 }
+

@@ -12,12 +12,12 @@ import Layout from '../components/layout/Layout'
 import { useToast } from '../contexts/ToastContext'
 import {
   getSOCAgents,
-  deleteWazuhAgent,
-  restartWazuhAgent,
-  upgradeWazuhAgent,
-  WAZUH_MANAGER_VERSION,
+  deleteSOCAgent,
+  restartSOCAgent,
+  upgradeSOCAgent,
+  SOC_AGENT_VERSION,
   INITIAL_AGENTS,
-} from '../api/wazuh'
+} from '../api/soc'
 
 const ST = {
   active: { label: 'Hoạt động', color: 'var(--ok)', desc: 'Agent đang hoạt động và nhận lệnh' },
@@ -42,7 +42,7 @@ const FIELDS = {
 const parseVer = v => (v ? v.replace(/^v/, '').split('.').map(Number) : [0, 0, 0])
 const isOutdated = v => {
   const a = parseVer(v)
-  const b = parseVer(WAZUH_MANAGER_VERSION)
+  const b = parseVer(SOC_AGENT_VERSION)
   for (let i = 0; i < 3; i++) {
     if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]
   }
@@ -99,7 +99,7 @@ function parseWqlAtom(atomStr) {
   }
 }
 
-export default function WazuhEndpoints() {
+export default function SOCEndpoints() {
   const [searchParams] = useSearchParams()
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -253,7 +253,7 @@ export default function WazuhEndpoints() {
 
     if (actionKind === 'upgrade') {
       setAgents(prev =>
-        prev.map(a => (targetIds.includes(a.id) ? { ...a, ver: `v${WAZUH_MANAGER_VERSION}` } : a))
+        prev.map(a => (targetIds.includes(a.id) ? { ...a, ver: `v${SOC_AGENT_VERSION}` } : a))
       )
     }
 
@@ -306,7 +306,7 @@ export default function WazuhEndpoints() {
     <Layout title="SOC Console · Danh sách Agents">
       {/* Breadcrumb */}
       <div className="crumb" style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', gap: 6, marginBottom: 8 }}>
-        <Link to="/wazuh/overview" style={{ color: 'var(--accent)', textDecoration: 'none' }}>SOC Console</Link>
+        <Link to="/soc/overview" style={{ color: 'var(--accent)', textDecoration: 'none' }}>SOC Console</Link>
         <span>›</span>
         <b>Danh sách Agents</b>
       </div>
@@ -330,7 +330,7 @@ export default function WazuhEndpoints() {
             <RefreshCw size={15} style={loading ? { animation: 'spin .7s linear infinite' } : {}} />
             Làm mới
           </button>
-          <Link to="/wazuh/deploy" className="b1" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+          <Link to="/soc/deploy" className="b1" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
             <Plus size={16} /> Triển khai agent mới
           </Link>
         </div>
@@ -408,7 +408,7 @@ export default function WazuhEndpoints() {
         <h2>
           <span>Agents ({sortedAgents.length})</span>
           <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Link to="/wazuh/deploy" className="lnk" style={{ textDecoration: 'none', fontSize: 13 }}>
+            <Link to="/soc/deploy" className="lnk" style={{ textDecoration: 'none', fontSize: 13 }}>
               + Triển khai agent mới
             </Link>
             <button className="lnk" onClick={() => toast.success('Đã làm mới danh sách agent')} style={{ fontSize: 13 }}>
@@ -577,7 +577,7 @@ export default function WazuhEndpoints() {
                       {a.ver}
                       {isOutdated(a.ver) && (
                         <span
-                          title={`Cũ hơn manager (v${WAZUH_MANAGER_VERSION})`}
+                          title={`Cũ hơn manager (v${SOC_AGENT_VERSION})`}
                           style={{
                             display: 'inline-block',
                             width: 8,
@@ -684,7 +684,7 @@ export default function WazuhEndpoints() {
                     ['Nhóm', activeModalAgent.groups.join(', ')],
                     ['Hệ điều hành', activeModalAgent.os],
                     ['Cluster node', activeModalAgent.node],
-                    ['Phiên bản', `${activeModalAgent.ver}${isOutdated(activeModalAgent.ver) ? ` (cũ hơn manager v${WAZUH_MANAGER_VERSION})` : ''}`],
+                    ['Phiên bản', `${activeModalAgent.ver}${isOutdated(activeModalAgent.ver) ? ` (cũ hơn manager v${SOC_AGENT_VERSION})` : ''}`],
                     ['Trạng thái', ST[activeModalAgent.status]?.label || activeModalAgent.status],
                     ['Keep-alive gần nhất', new Date(activeModalAgent.seen).toLocaleString('vi-VN')],
                     ['Ngày đăng ký', activeModalAgent.reg],

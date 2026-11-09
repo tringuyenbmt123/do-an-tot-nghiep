@@ -161,7 +161,7 @@ ddos_payload = {
     "infrastructure": {
         "detector_host": "kali-linux",
         "n8n_host"     : "n8n-server",
-        "wazuh_host"   : "wazuh-server",
+        "agent_host"   : "soc-agent",
     }
 }
 

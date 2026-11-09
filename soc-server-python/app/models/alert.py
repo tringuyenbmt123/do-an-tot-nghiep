@@ -18,7 +18,7 @@ from app.database import Base
 class AlertEventType(str, Enum):
     DDOS_DETECTED       = "ddos_detected"
     PHISHING_DETECTED   = "phishing_detected"
-    WAZUH_ALERT         = "wazuh_alert"
+    EDR_ALERT           = "edr_alert"
     MALWARE_EDR         = "malware_edr"
     SUSPICIOUS_PROCESS  = "suspicious_process"
     NETWORK_ANOMALY     = "network_anomaly"

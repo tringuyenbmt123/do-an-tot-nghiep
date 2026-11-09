@@ -1,7 +1,7 @@
 // ==============================================================
 // src/components/cases/CaseAlertDetails.jsx
 // Chi tiết cảnh báo gốc: bảng alert fields linh hoạt + Raw JSON viewer
-// Hỗ trợ đầy đủ: Wazuh, Sysmon File Integrity, DDoS ML, EDR Process
+// Hỗ trợ đầy đủ: Sysmon File Integrity, DDoS ML, EDR Process
 // ==============================================================
 import React, { useState, useCallback, useMemo } from 'react'
 import { formatDateTime } from '../../utils/date'

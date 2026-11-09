@@ -770,7 +770,7 @@ def default_rules() -> List[dict]:
             "severity": "critical",
             "event_type": "file_integrity",
             "conditions": json.dumps([
-                {"field": "path", "operator": "contains_any", "value": "ossec.conf,wazuh-agent.conf,soc-agent,config.json"}
+                {"field": "path", "operator": "contains_any", "value": "soc-agent.conf,soc-agent,config.json"}
             ]),
             "mitre_tactic": "Defense Evasion",
             "mitre_technique_id": "T1562.001",

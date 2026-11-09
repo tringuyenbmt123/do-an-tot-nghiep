@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     N8N_WEBHOOK_URL: str = ""
     N8N_WEBHOOK_URL_DDOS: str = ""
     N8N_WEBHOOK_URL_PHISHING: str = ""
-    N8N_WEBHOOK_URL_WAZUH: str = ""
+    N8N_WEBHOOK_URL_EDR: str = ""
     SOAR_WEBHOOK_TIMEOUT: int = 10
     SOAR_MAX_RETRIES: int = 3
     SOAR_CALLBACK_SECRET: str = ""
@@ -94,8 +94,8 @@ class Settings(BaseSettings):
         return self.N8N_WEBHOOK_URL_PHISHING
 
     @property
-    def n8n_webhook_url_wazuh(self) -> str:
-        return self.N8N_WEBHOOK_URL_WAZUH
+    def n8n_webhook_url_edr(self) -> str:
+        return self.N8N_WEBHOOK_URL_EDR
 
     @property
     def soar_webhook_timeout_secs(self) -> int:

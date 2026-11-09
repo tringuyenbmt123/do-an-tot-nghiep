@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom'
 import { Download, ArrowLeft, Check, Copy, Box } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { useToast } from '../contexts/ToastContext'
-import { INITIAL_AGENTS } from '../api/wazuh'
+import { INITIAL_AGENTS } from '../api/soc'
 
 const reSrv = v =>
   /^((\d{1,3}\.){3}\d{1,3}|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63})(:\d{1,5})?$/.test(v) &&
@@ -28,7 +28,7 @@ function downloadFile(filename, text, type = 'text/plain;charset=utf-8') {
   setTimeout(() => URL.revokeObjectURL(url), 500)
 }
 
-export default function WazuhDeploy() {
+export default function SOCDeploy() {
   const [pyOs, setPyOs] = useState('windows') // 'windows' | 'linux'
   const [serverAddr, setServerAddr] = useState('192.168.1.194')
   const [agentName, setAgentName] = useState('yairo01')
@@ -105,9 +105,9 @@ export default function WazuhDeploy() {
     <Layout title="Triển khai agent mới – SOC Console">
       {/* Breadcrumb */}
       <div className="crumb" style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', gap: 6, marginBottom: 8 }}>
-        <Link to="/wazuh/overview" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Wazuh</Link>
+        <Link to="/soc/overview" style={{ color: 'var(--accent)', textDecoration: 'none' }}>SOC Console</Link>
         <span>›</span>
-        <Link to="/wazuh/endpoints" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Endpoints</Link>
+        <Link to="/soc/endpoints" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Endpoints</Link>
         <span>›</span>
         <b>Triển khai agent mới</b>
       </div>
@@ -124,7 +124,7 @@ export default function WazuhDeploy() {
           </div>
         </div>
         <div className="act">
-          <Link to="/wazuh/endpoints" className="b2" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+          <Link to="/soc/endpoints" className="b2" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
             <ArrowLeft size={16} /> Quay lại danh sách
           </Link>
         </div>
@@ -474,7 +474,7 @@ export default function WazuhDeploy() {
               6
             </span>
             <h3 style={{ fontSize: 17, marginBottom: 8, marginTop: 4 }}>6. Quay lại danh sách endpoint để kiểm tra kết nối</h3>
-            <Link to="/wazuh/endpoints" className="b1" style={{ display: 'inline-block', textDecoration: 'none' }}>
+            <Link to="/soc/endpoints" className="b1" style={{ display: 'inline-block', textDecoration: 'none' }}>
               Về danh sách agent
             </Link>
           </li>

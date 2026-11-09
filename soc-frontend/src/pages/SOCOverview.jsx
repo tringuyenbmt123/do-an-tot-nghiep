@@ -7,7 +7,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Flag, RefreshCw, Shield, ArrowRight, ExternalLink } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { useToast } from '../contexts/ToastContext'
-import { getSOCOverviewStats } from '../api/wazuh'
+import { getSOCOverviewStats } from '../api/soc'
 
 const SEV_NAMES = { crit: 'Nghiêm trọng', high: 'Cao', med: 'Trung bình', low: 'Thấp' }
 const SEV_LEVELS = {
@@ -116,7 +116,7 @@ function renderDonut(items) {
   )
 }
 
-export default function WazuhOverview() {
+export default function SOCOverview() {
   const [stats, setStats] = useState({
     agents: { active: 0, disconnected: 0, pending: 0, never_connected: 0 },
     alerts: { crit: 0, high: 0, med: 0, low: 0 },
@@ -202,7 +202,7 @@ export default function WazuhOverview() {
         <div className="card">
           <h2>
             Tóm tắt Agent{' '}
-            <Link to="/wazuh/endpoints" style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 400, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Link to="/soc/endpoints" style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 400, display: 'flex', alignItems: 'center', gap: 4 }}>
               Xem danh sách Agents <ArrowRight size={14} />
             </Link>
           </h2>
@@ -212,7 +212,7 @@ export default function WazuhOverview() {
               {agentItems.map(x => (
                 <Link
                   key={x.key}
-                  to={`/wazuh/endpoints?status=${x.key}`}
+                  to={`/soc/endpoints?status=${x.key}`}
                   title={`Xem agent ${x.label}`}
                   style={{
                     display: 'flex',

@@ -59,9 +59,9 @@ async def handle_n8n_callback(
             if audit_action == "kill_process":
                 cmd_type = 1  # KILL_PROCESS
             elif audit_action == "block_ip":
-                cmd_type = 3  # BLOCK_IP
+                cmd_type = 2  # BLOCK_IP
             elif audit_action == "block_url":
-                cmd_type = 4  # BLOCK_URL
+                cmd_type = 3  # BLOCK_URL
 
             cmd = {
                 "command_id": str(uuid.uuid4()),

@@ -46,7 +46,7 @@ export default function AuditSettings() {
           n8n_webhook_url: s.n8n_webhook_url || '',
           n8n_webhook_url_ddos: s.n8n_webhook_url_ddos || '',
           n8n_webhook_url_phishing: s.n8n_webhook_url_phishing || '',
-          n8n_webhook_url_wazuh: s.n8n_webhook_url_wazuh || '',
+          n8n_webhook_url_edr: s.n8n_webhook_url_edr || '',
           alert_retention_days: parseInt(s.alert_retention_days) || 7
         })
       }
@@ -68,7 +68,7 @@ export default function AuditSettings() {
         n8n_webhook_url: settings.n8n_webhook_url,
         n8n_webhook_url_ddos: settings.n8n_webhook_url_ddos,
         n8n_webhook_url_phishing: settings.n8n_webhook_url_phishing,
-        n8n_webhook_url_wazuh: settings.n8n_webhook_url_wazuh,
+        n8n_webhook_url_edr: settings.n8n_webhook_url_edr,
         alert_retention_days: settings.alert_retention_days.toString()
       }
       await updateSettings(payload)
@@ -214,11 +214,11 @@ export default function AuditSettings() {
               </div>
 
               <div className="form-group" style={{ opacity: settings.soar_enabled ? 1 : 0.5, transition: 'opacity .2s' }}>
-                <label>n8n Webhook URL (Wazuh Playbook)</label>
+                <label>n8n Webhook URL (EDR / FIM Playbook)</label>
                 <input
                   className="soc-input mono"
-                  value={settings.n8n_webhook_url_wazuh}
-                  onChange={e => setSettings(s => ({ ...s, n8n_webhook_url_wazuh: e.target.value }))}
+                  value={settings.n8n_webhook_url_edr || ''}
+                  onChange={e => setSettings(s => ({ ...s, n8n_webhook_url_edr: e.target.value }))}
                   disabled={!settings.soar_enabled || !isAdmin}
                 />
               </div>

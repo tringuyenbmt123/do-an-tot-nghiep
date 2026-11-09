@@ -23,7 +23,6 @@ import AuditSettings from './pages/AuditSettings'
 import SIEM from './pages/SIEM'
 import MITRE from './pages/MITRE'
 import Vulns from './pages/Vulns'
-import Assets from './pages/Assets'
 import Firewall from './pages/Firewall'
 import Playbooks from './pages/Playbooks'
 import Reports from './pages/Reports'
@@ -70,13 +69,12 @@ export default function App() {
                 <Route path="/siem" element={<PrivateRoute><SIEM /></PrivateRoute>} />
                 <Route path="/mitre" element={<PrivateRoute><MITRE /></PrivateRoute>} />
                 <Route path="/vulns" element={<PrivateRoute><Vulns /></PrivateRoute>} />
-                <Route path="/assets" element={<PrivateRoute><Assets /></PrivateRoute>} />
                 <Route path="/firewall" element={<PrivateRoute><Firewall /></PrivateRoute>} />
                 <Route path="/playbooks" element={<PrivateRoute><Playbooks /></PrivateRoute>} />
                 <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
-                <Route path="/wazuh/overview"  element={<PrivateRoute><SOCOverview /></PrivateRoute>} />
-                <Route path="/wazuh/endpoints" element={<PrivateRoute><SOCAgents /></PrivateRoute>} />
-                <Route path="/wazuh/deploy"    element={<PrivateRoute><SOCDeploy /></PrivateRoute>} />
+                <Route path="/soc/overview"  element={<PrivateRoute><SOCOverview /></PrivateRoute>} />
+                <Route path="/soc/endpoints" element={<PrivateRoute><SOCAgents /></PrivateRoute>} />
+                <Route path="/soc/deploy"    element={<PrivateRoute><SOCDeploy /></PrivateRoute>} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />

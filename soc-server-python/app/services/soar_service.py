@@ -38,7 +38,7 @@ class SOARService:
         if event_type in [
             "ddos_detected", "phishing_detected", "brute_force",
             "brute_force_detected", "file_integrity", "fim", "fim_detected",
-            "sysmon_process_create", "suspicious_process", "wazuh_alert"
+            "sysmon_process_create", "suspicious_process", "edr_alert"
         ]:
             return True
         return (alert.severity or "").lower() in ["critical", "high"]
@@ -52,10 +52,10 @@ class SOARService:
             return settings.n8n_webhook_url_phishing
         if event_type in [
             "file_integrity", "fim", "fim_detected", "brute_force",
-            "brute_force_detected", "wazuh_alert", "sysmon_process_create", "suspicious_process"
+            "brute_force_detected", "edr_alert", "sysmon_process_create", "suspicious_process"
         ]:
-            if settings.n8n_webhook_url_wazuh:
-                return settings.n8n_webhook_url_wazuh
+            if settings.n8n_webhook_url_edr:
+                return settings.n8n_webhook_url_edr
             if settings.n8n_webhook_url_ddos:
                 return settings.n8n_webhook_url_ddos
         return settings.n8n_webhook_url

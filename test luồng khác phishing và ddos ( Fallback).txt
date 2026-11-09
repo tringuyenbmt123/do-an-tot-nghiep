@@ -3,7 +3,7 @@
 # ============================================================
 
 $webhookBody = @{
-    event_type   = "wazuh_alert"
+    event_type   = "edr_alert"
     severity     = "high"
     title        = "[HIGH] Suspicious PowerShell Execution"
     description  = "Phát hiện tiến trình PowerShell chạy lệnh mã hóa đáng ngờ trên máy trạm."

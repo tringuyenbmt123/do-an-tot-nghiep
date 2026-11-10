@@ -32,41 +32,27 @@ const STATUS_CONFIG = {
 
 const MODULE_GROUPS = [
   {
-    title: 'Endpoint security',
+    title: 'Endpoint Security & EDR',
     modules: [
-      { name: 'Configuration Assessment', desc: 'Quét tài sản để đánh giá cấu hình theo chuẩn kiểm toán.', path: null, badge: 'CA' },
-      { name: 'Malware Detection', desc: 'Kiểm tra dấu hiệu xâm nhập do mã độc hoặc tấn công mạng gây ra.', path: '/alerts', badge: 'MD' },
-      { name: 'File Integrity Monitoring', desc: 'Cảnh báo thay đổi tệp: quyền, nội dung, chủ sở hữu và thuộc tính.', path: '/rules', badge: 'FIM' },
+      { name: 'Malware & Anomaly Detection', desc: 'Kiểm tra dấu hiệu xâm nhập do mã độc hoặc tiến trình bất thường gây ra.', path: '/alerts', badge: 'MD' },
+      { name: 'File Integrity Monitoring', desc: 'Cảnh báo thay đổi tệp: quyền, nội dung, thuộc tính theo quy tắc FIM.', path: '/rules', badge: 'FIM' },
+      { name: 'Active Response & Isolation', desc: 'Thực thi phản ứng: Kill Process, Chặn IP, Cô lập mạng Endpoint.', path: '/agents', badge: 'AR' },
     ],
   },
   {
-    title: 'Threat intelligence',
+    title: 'Threat Intelligence & SIEM',
     modules: [
-      { name: 'Threat Hunting', desc: 'Duyệt qua các cảnh báo bảo mật để phát hiện sự cố và mối đe dọa.', path: '/siem', badge: 'TH' },
-      { name: 'Vulnerability Detection', desc: 'Phát hiện ứng dụng bị ảnh hưởng bởi các lỗ hổng đã biết.', path: '/vulns', badge: 'VD' },
-      { name: 'MITRE ATT&CK', desc: 'Khám phá cảnh báo theo chiến thuật và kỹ thuật tấn công.', path: '/mitre', badge: 'MA' },
+      { name: 'Threat Hunting (SIEM)', desc: 'Duyệt và truy vấn nhật ký sự kiện Event Logs từ Agent gửi về trung tâm.', path: '/siem', badge: 'TH' },
+      { name: 'Vulnerability Detection', desc: 'Phát hiện và thống kê các lỗ hổng bảo mật CVE trên hệ thống.', path: '/vulns', badge: 'VD' },
+      { name: 'MITRE ATT&CK Matrix', desc: 'Khám phá và trực quan hóa cảnh báo theo chiến thuật và kỹ thuật tấn công.', path: '/mitre', badge: 'MA' },
     ],
   },
   {
-    title: 'Security operations',
+    title: 'Security Operations & SOAR',
     modules: [
-      { name: 'IT Hygiene', desc: 'Đánh giá hệ thống, phần mềm, tiến trình và mạng để phát hiện cấu hình sai, thay đổi trái phép và bất thường.', path: null, badge: 'IT' },
-      { name: 'PCI DSS', desc: 'Tiêu chuẩn bảo mật toàn cầu cho đơn vị xử lý, lưu trữ hoặc truyền dữ liệu thẻ thanh toán.', path: null, badge: 'PCI' },
-      { name: 'GDPR', desc: 'Quy định bảo vệ dữ liệu chung của EU về xử lý dữ liệu cá nhân.', path: null, badge: 'GDPR' },
-      { name: 'HIPAA', desc: 'Đạo luật bảo mật và an toàn thông tin y tế của Hoa Kỳ.', path: null, badge: 'HIPAA' },
-      { name: 'NIST 800-53', desc: 'Hướng dẫn kiểm soát bảo mật cho hệ thống thông tin liên bang.', path: null, badge: 'NIST' },
-      { name: 'TSC', desc: 'Tiêu chí dịch vụ tin cậy: bảo mật, sẵn sàng, toàn vẹn xử lý, bí mật và riêng tư.', path: null, badge: 'TSC' },
-    ],
-  },
-  {
-    title: 'Cloud security',
-    modules: [
-      { name: 'Docker', desc: 'Theo dõi hoạt động container: tạo, chạy, khởi động, dừng hoặc tạm dừng.', path: null, badge: 'DK' },
-      { name: 'Amazon Web Services', desc: 'Sự kiện bảo mật của dịch vụ AWS, thu thập trực tiếp qua AWS API.', path: null, badge: 'AWS' },
-      { name: 'Google Cloud', desc: 'Sự kiện bảo mật của Google Cloud Platform, thu thập qua GCP API.', path: null, badge: 'GCP' },
-      { name: 'GitHub', desc: 'Giám sát nhật ký kiểm toán của các tổ chức GitHub.', path: null, badge: 'GH' },
-      { name: 'Office 365', desc: 'Sự kiện bảo mật của các dịch vụ Office 365.', path: null, badge: 'O365' },
-      { name: 'Microsoft Graph API', desc: 'Sự kiện bảo mật của dịch vụ Microsoft Graph, thu thập qua Graph API.', path: null, badge: 'MG' },
+      { name: 'Incident & Case Management', desc: 'Quản lý vụ việc, điều tra chi tiết và theo dõi tiến độ xử lý sự cố an ninh.', path: '/cases', badge: 'CM' },
+      { name: 'SOAR Playbooks', desc: 'Kịch bản tự động hóa phản ứng sự cố tích hợp qua n8n webhook workflow.', path: '/playbooks', badge: 'PB' },
+      { name: 'SOAR Pipeline & Auditing', desc: 'Cấu hình pipeline webhook SOAR và kiểm toán nhật ký vận hành hệ thống.', path: '/audit-settings', badge: 'SO' },
     ],
   },
 ]

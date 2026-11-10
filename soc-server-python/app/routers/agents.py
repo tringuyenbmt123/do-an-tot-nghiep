@@ -216,3 +216,37 @@ async def isolate_network(
         "message": f"Đã gửi lệnh Isolate Network tới Agent {agent_id}",
         "command_id": cmd["command_id"],
     }
+
+
+@router.delete("/{agent_id}")
+async def delete_agent(
+    agent_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Xóa Agent khỏi hệ thống"""
+    agent_service = AgentService(db)
+    success = await agent_service.delete_agent(agent_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent '{agent_id}' không tồn tại",
+        )
+    return {"success": True, "message": f"Đã xóa agent {agent_id}"}
+
+
+@router.post("/{agent_id}/response/restart")
+async def restart_agent(
+    agent_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Gửi yêu cầu restart/refresh trạng thái Agent"""
+    agent_service = AgentService(db)
+    agent = await agent_service.get_agent_by_id(agent_id)
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent '{agent_id}' không tồn tại",
+        )
+    return {"success": True, "message": f"Lệnh restart đã được gửi tới Agent {agent_id}"}

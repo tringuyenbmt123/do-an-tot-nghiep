@@ -39,7 +39,7 @@ const FIELDS = {
   status: r => r.status,
 }
 
-const parseVer = v => (v ? v.replace(/^v/, '').split('.').map(Number) : [0, 0, 0])
+const parseVer = v => (v ? v.replace(/^v/, '').split('-')[0].split('.').map(x => parseInt(x, 10) || 0) : [0, 0, 0])
 const isOutdated = v => {
   const a = parseVer(v)
   const b = parseVer(SOC_AGENT_VERSION)
@@ -237,9 +237,14 @@ export default function SOCEndpoints() {
 
     if (actionKind === 'delete') {
       if (!window.confirm(`Xóa ${targetAgents.length} agent khỏi manager? Hành động này không thể hoàn tác.`)) return
-      setAgents(prev => prev.filter(a => !targetIds.includes(a.id)))
-      setSelectedIds(new Set())
-      toast.success(`Đã xóa ${targetAgents.length} agent`)
+      try {
+        await Promise.all(targetIds.map(id => deleteSOCAgent(id)))
+        setAgents(prev => prev.filter(a => !targetIds.includes(a.id)))
+        setSelectedIds(new Set())
+        toast.success(`Đã xóa ${targetAgents.length} agent khỏi hệ thống`)
+      } catch (err) {
+        toast.error('Lỗi khi xóa agent: ' + (err.message || err))
+      }
       return
     }
 
@@ -251,15 +256,28 @@ export default function SOCEndpoints() {
       return
     }
 
-    if (actionKind === 'upgrade') {
-      setAgents(prev =>
-        prev.map(a => (targetIds.includes(a.id) ? { ...a, ver: `v${SOC_AGENT_VERSION}` } : a))
-      )
+    if (actionKind === 'restart') {
+      try {
+        await Promise.all(activeList.map(a => restartSOCAgent(a.id)))
+        toast.success(`Đã gửi lệnh khởi động lại tới ${activeList.length} agent${inactiveCount ? ` (bỏ qua ${inactiveCount} agent mất kết nối)` : ''}`)
+      } catch (err) {
+        toast.error('Lỗi khi gửi lệnh restart: ' + (err.message || err))
+      }
+      return
     }
 
-    toast.success(
-      `${actionKind === 'restart' ? 'Đã gửi lệnh khởi động lại tới ' : 'Đã gửi yêu cầu nâng cấp tới '}${activeList.length} agent${inactiveCount ? ` (bỏ qua ${inactiveCount} agent mất kết nối)` : ''}`
-    )
+    if (actionKind === 'upgrade') {
+      try {
+        await Promise.all(activeList.map(a => upgradeSOCAgent(a.id)))
+        setAgents(prev =>
+          prev.map(a => (targetIds.includes(a.id) ? { ...a, ver: `v${SOC_AGENT_VERSION}` } : a))
+        )
+        toast.success(`Đã gửi yêu cầu nâng cấp tới ${activeList.length} agent${inactiveCount ? ` (bỏ qua ${inactiveCount} agent mất kết nối)` : ''}`)
+      } catch (err) {
+        toast.error('Lỗi khi gửi yêu cầu nâng cấp: ' + (err.message || err))
+      }
+      return
+    }
   }
 
   const handleExportCSV = () => {
@@ -686,8 +704,8 @@ export default function SOCEndpoints() {
                     ['Cluster node', activeModalAgent.node],
                     ['Phiên bản', `${activeModalAgent.ver}${isOutdated(activeModalAgent.ver) ? ` (cũ hơn manager v${SOC_AGENT_VERSION})` : ''}`],
                     ['Trạng thái', ST[activeModalAgent.status]?.label || activeModalAgent.status],
-                    ['Keep-alive gần nhất', new Date(activeModalAgent.seen).toLocaleString('vi-VN')],
-                    ['Ngày đăng ký', activeModalAgent.reg],
+                    ['Keep-alive gần nhất', activeModalAgent.seen ? new Date(activeModalAgent.seen).toLocaleString('vi-VN') : 'Chưa có'],
+                    ['Ngày đăng ký', activeModalAgent.reg ? new Date(activeModalAgent.reg).toLocaleString('vi-VN') : '—'],
                   ].map(([k, v]) => (
                     <tr key={k} style={{ borderBottom: '1px solid var(--line)' }}>
                       <td style={{ padding: '8px 0', color: 'var(--muted)', width: '35%' }}>{k}</td>

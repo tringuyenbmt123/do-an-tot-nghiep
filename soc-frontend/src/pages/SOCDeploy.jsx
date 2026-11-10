@@ -3,20 +3,18 @@
 // SOC Agent Deployment Wizard Page (6 Steps)
 // Provides: Direct CLI commands & Config/Script file downloads
 // ==============================================================
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Download, ArrowLeft, Check, Copy, Box } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { useToast } from '../contexts/ToastContext'
-import { INITIAL_AGENTS } from '../api/soc'
+import { getSOCAgents } from '../api/soc'
 
 const reSrv = v =>
   /^((\d{1,3}\.){3}\d{1,3}|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63})(:\d{1,5})?$/.test(v) &&
   (!/^[\d.]+$/.test(v.split(':')[0]) || v.split(':')[0].split('.').every(o => +o <= 255))
 
 const reNm = v => /^[A-Za-z0-9._-]{2,128}$/.test(v)
-
-const existingNames = INITIAL_AGENTS.map(a => a.name)
 
 function downloadFile(filename, text, type = 'text/plain;charset=utf-8') {
   const blob = new Blob([text], { type })
@@ -30,15 +28,28 @@ function downloadFile(filename, text, type = 'text/plain;charset=utf-8') {
 
 export default function SOCDeploy() {
   const [pyOs, setPyOs] = useState('windows') // 'windows' | 'linux'
-  const [serverAddr, setServerAddr] = useState('192.168.1.194')
-  const [agentName, setAgentName] = useState('yairo01')
+  const [serverAddr, setServerAddr] = useState(() => {
+    const host = window.location.hostname
+    return (host && host !== 'localhost' && host !== '127.0.0.1') ? host : '192.168.1.28'
+  })
+  const [agentName, setAgentName] = useState('endpoint-pc-02')
   const [agentSecret, setAgentSecret] = useState('soc-agent-secret-token-2026')
   const [rememberAddr, setRememberAddr] = useState(true)
   const [touchedServer, setTouchedServer] = useState(false)
+  const [existingAgents, setExistingAgents] = useState([])
   const toast = useToast()
 
+  useEffect(() => {
+    getSOCAgents().then(agents => setExistingAgents(agents)).catch(() => {})
+  }, [])
+
+  const existingNames = useMemo(
+    () => existingAgents.map(a => (a.name || a.id || '').toLowerCase()),
+    [existingAgents]
+  )
+
   const isServerValid = reSrv(serverAddr.trim())
-  const isNameValid = !agentName.trim() || (reNm(agentName.trim()) && !existingNames.includes(agentName.trim()))
+  const isNameValid = !agentName.trim() || (reNm(agentName.trim()) && !existingNames.includes(agentName.trim().toLowerCase()))
   const isReady = Boolean(pyOs && isServerValid && isNameValid)
 
   // Formatting server URL depending on agent type

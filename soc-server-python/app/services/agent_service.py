@@ -113,3 +113,14 @@ class AgentService:
                     pass
 
         return agent
+
+    async def delete_agent(self, agent_id: str) -> bool:
+        """Xóa Agent khỏi database"""
+        stmt = select(Agent).where(Agent.id == agent_id)
+        res = await self.db.execute(stmt)
+        agent = res.scalar_one_or_none()
+        if not agent:
+            return False
+        await self.db.delete(agent)
+        await self.db.commit()
+        return True

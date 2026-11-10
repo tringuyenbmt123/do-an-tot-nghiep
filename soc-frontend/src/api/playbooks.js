@@ -10,3 +10,5 @@ export const importN8nPlaybook = (formData) =>
   })
 export const deletePlaybook = (id) => client.delete(`/api/v1/playbooks/${id}`)
 export const togglePlaybook = (id) => client.patch(`/api/v1/playbooks/${id}/toggle`)
+export const updatePlaybook = (id, data) => client.put(`/api/v1/playbooks/${id}`, data)
+export const getPlaybookRunDetail = (runId) => client.get(`/api/v1/playbooks/runs/${runId}`)

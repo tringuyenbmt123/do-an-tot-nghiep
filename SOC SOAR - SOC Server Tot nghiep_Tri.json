@@ -1,5 +1,5 @@
 {
-  "name": "SOC SOAR Unified Platform v9 (DDoS + Phishing + Wazuh + TheHive + MISP + AI)",
+  "name": "SOC SOAR Unified Platform v9 (DDoS + Phishing+ AI)",
   "nodes": [
     {
       "parameters": {
@@ -159,7 +159,7 @@
     {
       "parameters": {
         "chatId": "5407528909",
-        "text": "=✅ IP UNBLOCKED\n🟢 IP: {{ $json.src_ip }}\n🕐 Time: {{ $json.timestamp }}\n Firewall rule đã được gỡ bỏ tự động sau thời gian timeout",
+        "text": "=✅ IP UNBLOCKED\n🟢 IP: {{ $json.src_ip }}\n🕐 Time: {{ $json.timestamp }}\nℹ️ Firewall rule đã được gỡ bỏ tự động sau thời gian timeout",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
@@ -519,8 +519,8 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        3824,
-        608
+        3760,
+        704
       ],
       "id": "1229ae4d-a8e7-4fb8-a550-a7bfe3cfe4f8",
       "name": "Telegram_Send_Execute_Kill1",
@@ -557,8 +557,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        4080,
-        640
+        4048,
+        704
       ],
       "id": "34b4a1cf-c865-4237-8641-328b6cd6d31b",
       "name": "Update Alert - Kill1",
@@ -576,8 +576,8 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        3216,
-        832
+        3232,
+        880
       ],
       "id": "4dbaf6db-85bd-496d-8518-06d128bd491d",
       "name": "Send Log-Only Alert1",
@@ -616,8 +616,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3472,
-        832
+        3488,
+        880
       ],
       "id": "a40c9bdf-d60a-4181-b2f7-229395be6db4",
       "name": "Update Alert - Log Only1",
@@ -704,7 +704,7 @@
       "parameters": {
         "operation": "sendAndWait",
         "chatId": "5407528909",
-        "message": "= YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\n Hành động: {{ $json.action }}\n\n Thông tin cảnh báo:\n- Event: {{ $json.description }}\n- Severity: {{ $json.severity }}\n- Time: {{ $json.timestamp }}\n\n• URL: {{ $json.url || 'N/A' }}\n• Domain: {{ $json.domain || 'N/A' }}\n• IP nhân viên: {{ $json.employee_ip || $json.src_ip || 'N/A' }}\n\n\n Confidence: {{ $json.ai_confidence }}\n\n Lý do: {{ $json.reason }}\n\n⚠️ Hành động sẽ được thực hiện sau khi phê duyệt.",
+        "message": "=🚨 YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\n Hành động: {{ $json.action }}\n\n Thông tin cảnh báo:\n- Event: {{ $json.description }}\n- Severity: {{ $json.severity }}\n- Time: {{ $json.timestamp }}\n\n• URL: {{ $json.url || 'N/A' }}\n• Domain: {{ $json.domain || 'N/A' }}\n• IP nhân viên: {{ $json.employee_ip || $json.src_ip || 'N/A' }}\n\n\n Confidence: {{ $json.ai_confidence }}\n\n Lý do: {{ $json.reason }}\n\n⚠️ Hành động sẽ được thực hiện sau khi phê duyệt.",
         "approvalOptions": {
           "values": {
             "approvalType": "double"
@@ -1127,7 +1127,7 @@
       "type": "n8n-nodes-base.ssh",
       "typeVersion": 1,
       "position": [
-        3472,
+        3520,
         1200
       ],
       "id": "d8687f57-dbf1-40b4-afcc-ad820dcee37c",
@@ -1195,8 +1195,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3584,
-        608
+        3488,
+        704
       ],
       "id": "24bb4c7d-654e-4be9-972f-c1e7162fa775",
       "name": "SOC App - SOAR Callback - Kill Process"
@@ -1258,7 +1258,7 @@
       "typeVersion": 4.4,
       "position": [
         3248,
-        608
+        704
       ],
       "id": "fac9d6f7-4ee4-4e23-865e-e8f4fd81321c",
       "name": "SOC App - Kill Process API",
@@ -1480,7 +1480,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        832,
+        880,
         608
       ],
       "id": "f8f0f178-b5bd-4810-b843-0e17aae7fb80",
@@ -1533,6 +1533,204 @@
       ],
       "id": "05f25b74-2ed2-43ba-878b-7cbe5001ff1c",
       "name": "Save Token  khác"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"enrichment\",\n  \"status\": \"running\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        768,
+        384
+      ],
+      "id": "55574220-ee69-460b-9268-6d88473708b9",
+      "name": "HTTP Request gửi tiến trình về server"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"decision\",\n  \"status\": \"running\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2432,
+        832
+      ],
+      "id": "20b782d9-c12a-41fd-8668-f6f5368cc759",
+      "name": "HTTP Request gửi tiến trình về server1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"approval\",\n  \"status\": \"running\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2752,
+        -80
+      ],
+      "id": "8bdc021d-21ea-4e61-8f8d-84ddf9c58fa6",
+      "name": "HTTP Request gửi tiến trình về server2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"closure\",\n  \"status\": \"success\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4544,
+        400
+      ],
+      "id": "13c2357d-0b3c-4313-901e-394498fe47e0",
+      "name": "HTTP Request gửi tiến trình về server4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"trigger\": \"ddos-alert\", \"stage\": \"containment\", \"status\": \"running\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3520,
+        -32
+      ],
+      "id": "8f1ab590-7b54-4012-bcd4-fd655a55ca1a",
+      "name": "HTTP Request gửi tiến trình về server3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"closure\",\n  \"status\": \"success\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3760,
+        880
+      ],
+      "id": "fd838d89-ddcf-405f-9c45-0eb58ccc83a7",
+      "name": "HTTP Request gửi tiến trình về server5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"trigger\": \"phishing\", \"stage\": \"enrichment\", \"status\": \"running\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1008,
+        -32
+      ],
+      "id": "547056f8-b5ac-4d16-962f-74bdc0749ce5",
+      "name": "HTTP Request gửi tiến trình về server6"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"trigger\": \"phishing\", \"stage\": \"decision\", \"status\": \"running\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2288,
+        0
+      ],
+      "id": "73682f34-2be9-40d4-a815-40e4c87bcf92",
+      "name": "HTTP Request gửi tiến trình về server7"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"trigger\": \"phishing\", \"stage\": \"closure\", \"status\": \"success\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4496,
+        1024
+      ],
+      "id": "6b17b92f-627c-440d-a477-efb3be7817cc",
+      "name": "HTTP Request gửi tiến trình về server8"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"ingestion\",\n  \"status\": \"success\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -256,
+        496
+      ],
+      "id": "2eefc6f6-6391-4684-aa59-f17bb449a805",
+      "name": "HTTP Request gửi tiến trình về server9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"trigger\": \"phishing\",\n  \"stage\": \"ingestion\",\n  \"status\": \"success\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -208,
+        64
+      ],
+      "id": "5e07c6a9-893f-4228-a4f8-adc02b45cd15",
+      "name": "HTTP Request gửi tiến trình về server10"
     }
   ],
   "pinData": {},
@@ -1544,6 +1742,11 @@
             "node": "Merge Webhooks1",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "HTTP Request gửi tiến trình về server9",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1553,6 +1756,11 @@
         [
           {
             "node": "Extract Phishing Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request gửi tiến trình về server10",
             "type": "main",
             "index": 0
           }
@@ -1680,6 +1888,11 @@
       "main": [
         [
           {
+            "node": "HTTP Request gửi tiến trình về server1",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Ollama1",
             "type": "main",
             "index": 0
@@ -1759,7 +1972,13 @@
     },
     "Update Alert - Block1": {
       "main": [
-        []
+        [
+          {
+            "node": "HTTP Request gửi tiến trình về server4",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Telegram_Send_Execute_Kill1": {
@@ -1791,7 +2010,13 @@
     },
     "Update Alert - Log Only1": {
       "main": [
-        []
+        [
+          {
+            "node": "HTTP Request gửi tiến trình về server5",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Check if DDoS Alert": {
@@ -1837,6 +2062,11 @@
             "node": "Request Approval",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "HTTP Request gửi tiến trình về server2",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1857,6 +2087,11 @@
         [
           {
             "node": "Restore Alert Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request gửi tiến trình về server3",
             "type": "main",
             "index": 0
           }
@@ -1961,6 +2196,11 @@
             "node": "SOC Server Login1",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "HTTP Request gửi tiến trình về server6",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1972,6 +2212,11 @@
             "node": "Merge Decision Paths1",
             "type": "main",
             "index": 3
+          },
+          {
+            "node": "HTTP Request gửi tiến trình về server7",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -2066,7 +2311,13 @@
     },
     "Update Alert - Block URL1": {
       "main": [
-        []
+        [
+          {
+            "node": "HTTP Request gửi tiến trình về server8",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Build pfSense Phishing Block IP Command": {
@@ -2205,6 +2456,11 @@
       "main": [
         [
           {
+            "node": "HTTP Request gửi tiến trình về server",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Analyze IOC (SOC Server)",
             "type": "main",
             "index": 0
@@ -2266,6 +2522,21 @@
           }
         ]
       ]
+    },
+    "HTTP Request gửi tiến trình về server": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request gửi tiến trình về server1": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request gửi tiến trình về server2": {
+      "main": [
+        []
+      ]
     }
   },
   "active": false,
@@ -2274,7 +2545,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "c961eb8a-7b18-4786-a0fb-a5693265174a",
+  "versionId": "b3062123-5baf-4274-ae7b-715c4b545cae",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "88b3b600d62a38b9608292b540d8c9071a2a33ce6c9e93fd11131e23c9f0be82"

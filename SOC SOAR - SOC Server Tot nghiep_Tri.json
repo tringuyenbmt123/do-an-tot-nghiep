@@ -279,7 +279,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? $('Create Alert1').item.json.id ?? null;\nreturn [{ json: {\n  action: 'block_ip',\n  reason: 'DDoS được mô hình AI nội bộ  xác nhận với độ tin cậy cao - phản ứng tức thời, không cần AI tái phân tích.',\n  ai_used: false, ai_verdict: null, ai_confidence: norm.confidence,\n  src_ip: norm.src_ip, agent_id: norm.agent_id, process_id: norm.process_id,\n  alert_id: alertId, timestamp: norm.timestamp, description: norm.description, severity: norm.severity\n} }];\n"
+        "jsCode": "const norm = $('Normalize Payload1').item.json;\nconst alertId = $('Create Alert1').item.json.id ?? null;\n\nconst conf = Number(norm.confidence);\nconst pct = Number.isFinite(conf) ? Math.round(conf * 100) + '%' : 'không rõ';\n\nconst reason = (Number.isFinite(conf) && conf >= 0.9)\n  ? `Mô hình AI nội bộ phát hiện DDoS với độ tin cậy cao (${pct}) - phản ứng tức thời, không cần AI tái phân tích.`\n  : `Mô hình AI nội bộ phát hiện DDoS với độ tin cậy ${pct}, dưới ngưỡng tự động chặn (90%) - cần chuyên gia SOC xác nhận trước khi chặn.`;\n\nreturn [{ json: {\n  action: 'block_ip',\n  trigger: 'ddos-alert',\n  reason,\n  ai_used: false, ai_verdict: null, ai_confidence: norm.confidence,\n  src_ip: norm.src_ip, agent_id: norm.agent_id, process_id: norm.process_id,\n  alert_id: alertId, timestamp: norm.timestamp, description: norm.description, severity: norm.severity\n} }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -337,7 +337,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const prep = $('Data_Parser_&_AI_Prep1').item.json;\n\n// --- Bắt lỗi kết nối Ollama ---\nconst errorData = $json.error;\nif (errorData) {\n  let reason = errorData.message || 'Không xác định';\n  if (errorData.code === 'ECONNREFUSED') reason = 'Ollama chưa bật hoặc sai port.';\n  if (errorData.code === 'ETIMEDOUT') reason = 'Ollama quá tải, không trả lời kịp.';\n  if (errorData.code === 'ENOTFOUND') reason = 'Không tìm thấy địa chỉ IP của Ollama.';\n  return [{ json: {\n    action: 'log_only', reason: '⚠️ Lỗi kết nối AI: ' + reason,\n    ai_used: true, ai_verdict: 'unknown', ai_confidence: 0,\n    src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n    alert_id: prep.alert_id, timestamp: prep.timestamp, description: prep.description, severity: prep.severity\n  } }];\n}\n\nlet rawOutput = ($json.response ?? '').toString();\nrawOutput = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();\n\nlet parsed;\nif (!rawOutput) {\n  parsed = { verdict: 'false_positive', action: 'none', reason: 'Ollama không trả về dữ liệu.', confidence: 0 };\n} else {\n  try { parsed = JSON.parse(rawOutput); }\n  catch (e) { parsed = { verdict: 'false_positive', action: 'none', reason: 'AI trả lời sai định dạng JSON: ' + e.message, confidence: 0 }; }\n}\n\nconst action = (parsed.action ?? 'none') === 'none' ? 'log_only' : parsed.action;\n\n// Làm sạch chuỗi reason, loại bỏ các ký tự dấu huyền hoặc ký tự đặc biệt Markdown gây lỗi Telegram (Bad Request 400)\nlet cleanReason = parsed.reason ?? 'N/A';\nif (cleanReason) {\n  cleanReason = cleanReason.replace(/[`_*[\\]()~>#+=|{}.!-]/g, ' ');\n}\n\nreturn [{ json: {\n  action, \n  reason: cleanReason,\n  ai_used: true, \n  ai_verdict: parsed.verdict ?? 'false_positive', \n  ai_confidence: parsed.confidence ?? 0,\n  src_ip: prep.src_ip, \n  agent_id: prep.agent_id, \n  process_id: prep.process_id,\n  alert_id: prep.alert_id, \n  timestamp: prep.timestamp, \n  description: prep.description, \n  severity: prep.severity\n} }];"
+        "jsCode": "const prep = $('Data_Parser_&_AI_Prep1').item.json;\n\n// --- Bắt lỗi kết nối Ollama ---\nconst errorData = $json.error;\nif (errorData) {\n  let reason = errorData.message || 'Không xác định';\n  if (errorData.code === 'ECONNREFUSED') reason = 'Ollama chưa bật hoặc sai port.';\n  if (errorData.code === 'ETIMEDOUT') reason = 'Ollama quá tải, không trả lời kịp.';\n  if (errorData.code === 'ENOTFOUND') reason = 'Không tìm thấy địa chỉ IP của Ollama.';\n  return [{ json: {\n    trigger: 'ddos-alert',\n    action: 'log_only', reason: '⚠️ Lỗi kết nối AI: ' + reason,\n    ai_used: true, ai_verdict: 'unknown', ai_confidence: 0,\n    src_ip: prep.src_ip, agent_id: prep.agent_id, process_id: prep.process_id,\n    alert_id: prep.alert_id, timestamp: prep.timestamp, description: prep.description, severity: prep.severity\n  } }];\n}\n\nlet rawOutput = ($json.response ?? '').toString();\nrawOutput = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();\n\nlet parsed;\nif (!rawOutput) {\n  parsed = { verdict: 'false_positive', action: 'none', reason: 'Ollama không trả về dữ liệu.', confidence: 0 };\n} else {\n  try { parsed = JSON.parse(rawOutput); }\n  catch (e) { parsed = { verdict: 'false_positive', action: 'none', reason: 'AI trả lời sai định dạng JSON: ' + e.message, confidence: 0 }; }\n}\n\nconst action = (parsed.action ?? 'none') === 'none' ? 'log_only' : parsed.action;\n\n// Làm sạch chuỗi reason, loại bỏ các ký tự dấu huyền hoặc ký tự đặc biệt Markdown gây lỗi Telegram (Bad Request 400)\nlet cleanReason = parsed.reason ?? 'N/A';\nif (cleanReason) {\n  cleanReason = cleanReason.replace(/[`_*[\\]()~>#+=|{}.!-]/g, ' ');\n}\n\nreturn [{ json: {\n  trigger: 'ddos-alert',\n  action, \n  reason: cleanReason,\n  ai_used: true, \n  ai_verdict: parsed.verdict ?? 'false_positive', \n  ai_confidence: Number(parsed.confidence) || 0,\n  src_ip: prep.src_ip, \n  agent_id: prep.agent_id, \n  process_id: prep.process_id,\n  alert_id: prep.alert_id, \n  timestamp: prep.timestamp, \n  description: prep.description, \n  severity: prep.severity\n} }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -456,7 +456,7 @@
     {
       "parameters": {
         "chatId": "5407528909",
-        "text": "= IP BLOCKED: {{ $('Action Switch1').item.json.src_ip }}\n Nguồn quyết định: {{ $('Action Switch1').item.json.ai_used ? ' AI (Ollama)' : '📐 Rule-based (ML/Wazuh)' }}\n Lý do: {{ $('Action Switch1').item.json.reason }}\n Độ tin cậy: {{ $('Action Switch1').item.json.ai_confidence }}\n Time: {{ $('Action Switch1').item.json.timestamp }}\n\n",
+        "text": "=\n🚫 ĐÃ CHẶN IP: {{ $('Action Switch1').item.json.src_ip }}\n\n✅ Xác nhận: {{ $('Request Approval').isExecuted ? 'Analyst đã phê duyệt' : 'Tự động chặn (độ tin cậy ≥ 90%)' }}\n🧭 Nguồn quyết định: {{ $('Action Switch1').item.json.ai_used ? 'AI (Ollama)' : 'Mô hình AI nội bộ (rule-based)' }}\n🔎 Phát hiện: {{ $('Action Switch1').item.json.description }} (độ tin cậy {{ $('Action Switch1').item.json.ai_confidence }})\n🕐 Time: {{ $('Action Switch1').item.json.timestamp }}",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
@@ -557,7 +557,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        4048,
+        4176,
         704
       ],
       "id": "34b4a1cf-c865-4237-8641-328b6cd6d31b",
@@ -570,7 +570,7 @@
     {
       "parameters": {
         "chatId": "5407528909",
-        "text": "=📋 LOGGED — KHÔNG TỰ ĐỘNG HÀNH ĐỘNG\n🔗 IP/Target: {{ $json.src_ip }}\n📝 Mô tả: {{ $json.description }}\n📋 Lý do: {{ $json.reason }}\n📊 Độ tin cậy: {{ $json.ai_confidence }}\n🕐 Time: {{ $json.timestamp }}",
+        "text": "={{ $('Restore Alert Data - Rejected').isExecuted ? '🚫 ANALYST ĐÃ TỪ CHỐI CHẶN - CHỈ GHI NHẬN' : '📋 LOGGED - KHÔNG TỰ ĐỘNG HÀNH ĐỘNG' }}\n🔗 IP/Target: {{ $json.src_ip }}\n📝 Mô tả: {{ $json.description }}\n📋 Lý do: {{ $json.reason }}\n📊 Độ tin cậy: {{ $json.ai_confidence }}\n🕐 Time: {{ $json.timestamp }}",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
@@ -592,13 +592,13 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=={{ 'http://192.168.1.8:8080/api/v1/alerts/' +\n$('Create Alert1').item.json.id +\n'/status' }}",
+        "url": "={{ 'http://host.docker.internal:8080/api/v1/alerts/' + $('Restore Alert Data - Rejected').first().json.alert_id + '/status' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer tPuLfYp+xf7mAz/LsbdFGnwTfjZEbpga"
+              "value": "=Bearer {{ $('Save Token (DDoS)').isExecuted ? $('Save Token (DDoS)').first().json._jwt_token : $('Save JWT Token1').first().json._jwt_token }}"
             },
             {
               "name": "Content-Type",
@@ -608,7 +608,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  type: 'phishing',\n  source: 'SOAR-AI',\n  sourceRef: $json.domain + '-' + Date.now(),\n  title: 'URL phishing bị từ chối chặn (Log Only): ' + $('Restore Alert Data - Rejected').item.json.domain,\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — CHỈ GHI NHẬN (LOG ONLY)\\n\\n' +\n    '* **Domain:** ' + $('Restore Alert Data - Rejected').item.json.domain + '\\n' +\n    '* **URL gốc:** ' + $('Restore Alert Data - Rejected').item.json.url + '\\n' +\n    '* **IP nhân viên:** ' + $('Restore Alert Data - Rejected').item.json.employee_ip + '\\n' +\n    '* **Độ tin cậy:** ' + $('Restore Alert Data - Rejected').item.json.ai_confidence + '\\n' +\n    '* **Lý do:** ' + $('Restore Alert Data - Rejected').item.json.reason + '\\n' +\n    '* **Thời gian:** ' + $('Restore Alert Data - Rejected').item.json.timestamp + '\\n\\n' +\n    '⚠️ Cảnh báo này đã bị từ chối chặn (Decline) — cần chuyên gia SOC xác minh thủ công.',\n  severity: 2,\n  tlp: 2,\n  tags: [($('Restore Alert Data - Rejected').item.json.ai_used ? 'ai-decision' : 'rule-decision'), 'log-only', 'pending-soc-review'],\n  status: 'new'\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  status: 'new',\n  tags: [($('Restore Alert Data - Rejected').first().json.ai_used ? 'ai-decision' : 'rule-decision'), 'log-only', 'pending-soc-review'],\n  description:\n    '### KẾT QUẢ XỬ LÝ SOAR — CHỈ GHI NHẬN (LOG ONLY)\\n\\n' +\n    '* **Loại:** ' + ($('Restore Alert Data - Rejected').first().json.trigger === 'phishing' ? 'Phishing URL' : 'DDoS') + '\\n' +\n    ($('Restore Alert Data - Rejected').first().json.trigger === 'phishing'\n      ? '* **Domain:** ' + $('Restore Alert Data - Rejected').first().json.domain + '\\n* **URL gốc:** ' + $('Restore Alert Data - Rejected').first().json.url + '\\n* **IP nhân viên:** ' + $('Restore Alert Data - Rejected').first().json.employee_ip + '\\n'\n      : '* **IP tấn công:** ' + $('Restore Alert Data - Rejected').first().json.src_ip + '\\n* **Agent:** ' + ($('Restore Alert Data - Rejected').first().json.agent_id || 'N/A') + '\\n') +\n    '* **Độ tin cậy:** ' + $('Restore Alert Data - Rejected').first().json.ai_confidence + '\\n' +\n    '* **Lý do:** ' + $('Restore Alert Data - Rejected').first().json.reason + '\\n' +\n    '* **Thời gian:** ' + $('Restore Alert Data - Rejected').first().json.timestamp + '\\n\\n' +\n    '⚠️ Cảnh báo bị từ chối chặn, cần chuyên gia SOC xác minh thủ công.'\n}) }}",
         "options": {
           "allowUnauthorizedCerts": false
         }
@@ -704,7 +704,7 @@
       "parameters": {
         "operation": "sendAndWait",
         "chatId": "5407528909",
-        "message": "=🚨 YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\n Hành động: {{ $json.action }}\n\n Thông tin cảnh báo:\n- Event: {{ $json.description }}\n- Severity: {{ $json.severity }}\n- Time: {{ $json.timestamp }}\n\n• URL: {{ $json.url || 'N/A' }}\n• Domain: {{ $json.domain || 'N/A' }}\n• IP nhân viên: {{ $json.employee_ip || $json.src_ip || 'N/A' }}\n\n\n Confidence: {{ $json.ai_confidence }}\n\n Lý do: {{ $json.reason }}\n\n⚠️ Hành động sẽ được thực hiện sau khi phê duyệt.",
+        "message": "=🚨 YÊU CẦU PHÊ DUYỆT HÀNH ĐỘNG SOAR\n\nLoại: {{ $json.trigger === 'phishing' ? '🎣 Phishing URL' : '🌐 DDoS' }}\nHành động: {{ $json.action }}\n\nThông tin cảnh báo:\n- Event: {{ $json.description }}\n- Severity: {{ $json.severity }}\n- Time: {{ $json.timestamp }}\n{{ $json.trigger === 'phishing'\n  ? '• URL: ' + $json.url + '\\n• Domain: ' + $json.domain + '\\n• IP nhân viên: ' + $json.employee_ip\n  : '• IP tấn công: ' + $json.src_ip + '\\n• Agent: ' + ($json.agent_id || 'N/A') }}\n\nConfidence: {{ Number($json.ai_confidence).toFixed(2) }}\nLý do: {{ $json.reason }}\n\n⚠️ Hành động sẽ được thực hiện sau khi phê duyệt.",
         "approvalOptions": {
           "values": {
             "approvalType": "double"
@@ -787,7 +787,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ $('Check Approval Level').item.json }}",
+        "jsonOutput": "={{ Object.assign({}, $('Check Approval Level').item.json, {\n  action: 'log_only',\n  rejected: true,\n  reason: 'Analyst đã từ chối đề xuất ' + ({ block_ip: 'chặn IP', block_url: 'chặn domain', kill_process: 'kết thúc tiến trình' }[$('Check Approval Level').item.json.action] || 'xử lý tự động') + ' (độ tin cậy ' + Math.round(Number($('Check Approval Level').item.json.ai_confidence) * 100) + '%). Không có hành động nào được thực hiện, cảnh báo được giữ lại để SOC xác minh thủ công.'\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
@@ -921,7 +921,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Lấy dữ liệu trực tiếp từ node gọi AI model thay vì dùng $json chung chung\nconst aiModelData = $('Call Phishing Detection Model').first().json;\nconst extracted = $('Extract Domain from URL').first().json;\n\nconst rawProb = aiModelData.phishing_probability ?? 0;\n\nconst confidence = rawProb / 100;\nconst percentText = rawProb;\n\nconst reason = `Model AI nội bộ phát hiện URL phishing (xác suất ${percentText}%). Domain: ${extracted.domain}.`;\n\nreturn [{ json: {\n  action: 'block_url',\n  ai_used: true,\n  ai_verdict: aiModelData.prediction || 'phishing',\n  ai_confidence: confidence,\n  reason,\n  src_ip: (extracted.resolved_ips && extracted.resolved_ips.length > 0) ? extracted.resolved_ips.join(', ') : 'N/A',\n  resolved_ips: extracted.resolved_ips || [],\n  employee_ip: extracted.employee_ip || extracted.user || 'N/A',\n  url: extracted.url || 'N/A',\n  domain: extracted.domain || 'N/A',\n  agent_id: null,\n  process_id: null,\n  file_hash: null,\n  description: `Phishing URL detected: ${extracted.url}`,\n  severity: 'high',\n  timestamp: aiModelData.timestamp || new Date().toISOString()\n} }];"
+        "jsCode": "// Lấy dữ liệu trực tiếp từ node gọi AI model thay vì dùng $json chung chung\nconst aiModelData = $('Call Phishing Detection Model').first().json;\nconst extracted = $('Parse DNS Result').first().json;\nconst rawProb = aiModelData.phishing_probability ?? 0;\n\nconst confidence = rawProb / 100;\nconst percentText = rawProb;\n\nconst reason = `Model AI nội bộ phát hiện URL phishing (xác suất ${percentText}%). Domain: ${extracted.domain}.`;\n\nreturn [{ json: {\n  action: 'block_url',\n  trigger: 'phishing',\n  alert_id: $('Save JWT Token1').first().json.alert_id ?? null,\n  ai_used: true,\n  ai_verdict: aiModelData.prediction || 'phishing',\n  ai_confidence: confidence,\n  reason,\n  src_ip: (extracted.resolved_ips && extracted.resolved_ips.length > 0) ? extracted.resolved_ips.join(', ') : 'N/A',\n  resolved_ips: extracted.resolved_ips || [],\n  employee_ip: extracted.employee_ip || extracted.user || 'N/A',\n  url: extracted.url || 'N/A',\n  domain: extracted.domain || 'N/A',\n  agent_id: null,\n  process_id: null,\n  file_hash: null,\n  description: `Phishing URL detected: ${extracted.url}`,\n  severity: 'high',\n  timestamp: aiModelData.timestamp || new Date().toISOString()\n} }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -939,7 +939,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3216,
+        3184,
         1024
       ],
       "id": "0905791c-ce40-48be-b299-4ace2ea56a1c",
@@ -952,22 +952,25 @@
       "type": "n8n-nodes-base.ssh",
       "typeVersion": 1,
       "position": [
-        3472,
+        3344,
         1024
       ],
       "id": "0f751286-2d98-4c0f-8844-9dab6761ec99",
       "name": "pfSense SSH - Add DNSBL Domain1",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
       "credentials": {
         "sshPassword": {
           "id": "VzOEbxiTSqMlBuMa",
           "name": "SSH Password account 2"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
         "chatId": "5407528909",
-        "text": "= DOMAIN BLOCKED (DNS Sinkhole): {{ $('Restore Payload After SSH').item.json.domain }}\n URL gốc: {{ $('Restore Payload After SSH').item.json.url }}\n IP nhân viên: {{ $('Restore Payload After SSH').item.json.employee_ip }}\n Lý do: {{ $('Restore Payload After SSH').item.json.reason }}\n Độ tin cậy AI: {{ $('Restore Payload After SSH').item.json.ai_confidence }}\n Time: {{ $('Restore Payload After SSH').item.json.timestamp }}\n\n✅ Đã áp dụng DNS Sinkhole qua pfBlockerNG (Unbound) — chặn toàn công ty",
+        "text": "=\n\n\n🚫 ĐÃ CHẶN DOMAIN (DNS Sinkhole): {{ $('Restore Payload After SSH').item.json.domain }}\n\n✅ Xác nhận: {{ $('Request Approval').isExecuted ? 'Analyst đã phê duyệt' : 'Tự động chặn (độ tin cậy ≥ 90%)' }}\n🔗 URL gốc: {{ $('Restore Payload After SSH').item.json.url }}\n👤 IP nhân viên: {{ $('Restore Payload After SSH').item.json.employee_ip }}\n📊 Độ tin cậy AI: {{ $('Restore Payload After SSH').item.json.ai_confidence }}\n🕐 Time: {{ $('Restore Payload After SSH').item.json.timestamp }}\n\nĐã áp dụng DNS Sinkhole qua pfBlockerNG (Unbound), chặn toàn công ty.",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
@@ -1037,7 +1040,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3280,
+        3232,
         400
       ],
       "id": "438360b5-e298-4dfb-81f4-328b7b4e39c2",
@@ -1050,17 +1053,20 @@
       "type": "n8n-nodes-base.ssh",
       "typeVersion": 1,
       "position": [
-        3472,
+        3392,
         400
       ],
       "id": "efe9dd46-65a2-4940-a087-3c880b6d9089",
       "name": "pfSense SSH - Block IP1",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
       "credentials": {
         "sshPassword": {
           "id": "VzOEbxiTSqMlBuMa",
           "name": "SSH Password account 2"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -1114,8 +1120,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3216,
-        1200
+        3200,
+        1392
       ],
       "id": "a6d53306-10c8-4b65-a6ac-5a8b6d0479f0",
       "name": "Build pfSense Phishing Block IP Command"
@@ -1127,8 +1133,8 @@
       "type": "n8n-nodes-base.ssh",
       "typeVersion": 1,
       "position": [
-        3520,
-        1200
+        3392,
+        1392
       ],
       "id": "d8687f57-dbf1-40b4-afcc-ad820dcee37c",
       "name": "pfSense SSH - Block Phishing IP",
@@ -1164,8 +1170,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3712,
-        400
+        3808,
+        384
       ],
       "id": "bdaa09c0-5b75-4b60-b7bc-f9e490e2eb54",
       "name": "SOC App - SOAR Callback - Block IP"
@@ -1417,7 +1423,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1024,
+        1120,
         608
       ],
       "id": "34199d92-3cf7-406d-8d23-0f415c5a3f6b",
@@ -1496,7 +1502,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
+        1296,
         608
       ],
       "id": "6ab0dc8b-01f7-4ce7-a3b8-cd3e21156681",
@@ -1540,17 +1546,35 @@
         "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
         "sendBody": true,
         "specifyBody": "json",
+        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"ingestion\",\n  \"status\": \"success\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -256,
+        496
+      ],
+      "id": "2eefc6f6-6391-4684-aa59-f17bb449a805",
+      "name": "Tiến trình DDoS 1 - Tiếp nhận"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"enrichment\",\n  \"status\": \"running\"\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        768,
-        384
+        896,
+        432
       ],
       "id": "55574220-ee69-460b-9268-6d88473708b9",
-      "name": "HTTP Request gửi tiến trình về server"
+      "name": "Tiến trình DDoS 2 - Làm giàu IOC"
     },
     {
       "parameters": {
@@ -1568,25 +1592,7 @@
         832
       ],
       "id": "20b782d9-c12a-41fd-8668-f6f5368cc759",
-      "name": "HTTP Request gửi tiến trình về server1"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"approval\",\n  \"status\": \"running\"\n}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        2752,
-        -80
-      ],
-      "id": "8bdc021d-21ea-4e61-8f8d-84ddf9c58fa6",
-      "name": "HTTP Request gửi tiến trình về server2"
+      "name": "Tiến trình DDoS 3 - Quyết định"
     },
     {
       "parameters": {
@@ -1604,115 +1610,7 @@
         400
       ],
       "id": "13c2357d-0b3c-4313-901e-394498fe47e0",
-      "name": "HTTP Request gửi tiến trình về server4"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={ \"trigger\": \"ddos-alert\", \"stage\": \"containment\", \"status\": \"running\" }",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3520,
-        -32
-      ],
-      "id": "8f1ab590-7b54-4012-bcd4-fd655a55ca1a",
-      "name": "HTTP Request gửi tiến trình về server3"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"closure\",\n  \"status\": \"success\"\n}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3760,
-        880
-      ],
-      "id": "fd838d89-ddcf-405f-9c45-0eb58ccc83a7",
-      "name": "HTTP Request gửi tiến trình về server5"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={ \"trigger\": \"phishing\", \"stage\": \"enrichment\", \"status\": \"running\" }",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1008,
-        -32
-      ],
-      "id": "547056f8-b5ac-4d16-962f-74bdc0749ce5",
-      "name": "HTTP Request gửi tiến trình về server6"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={ \"trigger\": \"phishing\", \"stage\": \"decision\", \"status\": \"running\" }",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        2288,
-        0
-      ],
-      "id": "73682f34-2be9-40d4-a815-40e4c87bcf92",
-      "name": "HTTP Request gửi tiến trình về server7"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={ \"trigger\": \"phishing\", \"stage\": \"closure\", \"status\": \"success\" }",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        4496,
-        1024
-      ],
-      "id": "6b17b92f-627c-440d-a477-efb3be7817cc",
-      "name": "HTTP Request gửi tiến trình về server8"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"trigger\": \"ddos-alert\",\n  \"stage\": \"ingestion\",\n  \"status\": \"success\"\n}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        -256,
-        496
-      ],
-      "id": "2eefc6f6-6391-4684-aa59-f17bb449a805",
-      "name": "HTTP Request gửi tiến trình về server9"
+      "name": "Tiến trình DDoS 6 - Kết thúc (đã chặn)"
     },
     {
       "parameters": {
@@ -1730,7 +1628,301 @@
         64
       ],
       "id": "5e07c6a9-893f-4228-a4f8-adc02b45cd15",
-      "name": "HTTP Request gửi tiến trình về server10"
+      "name": "Tiến trình Phishing 1 - Tiếp nhận"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"trigger\": \"phishing\", \"stage\": \"enrichment\", \"status\": \"running\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1008,
+        -32
+      ],
+      "id": "547056f8-b5ac-4d16-962f-74bdc0749ce5",
+      "name": "Tiến trình Phishing 2 - Làm giàu IOC"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"trigger\": \"phishing\", \"stage\": \"decision\", \"status\": \"running\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2288,
+        0
+      ],
+      "id": "73682f34-2be9-40d4-a815-40e4c87bcf92",
+      "name": "Tiến trình Phishing 3 - Quyết định"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"trigger\": \"phishing\", \"stage\": \"closure\", \"status\": \"success\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4496,
+        1024
+      ],
+      "id": "6b17b92f-627c-440d-a477-efb3be7817cc",
+      "name": "Tiến trình Phishing 6 - Kết thúc (đã chặn)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ trigger: $json.trigger ?? 'ddos-alert', stage: 'approval', status: 'running' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2752,
+        -80
+      ],
+      "id": "8bdc021d-21ea-4e61-8f8d-84ddf9c58fa6",
+      "name": "Tiến trình chung 4 - Chờ phê duyệt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ trigger: $('Check Approval Level').first().json.trigger ?? 'ddos-alert', stage: 'containment', status: 'running' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3520,
+        -32
+      ],
+      "id": "8f1ab590-7b54-4012-bcd4-fd655a55ca1a",
+      "name": "Tiến trình chung 5 - Thực thi (đã duyệt)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  trigger: $('Merge Decision Paths1').first().json.trigger || 'ddos-alert',\n  stage: 'closure',\n  status: $json.error ? 'failed' : 'success'\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3968,
+        848
+      ],
+      "id": "fd838d89-ddcf-405f-9c45-0eb58ccc83a7",
+      "name": "Tiến trình chung 6 - Kết thúc (chỉ ghi nhận)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  trigger: $('Merge Decision Paths1').first().json.trigger || 'ddos-alert',\n  stage: 'closure',\n  status: $json.error ? 'failed' : 'success'\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        608,
+        320
+      ],
+      "id": "f4b92990-287a-4a2b-81f1-012fa9784ea7",
+      "name": "Tiến trình Phishing 6 - Kết thúc (URL sạch)"
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=⚠️ KHÔNG CHẶN ĐƯỢC IP {{ $('Action Switch1').item.json.src_ip }}\npfSense không phản hồi sau 3 lần thử. Cần xử lý thủ công.\n🕐 Time: {{ $now.toISO() }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3680,
+        528
+      ],
+      "id": "f7e457a5-db87-4226-a0eb-2ba9150a8bab",
+      "name": "tele error pfsense",
+      "webhookId": "5c2aa31d-193f-4ba6-bcb3-9ad978216cd7",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=⚠️ KHÔNG CHẶN ĐƯỢC DOMAIN {{ $('Action Switch1').item.json.domain }}\npfSense không phản hồi sau 3 lần thử. Cần xử lý thủ công.\n🕐 Time: {{ $now.toISO() }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3632,
+        1216
+      ],
+      "id": "6860b2b7-f20d-4ea8-b73f-a4d9a641552f",
+      "name": "tele error pfsense1",
+      "webhookId": "5c2aa31d-193f-4ba6-bcb3-9ad978216cd7",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9c7bcd7f-9ea4-4d73-aa41-171b58d328ce",
+              "leftValue": "={{ $json.code === 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3584,
+        384
+      ],
+      "id": "295fd039-e8b6-4a33-aa8c-717fb4acb715",
+      "name": "Check pfSense Block OK"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9c7bcd7f-9ea4-4d73-aa41-171b58d328ce",
+              "leftValue": "={{ $json.code === 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3504,
+        1024
+      ],
+      "id": "498fd9bb-486c-4b85-b3fe-926e8956d850",
+      "name": "Check pfSense Block OK1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9c7bcd7f-9ea4-4d73-aa41-171b58d328ce",
+              "leftValue": "={{ $json.code === 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3616,
+        1392
+      ],
+      "id": "ab934dbf-3ba6-405e-9273-83ef22792bee",
+      "name": "Check pfSense Block OK2"
+    },
+    {
+      "parameters": {
+        "chatId": "5407528909",
+        "text": "=⚠️ KHÔNG CHẶN ĐƯỢC DOMAIN {{ $('Action Switch1').item.json.domain }}\npfSense không phản hồi sau 3 lần thử. Cần xử lý thủ công.\n🕐 Time: {{ $now.toISO() }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3888,
+        1408
+      ],
+      "id": "eb226cf5-8017-4d40-a247-075328769e98",
+      "name": "tele error pfsense2",
+      "webhookId": "5c2aa31d-193f-4ba6-bcb3-9ad978216cd7",
+      "credentials": {
+        "telegramApi": {
+          "id": "xQ8yLdyLU7zVBaID",
+          "name": "Telegram account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -1744,7 +1936,7 @@
             "index": 0
           },
           {
-            "node": "HTTP Request gửi tiến trình về server9",
+            "node": "Tiến trình DDoS 1 - Tiếp nhận",
             "type": "main",
             "index": 0
           }
@@ -1760,7 +1952,7 @@
             "index": 0
           },
           {
-            "node": "HTTP Request gửi tiến trình về server10",
+            "node": "Tiến trình Phishing 1 - Tiếp nhận",
             "type": "main",
             "index": 0
           }
@@ -1888,7 +2080,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request gửi tiến trình về server1",
+            "node": "Tiến trình DDoS 3 - Quyết định",
             "type": "main",
             "index": 0
           },
@@ -1974,7 +2166,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request gửi tiến trình về server4",
+            "node": "Tiến trình DDoS 6 - Kết thúc (đã chặn)",
             "type": "main",
             "index": 0
           }
@@ -2012,7 +2204,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request gửi tiến trình về server5",
+            "node": "Tiến trình chung 6 - Kết thúc (chỉ ghi nhận)",
             "type": "main",
             "index": 0
           }
@@ -2064,7 +2256,7 @@
             "index": 0
           },
           {
-            "node": "HTTP Request gửi tiến trình về server2",
+            "node": "Tiến trình chung 4 - Chờ phê duyệt",
             "type": "main",
             "index": 0
           }
@@ -2091,7 +2283,7 @@
             "index": 0
           },
           {
-            "node": "HTTP Request gửi tiến trình về server3",
+            "node": "Tiến trình chung 5 - Thực thi (đã duyệt)",
             "type": "main",
             "index": 0
           }
@@ -2198,7 +2390,7 @@
             "index": 0
           },
           {
-            "node": "HTTP Request gửi tiến trình về server6",
+            "node": "Tiến trình Phishing 2 - Làm giàu IOC",
             "type": "main",
             "index": 0
           }
@@ -2214,7 +2406,7 @@
             "index": 3
           },
           {
-            "node": "HTTP Request gửi tiến trình về server7",
+            "node": "Tiến trình Phishing 3 - Quyết định",
             "type": "main",
             "index": 0
           }
@@ -2236,7 +2428,14 @@
       "main": [
         [
           {
-            "node": "Restore Payload After SSH",
+            "node": "Check pfSense Block OK1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "tele error pfsense1",
             "type": "main",
             "index": 0
           }
@@ -2313,7 +2512,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request gửi tiến trình về server8",
+            "node": "Tiến trình Phishing 6 - Kết thúc (đã chặn)",
             "type": "main",
             "index": 0
           }
@@ -2346,7 +2545,14 @@
       "main": [
         [
           {
-            "node": "SOC App - SOAR Callback - Block IP",
+            "node": "Check pfSense Block OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "tele error pfsense",
             "type": "main",
             "index": 0
           }
@@ -2456,7 +2662,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request gửi tiến trình về server",
+            "node": "Tiến trình DDoS 2 - Làm giàu IOC",
             "type": "main",
             "index": 0
           },
@@ -2523,19 +2729,89 @@
         ]
       ]
     },
-    "HTTP Request gửi tiến trình về server": {
+    "Tiến trình DDoS 2 - Làm giàu IOC": {
       "main": [
         []
       ]
     },
-    "HTTP Request gửi tiến trình về server1": {
+    "Tiến trình DDoS 3 - Quyết định": {
       "main": [
         []
       ]
     },
-    "HTTP Request gửi tiến trình về server2": {
+    "Tiến trình chung 4 - Chờ phê duyệt": {
       "main": [
         []
+      ]
+    },
+    "Log Clean URL (No Action)": {
+      "main": [
+        [
+          {
+            "node": "Tiến trình Phishing 6 - Kết thúc (URL sạch)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check pfSense Block OK": {
+      "main": [
+        [
+          {
+            "node": "SOC App - SOAR Callback - Block IP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "tele error pfsense",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check pfSense Block OK1": {
+      "main": [
+        [
+          {
+            "node": "Restore Payload After SSH",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "tele error pfsense1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pfSense SSH - Block Phishing IP": {
+      "main": [
+        [
+          {
+            "node": "Check pfSense Block OK2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check pfSense Block OK2": {
+      "main": [
+        [],
+        [
+          {
+            "node": "tele error pfsense2",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -2545,7 +2821,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "b3062123-5baf-4274-ae7b-715c4b545cae",
+  "versionId": "0bff5b3e-1e7b-4eac-abaa-d014e46c6856",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "88b3b600d62a38b9608292b540d8c9071a2a33ce6c9e93fd11131e23c9f0be82"

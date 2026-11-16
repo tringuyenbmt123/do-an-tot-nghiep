@@ -934,13 +934,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const d = $('Action Switch1').item.json;\nconst domain = (d.domain || '').toLowerCase().trim();\n\nif (!domain || !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain)) {\n  throw new Error('Domain không hợp lệ, từ chối gửi SSH: ' + domain);\n}\n\n// const FILE = '/var/db/pfblockerng/dnsbl/SOAR_AutoBlock_custom.txt';\nconst FILE = '/var/unbound/pfb_dnsbl_SOAR.conf';\nconst SINKHOLE_IP = '192.168.10.1'; // đổi theo IP sinkhole thực tế \n\n// Escape để tránh domain chứa ký tự lạ làm gãy lệnh shell (dù regex trên đã chặn hầu hết)\nconst safeDomain = domain.replace(/\"/g, '');\n\nconst lineA = `local-data: \\\\\"${safeDomain} 60 IN A ${SINKHOLE_IP}\\\\\"`;\n\nconst command =\n  `grep -q \"${safeDomain}\" ${FILE} 2>/dev/null || echo \"${lineA}\" >> ${FILE}; ` +\n  `/usr/local/sbin/pfSsh.php playback svc restart unbound`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
+        "jsCode": "const d = $('Action Switch1').item.json;\nconst domain = (d.domain || '').toLowerCase().trim();\n\nif (!domain || !/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain)) {\n  throw new Error('Domain không hợp lệ, từ chối gửi SSH: ' + domain);\n}\n\nconst FILE = '/var/unbound/pfb_dnsbl_SOAR.conf';\nconst SINKHOLE_IP = '192.168.10.1';\n\nconst safeDomain = domain.replace(/\"/g, '');\n\nconst lineA = `local-data: \\\\\"${safeDomain} 60 IN A ${SINKHOLE_IP}\\\\\"`;\n\nconst command =\n  `grep -q \"${safeDomain}\" ${FILE} 2>/dev/null || echo \"${lineA}\" >> ${FILE}; ` +\n  `/usr/local/sbin/pfSsh.php playback svc restart unbound`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3184,
-        1024
+        3168,
+        1072
       ],
       "id": "0905791c-ce40-48be-b299-4ace2ea56a1c",
       "name": "Build pfSense DNSBL Command1"
@@ -953,7 +953,7 @@
       "typeVersion": 1,
       "position": [
         3344,
-        1024
+        1072
       ],
       "id": "0f751286-2d98-4c0f-8844-9dab6761ec99",
       "name": "pfSense SSH - Add DNSBL Domain1",
@@ -1115,7 +1115,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const d = $('Action Switch1').item.json;\nconst ips = d.resolved_ips || [];\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\n// Lọc ra các IP hợp lệ\nconst validIps = ips.filter(ip => ipv4Regex.test(ip.trim()));\n\nif (validIps.length === 0) {\n  return []; // Dừng nhánh này nếu không có IP hợp lệ\n}\n\nconst TABLE = 'SOAR_Phishing_BlockList';\n// Lệnh pfctl hỗ trợ add nhiều IP bằng cách cách nhau bởi khoảng trắng\nconst command = `pfctl -t ${TABLE} -T add ${validIps.join(' ')}`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
+        "jsCode": "const d = $('Action Switch1').item.json;\nconst ips = d.resolved_ips || [];\nconst ipv4Regex = /^(\\d{1,3}\\.){3}\\d{1,3}$/;\n\nconst validIps = ips.map(ip => String(ip).trim()).filter(ip => ipv4Regex.test(ip));\n\nif (validIps.length === 0) {\n  return [];\n}\n\nconst TABLE = 'SOAR_Phishing_BlockList';\n\n// 1) Thêm IP vào bảng chặn (chặn kết nối MỚI)\nconst addCmd = `pfctl -t ${TABLE} -T add ${validIps.join(' ')}`;\n\n// 2) Cắt kết nối ĐANG MỞ tới các IP đó (TCP, QUIC/UDP, cả kết nối do Squid mở ra)\nconst killCmd = validIps.map(ip => `pfctl -k 0.0.0.0/0 -k ${ip}`).join('; ');\n\n// 3) Nếu có IP máy nạn nhân thì xóa luôn state của máy đó\nconst empIp = String(d.employee_ip || '').trim();\nconst killClient = ipv4Regex.test(empIp) ? `; pfctl -k ${empIp}` : '';\n\nconst command = `${addCmd}; ${killCmd}${killClient}`;\n\nreturn [{ json: { ...d, ssh_command: command } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1744,7 +1744,7 @@
         "url": "http://host.docker.internal:8080/api/v1/playbooks/progress",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  trigger: $('Merge Decision Paths1').first().json.trigger || 'ddos-alert',\n  stage: 'closure',\n  status: $json.error ? 'failed' : 'success'\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  trigger: 'phishing-alert',\n  stage: 'closure',\n  status: $json.error ? 'failed' : 'success'\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -2815,13 +2815,13 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "0bff5b3e-1e7b-4eac-abaa-d014e46c6856",
+  "versionId": "b0ce648b-58a2-4944-8c4e-5037122b7335",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "88b3b600d62a38b9608292b540d8c9071a2a33ce6c9e93fd11131e23c9f0be82"

@@ -927,6 +927,20 @@ def default_rules() -> List[dict]:
         # ███ GROUP 5: NETWORK / COMMAND & CONTROL DETECTION
         # ======================================================================
         {
+            "id": "RULE-NET-DDOS-001",
+            "name": "Phát hiện tấn công DDoS (Direct Network Flood)",
+            "severity": "critical",
+            "event_type": "ddos_detected",
+            "conditions": json.dumps([
+                {"field": "event_type", "operator": "equals", "value": "ddos_detected"}
+            ]),
+            "mitre_tactic": "Impact",
+            "mitre_technique_id": "T1498.001",
+            "description": "Phát hiện lưu lượng tấn công từ chối dịch vụ phân tán (DDoS SYN/UDP Flood) làm tê liệt hạ tầng mạng.",
+            "is_active": True,
+            "source": "database",
+        },
+        {
             "id": "NET-C2-BEACON-001",
             "name": "Phát hiện Cobalt Strike / C2 Beacon Indicators",
             "severity": "critical",

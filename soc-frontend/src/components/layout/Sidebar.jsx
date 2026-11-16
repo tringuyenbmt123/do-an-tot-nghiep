@@ -28,7 +28,7 @@ const NAV = [
       { to: '/rules',     icon: AlertTriangle,  label: 'Detection Rules' },
       { to: '/mitre',     icon: Grid,           label: 'MITRE ATT&CK' },
       { to: '/vulns',     icon: Bug,            label: 'Lỗ hổng' },
-      { to: '/firewall',  icon: Flame,          label: 'Firewall / IDS' },
+      { to: '/firewall',  icon: Flame,          label: 'Firewall / Sinkhole' },
     ]
   },
   {

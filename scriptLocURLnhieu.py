@@ -196,8 +196,8 @@ import threading
 from datetime import datetime
 from urllib.parse import urlparse
 
-# ================= CẤU HÌNH =================
-PFSENSE_HOST = "192.168.221.221"   # hoặc 192.168.10.1 nếu chạy trên máy LAN
+#  CẤU HÌNH 
+PFSENSE_HOST = "192.168.221.221"   
 PFSENSE_PORT = 22
 PFSENSE_USER = "admin"
 PFSENSE_PASS = "pfsense"
@@ -207,7 +207,6 @@ N8N_WEBHOOK_URL = "https://undegenerate-alisia-farsightedly.ngrok-free.dev/webho
 
 
 
-# Bật nếu muốn bỏ qua các trang uy tín (tránh AI chấm nhầm rồi chặn nhầm)
 USE_WHITELIST = False
 WHITELIST_DOMAINS = (
     "vnexpress.net", "thanhnien.vn", "vietnamnet.vn", "tienphong.vn",
@@ -216,7 +215,7 @@ WHITELIST_DOMAINS = (
 
 MAIN_CONTENT_TYPES = ("text/html",)
 
-# ================= BỘ LỌC NHIỄU =================
+#  BỘ LỌC NHIỄU 
 EXCLUDE_HOSTS_SUFFIX = (
     "bing.com", "msn.com", "microsoftonline.com", "live.com", "microsoft.com",
     "akamaized.net", "clients6.google.com", "clients.google.com",
@@ -359,7 +358,6 @@ def main():
         allow_agent=False,
     )
     print(f"Đã kết nối SSH tới pfSense ({PFSENSE_HOST}), đang theo dõi {LOG_FILE} ...")
-    print("Nhấn Ctrl+C để dừng.\n")
 
     stdin, stdout, stderr = client.exec_command(f"tail -F -n 0 {LOG_FILE}")
     try:
